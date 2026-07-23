@@ -7,6 +7,7 @@ import {
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, Palette, Pencil } from 'lucide-react';
+import ThreeCanvas from '@/engine/three/ThreeCanvas';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
 
@@ -254,7 +255,8 @@ export default function Home() {
 
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" style={{ zIndex: 1 }} />
+      <ThreeCanvas className="absolute inset-0" />
 
       {/* 车窗框（橡胶密封条 + 内框 + 车身壁板，加厚） */}
       <div className="pointer-events-none absolute inset-0 z-10"
