@@ -7,6 +7,8 @@ export class WebGLRenderer {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.setClearColor(0x111111)
+    this.renderer.shadowMap.enabled = true
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera) {

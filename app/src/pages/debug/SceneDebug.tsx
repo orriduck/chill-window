@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import type { SceneKind, TimeOfDay, Palette, Decor, DecorMaker } from '../../engine/scenery';
+import type { SceneKind, TimeOfDay, Palette, DecorMaker } from '../../engine/scenery';
 import {
   SCENE_KINDS,
   paletteFor,

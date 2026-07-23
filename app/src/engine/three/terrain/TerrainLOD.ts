@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { TerrainGen } from './TerrainGen'
-import type { BiomeType, BiomeConfig } from './Biome'
+import type { BiomeType, BiomeColors, HeightParams } from './Biome'
 import { getBiomeConfig } from './Biome'
 
 interface Chunk {
@@ -12,23 +12,43 @@ interface Chunk {
 }
 
 const CHUNK_SIZE = 256
-const MAX_CHUNKS_Z = 5
+const MAX_CHUNKS_Z = 4
 const MAX_CHUNKS_X = 3
 const UPDATE_INTERVAL = 10 // frames
+const SEGMENT_LENGTH = 2000 // travel distance per biome
+const BLEND_LENGTH = 500 // transition distance between biomes
+const BIOME_ORDER: BiomeType[] = ['field', 'forest', 'mountain', 'river', 'town']
 
 export class TerrainLOD {
   private scene: THREE.Scene
   private terrainGen = new TerrainGen()
   private chunks = new Map<string, Chunk>()
-  private biome: BiomeType
-  private biomeConfig: BiomeConfig
   private frameCount = 0
   private material: THREE.MeshStandardMaterial
 
+  // Biome transition state
+  private currentBiome: BiomeType
+  private nextBiome: BiomeType
+  private segmentStartZ: number
+  private activeParams: HeightParams
+  private activeColors: BiomeColors
+  private activeDecorDensity: number
+
+  // Scratch objects for frustum culling
+  private frustum = new THREE.Frustum()
+  private projScreen = new THREE.Matrix4()
+  private chunkBox = new THREE.Box3()
+
   constructor(scene: THREE.Scene, biome: BiomeType = 'field') {
     this.scene = scene
-    this.biome = biome
-    this.biomeConfig = getBiomeConfig(biome)
+    this.currentBiome = biome
+    this.nextBiome = this.pickNextBiome(biome)
+    this.segmentStartZ = 0
+
+    const config = getBiomeConfig(biome)
+    this.activeParams = { ...config.heightParams }
+    this.activeColors = { ...config.colors }
+    this.activeDecorDensity = config.decorDensity
 
     this.material = new THREE.MeshStandardMaterial({
       vertexColors: true,
@@ -38,14 +58,9 @@ export class TerrainLOD {
     })
   }
 
-  setBiome(biome: BiomeType) {
-    if (this.biome === biome) return
-    this.biome = biome
-    this.biomeConfig = getBiomeConfig(biome)
-    this.clearChunks()
-  }
-
   update(cameraPos: THREE.Vector3) {
+    this.updateBiomeTransition(cameraPos.z)
+
     this.frameCount++
     if (this.frameCount % UPDATE_INTERVAL !== 0) return
 
@@ -75,6 +90,70 @@ export class TerrainLOD {
       }
     }
   }
+
+  /** Manual frustum culling: hide chunks outside the view before render. */
+  applyFrustumCulling(camera: THREE.Camera) {
+    this.projScreen.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+    this.frustum.setFromProjectionMatrix(this.projScreen)
+    for (const chunk of this.chunks.values()) {
+      this.chunkBox.setFromObject(chunk.mesh)
+      chunk.mesh.visible = this.frustum.intersectsBox(this.chunkBox)
+    }
+  }
+
+  getCurrentBiome(): BiomeType {
+    return this.currentBiome
+  }
+
+  // ---- Biome transitions ----
+
+  private pickNextBiome(after: BiomeType): BiomeType {
+    const index = BIOME_ORDER.indexOf(after)
+    return BIOME_ORDER[(index + 1) % BIOME_ORDER.length]
+  }
+
+  private updateBiomeTransition(cameraZ: number) {
+    // Advance to the next biome when the segment is fully travelled
+    if (cameraZ >= this.segmentStartZ + SEGMENT_LENGTH) {
+      this.segmentStartZ += SEGMENT_LENGTH
+      this.currentBiome = this.nextBiome
+      this.nextBiome = this.pickNextBiome(this.currentBiome)
+    }
+
+    const blendStart = this.segmentStartZ + SEGMENT_LENGTH - BLEND_LENGTH
+    const rawT = THREE.MathUtils.clamp((cameraZ - blendStart) / BLEND_LENGTH, 0, 1)
+    const t = THREE.MathUtils.smoothstep(rawT, 0, 1)
+
+    const from = getBiomeConfig(this.currentBiome)
+    const to = getBiomeConfig(this.nextBiome)
+    this.activeParams = this.lerpParams(from.heightParams, to.heightParams, t)
+    this.activeColors = this.lerpColors(from.colors, to.colors, t)
+    this.activeDecorDensity = THREE.MathUtils.lerp(from.decorDensity, to.decorDensity, t)
+  }
+
+  private lerpParams(a: HeightParams, b: HeightParams, t: number): HeightParams {
+    return {
+      baseHeight: THREE.MathUtils.lerp(a.baseHeight, b.baseHeight, t),
+      amplitude: THREE.MathUtils.lerp(a.amplitude, b.amplitude, t),
+      frequency: THREE.MathUtils.lerp(a.frequency, b.frequency, t),
+      octaves: Math.round(THREE.MathUtils.lerp(a.octaves, b.octaves, t)),
+      persistence: THREE.MathUtils.lerp(a.persistence, b.persistence, t),
+    }
+  }
+
+  private lerpColors(a: BiomeColors, b: BiomeColors, t: number): BiomeColors {
+    const result = {} as BiomeColors
+    const ca = new THREE.Color()
+    const cb = new THREE.Color()
+    for (const key of Object.keys(a) as (keyof BiomeColors)[]) {
+      ca.setHex(a[key])
+      cb.setHex(b[key])
+      result[key] = ca.lerp(cb, t).getHex()
+    }
+    return result
+  }
+
+  // ---- Chunk lifecycle ----
 
   private removeChunk(chunk: Chunk) {
     this.scene.remove(chunk.mesh)
@@ -127,8 +206,8 @@ export class TerrainLOD {
 
     const positions = geometry.attributes.position.array as Float32Array
     const colors = new Float32Array(positions.length)
-    const params = this.biomeConfig.heightParams
-    const cols = this.biomeConfig.colors
+    const params = this.activeParams
+    const cols = this.activeColors
 
     for (let i = 0; i < positions.length; i += 3) {
       const x = positions[i]
@@ -152,16 +231,23 @@ export class TerrainLOD {
     mesh.receiveShadow = true
 
     this.scene.add(mesh)
-    const decorations = this.createDecorations(worldX, worldZ, params)
+    // Distant (low-res) chunks get fewer decorations
+    const densityScale = resolution === 64 ? 1 : resolution === 32 ? 0.5 : 0.25
+    const decorations = this.createDecorations(worldX, worldZ, params, densityScale)
     for (const decor of decorations) {
       this.scene.add(decor)
     }
     this.chunks.set(`${cx},${cz}`, { mesh, decorations, x: cx, z: cz, lod: resolution })
   }
 
-  private createDecorations(worldX: number, worldZ: number, params: HeightParams): THREE.Object3D[] {
+  private createDecorations(
+    worldX: number,
+    worldZ: number,
+    params: HeightParams,
+    densityScale: number
+  ): THREE.Object3D[] {
     const decorations: THREE.Object3D[] = []
-    const attempts = Math.floor(this.biomeConfig.decorDensity * 80)
+    const attempts = Math.floor(this.activeDecorDensity * 80 * densityScale)
 
     for (let i = 0; i < attempts; i++) {
       const x = worldX + Math.random() * CHUNK_SIZE
@@ -222,7 +308,7 @@ export class TerrainLOD {
   private computeVertexColor(
     height: number,
     slope: number,
-    cols: BiomeConfig['colors'],
+    cols: BiomeColors,
     params: HeightParams
   ): { r: number; g: number; b: number } {
     const maxH = params.baseHeight + params.amplitude * 1.5
@@ -260,8 +346,7 @@ export class TerrainLOD {
 
   private clearChunks() {
     for (const chunk of this.chunks.values()) {
-      this.scene.remove(chunk.mesh)
-      chunk.mesh.geometry.dispose()
+      this.removeChunk(chunk)
     }
     this.chunks.clear()
   }
