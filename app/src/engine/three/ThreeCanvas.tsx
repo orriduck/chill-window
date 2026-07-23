@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { Scene3D } from './core/Scene3D'
 import { TrainCamera } from './core/Camera'
 import { WebGLRenderer } from './core/Renderer'
+import { TerrainLOD } from './terrain/TerrainLOD'
 
 interface ThreeCanvasProps {
   className?: string
@@ -13,6 +14,8 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
   const sceneRef = useRef<Scene3D | null>(null)
   const cameraRef = useRef<TrainCamera | null>(null)
   const rendererRef = useRef<WebGLRenderer | null>(null)
+  const terrainRef = useRef<TerrainLOD | null>(null)
+  const clockRef = useRef<THREE.Clock>(new THREE.Clock())
   const rafRef = useRef<number>(0)
 
   useEffect(() => {
@@ -22,6 +25,11 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
     const scene = new Scene3D()
     const camera = new TrainCamera()
     const renderer = new WebGLRenderer()
+    const terrain = new TerrainLOD(scene.scene, 'field')
+
+    // Sky and atmosphere
+    scene.scene.background = new THREE.Color(0x87CEEB)
+    scene.scene.fog = new THREE.Fog(0x87CEEB, 200, 900)
 
     const canvas = renderer.getDomElement()
     canvas.style.width = '100%'
@@ -33,7 +41,7 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
     camera.updateAspect(rect.width, rect.height)
     renderer.resize(rect.width, rect.height)
 
-    // ambient + directional light
+    // Lights
     const ambient = new THREE.AmbientLight(0xffffff, 0.4)
     scene.add(ambient)
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8)
@@ -43,10 +51,15 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
     sceneRef.current = scene
     cameraRef.current = camera
     rendererRef.current = renderer
+    terrainRef.current = terrain
 
     const loop = () => {
       rafRef.current = requestAnimationFrame(loop)
-      if (cameraRef.current && sceneRef.current && rendererRef.current) {
+      if (cameraRef.current && sceneRef.current && rendererRef.current && terrainRef.current) {
+        const dt = clockRef.current.getDelta()
+        cameraRef.current.update(dt)
+        const camPos = cameraRef.current.getCamera().position
+        terrainRef.current.update(camPos)
         rendererRef.current.render(
           sceneRef.current.scene,
           cameraRef.current.getCamera()
@@ -66,8 +79,9 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
     return () => {
       cancelAnimationFrame(rafRef.current)
       window.removeEventListener('resize', onResize)
-      renderer.dispose()
-      scene.dispose()
+      terrainRef.current?.dispose()
+      rendererRef.current?.dispose()
+      sceneRef.current?.dispose()
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas)
       }

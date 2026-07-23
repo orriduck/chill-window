@@ -5,11 +5,6 @@ export class Scene3D {
 
   constructor() {
     this.scene = new THREE.Scene()
-    this.scene.fog = new THREE.Fog(0xcccccc, 100, 500)
-
-    const grid = new THREE.GridHelper(500, 50, 0x888888, 0xcccccc)
-    grid.position.y = -0.01
-    this.scene.add(grid)
   }
 
   add(object: THREE.Object3D) {
