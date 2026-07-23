@@ -5,10 +5,10 @@
 export type TimeOfDay = 'morning' | 'day' | 'dusk' | 'night';
 export type SceneKind = 'field' | 'forest' | 'mountain' | 'river' | 'town';
 
-const SCENE_KINDS: SceneKind[] = ['field', 'forest', 'mountain', 'river', 'town'];
+export const SCENE_KINDS: SceneKind[] = ['field', 'forest', 'mountain', 'river', 'town'];
 
 // ---------- 工具 ----------
-function mulberry32(seed: number) {
+export function mulberry32(seed: number) {
   let a = seed >>> 0;
   return () => {
     a |= 0; a = (a + 0x6d2b79f5) | 0;
@@ -18,7 +18,7 @@ function mulberry32(seed: number) {
   };
 }
 
-function makeCanvas(w: number, h: number) {
+export function makeCanvas(w: number, h: number) {
   const c = document.createElement('canvas');
   c.width = Math.max(2, Math.round(w));
   c.height = Math.max(2, Math.round(h));
@@ -116,7 +116,7 @@ export function paletteFor(time: TimeOfDay): Palette {
 }
 
 // ---------- 静态条带（远山 / 中景），按场景类型离线渲染并缓存 ----------
-const BAND_W = 2048;
+export const BAND_W = 2048;
 
 function fillHeights(ctx: CanvasRenderingContext2D, hs: number[], w: number, h: number, color: string) {
   ctx.fillStyle = color;
@@ -129,7 +129,7 @@ function fillHeights(ctx: CanvasRenderingContext2D, hs: number[], w: number, h: 
   ctx.fill();
 }
 
-function buildFarBand(kind: SceneKind, pal: Palette, seed: number): HTMLCanvasElement {
+export function buildFarBand(kind: SceneKind, pal: Palette, seed: number): HTMLCanvasElement {
   const H = 340;
   const c = makeCanvas(BAND_W, H);
   const ctx = c.getContext('2d')!;
@@ -186,7 +186,7 @@ function buildFarBand(kind: SceneKind, pal: Palette, seed: number): HTMLCanvasEl
   return c;
 }
 
-function buildMidBand(kind: SceneKind, pal: Palette, seed: number): HTMLCanvasElement {
+export function buildMidBand(kind: SceneKind, pal: Palette, seed: number): HTMLCanvasElement {
   const H = 300;
   const c = makeCanvas(BAND_W, H);
   const ctx = c.getContext('2d')!;
@@ -323,10 +323,10 @@ export interface Decor {
   draw: (ctx: CanvasRenderingContext2D, sx: number, sy: number, pal: Palette) => void;
 }
 
-type DecorMaker = (rng: () => number, pal: Palette) => Decor['draw'];
+export type DecorMaker = (rng: () => number, pal: Palette) => Decor['draw'];
 
 // ===== 树木：4 种形态（阔叶分层 / 针叶塔形 / 垂枝 / 枯枝） =====
-const dTreeRound: DecorMaker = (rng, pal) => {
+export const dTreeRound: DecorMaker = (rng, pal) => {
   const s = 26 + rng() * 34;
   const f = 0.7 + rng() * 0.5;
   const leaf = shade(pal.midBase, f);
@@ -373,7 +373,7 @@ const dTreeRound: DecorMaker = (rng, pal) => {
   };
 };
 
-const dTreePine: DecorMaker = (rng, pal) => {
+export const dTreePine: DecorMaker = (rng, pal) => {
   const s = 30 + rng() * 40;
   const col = shade(pal.midBase, 0.5 + rng() * 0.3);
   const colDark = shade(pal.midBase, 0.38);
@@ -406,7 +406,7 @@ const dTreePine: DecorMaker = (rng, pal) => {
 };
 
 // 垂枝树（柳树感）
-const dTreeWillow: DecorMaker = (rng, pal) => {
+export const dTreeWillow: DecorMaker = (rng, pal) => {
   const s = 30 + rng() * 26;
   const leaf = shade(pal.midBase, 0.75 + rng() * 0.35);
   const trunk = pal.night ? '#0d0a08' : '#4a3a2c';
@@ -435,7 +435,7 @@ const dTreeWillow: DecorMaker = (rng, pal) => {
 };
 
 // 枯枝树
-const dTreeBare: DecorMaker = (rng, pal) => {
+export const dTreeBare: DecorMaker = (rng, pal) => {
   const s = 28 + rng() * 22;
   const col = pal.night ? '#0d0a08' : '#4a3c30';
   const branches: { a1: number; len: number; w: number }[] = [];
@@ -464,7 +464,7 @@ const dTreeBare: DecorMaker = (rng, pal) => {
 };
 
 // 树丛（密集排布，可遮挡后方景物）
-const dTreeCluster: DecorMaker = (rng, _pal) => {
+export const dTreeCluster: DecorMaker = (rng, _pal) => {
   const trees: { dx: number; s: number; kind: number; f: number }[] = [];
   const n = 4 + Math.floor(rng() * 4);
   const span = 60 + n * 34;
@@ -511,7 +511,7 @@ const dTreeCluster: DecorMaker = (rng, _pal) => {
   };
 };
 
-const dHouse: DecorMaker = (rng, pal) => {
+export const dHouse: DecorMaker = (rng, pal) => {
   const w = 46 + rng() * 30;
   const h = 30 + rng() * 16;
   const wall = pal.night ? '#241d18' : ['#e8dcc8', '#dcc9b0', '#d8e0e0'][Math.floor(rng() * 3)];
@@ -550,7 +550,7 @@ const dHouse: DecorMaker = (rng, pal) => {
   };
 };
 
-const dWindmill: DecorMaker = (rng, pal) => {
+export const dWindmill: DecorMaker = (rng, pal) => {
   const s = 60 + rng() * 20;
   const body = pal.night ? '#1c1814' : '#e2d8c4';
   const blade = pal.night ? '#100d0a' : '#8a7a64';
@@ -575,7 +575,7 @@ const dWindmill: DecorMaker = (rng, pal) => {
   };
 };
 
-const dHay: DecorMaker = (rng, pal) => {
+export const dHay: DecorMaker = (rng, pal) => {
   const s = 12 + rng() * 10;
   const col = pal.night ? '#3a3018' : '#d9b85c';
   return (ctx, x, y) => {
@@ -587,7 +587,7 @@ const dHay: DecorMaker = (rng, pal) => {
   };
 };
 
-const dCow: DecorMaker = (rng, pal) => {
+export const dCow: DecorMaker = (rng, pal) => {
   const s = 20 + rng() * 8;
   const body = pal.night ? '#2a2622' : rng() > 0.5 ? '#8a6a4c' : '#e8e2d4';
   const spot = pal.night ? '#141210' : '#4a3a2c';
@@ -610,7 +610,7 @@ const dCow: DecorMaker = (rng, pal) => {
   };
 };
 
-const dBoat: DecorMaker = (rng, pal) => {
+export const dBoat: DecorMaker = (rng, pal) => {
   const s = 22 + rng() * 14;
   const hull = pal.night ? '#1a1410' : '#8a4a34';
   const sail = pal.night ? '#3a3630' : '#f0e8d8';
@@ -631,7 +631,7 @@ const dBoat: DecorMaker = (rng, pal) => {
   };
 };
 
-const dBush: DecorMaker = (rng, pal) => {
+export const dBush: DecorMaker = (rng, pal) => {
   const s = 10 + rng() * 16;
   const col = shade(pal.ground, 0.7 + rng() * 0.5);
   return (ctx, x, y) => {
@@ -642,7 +642,7 @@ const dBush: DecorMaker = (rng, pal) => {
   };
 };
 
-const dFlowers: DecorMaker = (rng, pal) => {
+export const dFlowers: DecorMaker = (rng, pal) => {
   const cols = pal.night ? ['#3a3040'] : ['#e86a8a', '#f2d24a', '#ffffff', '#c97ae8'];
   const n = 5 + Math.floor(rng() * 6);
   const pts: { dx: number; c: string }[] = [];
@@ -657,7 +657,7 @@ const dFlowers: DecorMaker = (rng, pal) => {
   };
 };
 
-const dLamp: DecorMaker = (_rng, pal) => {
+export const dLamp: DecorMaker = (_rng, pal) => {
   return (ctx, x, y) => {
     ctx.fillStyle = pal.night ? '#0a0a0a' : '#3a3f46';
     ctx.fillRect(x - 1.5, y - 46, 3, 46);
@@ -671,7 +671,7 @@ const dLamp: DecorMaker = (_rng, pal) => {
 
 // ===== 精细化素材：农舍、教堂、水塔、信号机、高压电塔、畜群、向日葵、葡萄架、道班房、桥 =====
 
-const dFarmhouse: DecorMaker = (rng, pal) => {
+export const dFarmhouse: DecorMaker = (rng, pal) => {
   const w = 60 + rng() * 26;
   const hh = 38 + rng() * 14;
   const wall = pal.night ? '#262019' : ['#e5d8c2', '#d9cdb6', '#e8ddc8'][Math.floor(rng() * 3)];
@@ -723,7 +723,7 @@ const dFarmhouse: DecorMaker = (rng, pal) => {
   };
 };
 
-const dChurch: DecorMaker = (rng, pal) => {
+export const dChurch: DecorMaker = (rng, pal) => {
   const s = 66 + rng() * 20;
   const wall = pal.night ? '#211d18' : '#ddd2bc';
   const roof = pal.night ? '#16120e' : '#5a6672';
@@ -764,7 +764,7 @@ const dChurch: DecorMaker = (rng, pal) => {
   };
 };
 
-const dWaterTower: DecorMaker = (rng, pal) => {
+export const dWaterTower: DecorMaker = (rng, pal) => {
   const s = 52 + rng() * 14;
   const body = pal.night ? '#1e1a15' : '#a85840';
   const leg = pal.night ? '#100d0a' : '#6e4636';
@@ -789,7 +789,7 @@ const dWaterTower: DecorMaker = (rng, pal) => {
   };
 };
 
-const dSignalGantry: DecorMaker = (_rng, pal) => {
+export const dSignalGantry: DecorMaker = (_rng, pal) => {
   const col = pal.night ? '#0a0a0a' : '#33383e';
   const lit = Math.random() > 0.5 ? '#e84848' : '#3ad068';
   return (ctx, x, y) => {
@@ -814,7 +814,7 @@ const dSignalGantry: DecorMaker = (_rng, pal) => {
   };
 };
 
-const dPowerTower: DecorMaker = (_rng, pal) => {
+export const dPowerTower: DecorMaker = (_rng, pal) => {
   const s = 130 + Math.random() * 40;
   const col = pal.night ? 'rgba(8,8,10,0.9)' : 'rgba(70,76,84,0.9)';
   return (ctx, x, y) => {
@@ -841,7 +841,7 @@ const dPowerTower: DecorMaker = (_rng, pal) => {
   };
 };
 
-const dSheepFlock: DecorMaker = (rng, pal) => {
+export const dSheepFlock: DecorMaker = (rng, pal) => {
   const n = 4 + Math.floor(rng() * 5);
   const offs: { dx: number; dy: number; s: number }[] = [];
   for (let i = 0; i < n; i++) offs.push({ dx: (rng() - 0.5) * 130, dy: (rng() - 0.5) * 16, s: 9 + rng() * 5 });
@@ -858,7 +858,7 @@ const dSheepFlock: DecorMaker = (rng, pal) => {
   };
 };
 
-const dSunflower: DecorMaker = (rng, pal) => {
+export const dSunflower: DecorMaker = (rng, pal) => {
   const n = 7 + Math.floor(rng() * 6);
   const pts: { dx: number; h: number }[] = [];
   for (let i = 0; i < n; i++) pts.push({ dx: (rng() - 0.5) * 90, h: 20 + rng() * 12 });
@@ -883,7 +883,7 @@ const dSunflower: DecorMaker = (rng, pal) => {
   };
 };
 
-const dVineyard: DecorMaker = (rng, pal) => {
+export const dVineyard: DecorMaker = (rng, pal) => {
   const rows = 4;
   const cols = 5 + Math.floor(rng() * 4);
   const leaf = shade(pal.midBase, 0.62);
@@ -904,7 +904,7 @@ const dVineyard: DecorMaker = (rng, pal) => {
   };
 };
 
-const dRailHut: DecorMaker = (rng, pal) => {
+export const dRailHut: DecorMaker = (rng, pal) => {
   const wall = pal.night ? '#1c1814' : '#b8a888';
   const roof = pal.night ? '#12100c' : '#7a4636';
   const lit = rng() > 0.4;
@@ -928,7 +928,7 @@ const dRailHut: DecorMaker = (rng, pal) => {
   };
 };
 
-const dVillageCluster: DecorMaker = (rng, pal) => {
+export const dVillageCluster: DecorMaker = (rng, pal) => {
   const n = 3 + Math.floor(rng() * 4);
   const houses: { dx: number; w: number; hh: number; roof: string; wall: string }[] = [];
   let cx = -((n - 1) * 46) / 2;
@@ -959,7 +959,7 @@ const dVillageCluster: DecorMaker = (rng, pal) => {
   };
 };
 
-const dCornfield: DecorMaker = (rng, pal) => {
+export const dCornfield: DecorMaker = (rng, pal) => {
   const n = 16 + Math.floor(rng() * 10);
   const pts: { dx: number; h: number }[] = [];
   for (let i = 0; i < n; i++) pts.push({ dx: (rng() - 0.5) * 150, h: 24 + rng() * 14 });
@@ -979,7 +979,7 @@ const dCornfield: DecorMaker = (rng, pal) => {
 };
 
 // 各场景的装饰物池（权重）
-const DECOR_POOLS: Record<SceneKind, { mid: [DecorMaker, number][]; near: [DecorMaker, number][] }> = {
+export const DECOR_POOLS: Record<SceneKind, { mid: [DecorMaker, number][]; near: [DecorMaker, number][] }> = {
   field: {
     mid: [[dTreeRound, 2.2], [dTreeCluster, 1.6], [dTreeWillow, 0.9], [dTreeBare, 0.5], [dFarmhouse, 1.6], [dHouse, 1.2], [dWindmill, 0.5], [dHay, 2.2], [dCow, 1.2], [dSheepFlock, 1.2], [dChurch, 0.35], [dWaterTower, 0.5], [dVillageCluster, 0.7], [dPowerTower, 0.7], [dSignalGantry, 0.5], [dRailHut, 0.6], [dTreePine, 0.8]],
     near: [[dBush, 2.5], [dFlowers, 2], [dHay, 0.8], [dSunflower, 1.6], [dCornfield, 1.4], [dVineyard, 1.2], [dTreeRound, 0.8]],
