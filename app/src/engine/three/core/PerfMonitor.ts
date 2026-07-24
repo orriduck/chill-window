@@ -2,7 +2,7 @@ import * as THREE from 'three'
 
 /**
  * Lightweight performance monitor overlay.
- * Toggle with F3. Renders a small HUD in the top-left corner.
+ * Visibility is controlled externally via show()/hide() — no own keybinding.
  */
 export class PerfMonitor {
   private el: HTMLDivElement
@@ -24,19 +24,20 @@ export class PerfMonitor {
     `
     document.body.appendChild(this.el)
     this.lastTime = performance.now()
-    window.addEventListener('keydown', this.onKey)
   }
 
-  private onKey = (e: KeyboardEvent) => {
-    if (e.key === 'F3') {
-      e.preventDefault()
-      this.toggle()
-    }
+  show() {
+    this.visible = true
+    this.el.style.display = 'block'
   }
 
-  toggle() {
-    this.visible = !this.visible
-    this.el.style.display = this.visible ? 'block' : 'none'
+  hide() {
+    this.visible = false
+    this.el.style.display = 'none'
+  }
+
+  get isVisible(): boolean {
+    return this.visible
   }
 
   /** Call once per frame after renderer.render(). */
@@ -61,8 +62,13 @@ export class PerfMonitor {
     }
   }
 
+  /** Latest FPS reading (updated every 500ms even when HUD is hidden). */
+  get currentFps(): number { return this.fps }
+
+  /** Latest frame time in ms. */
+  get currentFrameTime(): number { return this.frameTime }
+
   dispose() {
-    window.removeEventListener('keydown', this.onKey)
     this.el.remove()
   }
 }

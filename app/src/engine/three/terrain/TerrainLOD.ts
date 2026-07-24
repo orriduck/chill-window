@@ -29,7 +29,7 @@ function hash2(x: number, z: number): number {
 }
 
 export class TerrainLOD {
-  private scene: THREE.Scene
+  private parent: THREE.Object3D
   private terrainGen = new TerrainGen()
   private chunks = new Map<string, Chunk>()
   private frameCount = 0
@@ -48,8 +48,20 @@ export class TerrainLOD {
   private projScreen = new THREE.Matrix4()
   private chunkBox = new THREE.Box3()
 
-  constructor(scene: THREE.Scene, biome: BiomeType = 'field') {
-    this.scene = scene
+  // Shared shadow disc for fake AO under trees and buildings
+  private shadowDisc = (() => {
+    const g = new THREE.CircleGeometry(1, 8)
+    g.rotateX(-Math.PI / 2)
+    return {
+      geom: g,
+      mat: new THREE.MeshBasicMaterial({
+        color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false,
+      }),
+    }
+  })()
+
+  constructor(scene: THREE.Object3D, biome: BiomeType = 'field') {
+    this.parent = scene
     this.currentBiome = biome
     this.nextBiome = this.pickNextBiome(biome)
     this.segmentStartZ = 0
@@ -116,6 +128,32 @@ export class TerrainLOD {
     return this.currentBiome
   }
 
+  /** Number of currently active terrain chunks. */
+  get chunkCount(): number {
+    return this.chunks.size
+  }
+
+  /** The Z position where the current biome segment began. */
+  get zSegmentStart(): number {
+    return this.segmentStartZ
+  }
+
+  /** Current biome name (the segment the camera is inside). */
+  get currentBiomeName(): BiomeType {
+    return this.currentBiome
+  }
+
+  /** Next biome name (beginning at segmentStartZ + SEGMENT_LENGTH). */
+  get nextBiomeName(): BiomeType {
+    return this.nextBiome
+  }
+
+  /** Length of one biome segment in world units. */
+  static readonly SEGMENT_LENGTH = SEGMENT_LENGTH
+
+  /** Length of the blend transition between two segments. */
+  static readonly BLEND_LENGTH = BLEND_LENGTH
+
   /** World-space terrain height under the current (possibly blending) biome. */
   sampleHeight(x: number, z: number): number {
     return this.terrainGen.getHeight(x, z, this.activeParams)
@@ -180,11 +218,11 @@ export class TerrainLOD {
   // ---- Chunk lifecycle ----
 
   private removeChunk(chunk: Chunk) {
-    this.scene.remove(chunk.mesh)
+    this.parent.remove(chunk.mesh)
     chunk.mesh.geometry.dispose()
 
     for (const decor of chunk.decorations) {
-      this.scene.remove(decor)
+      this.parent.remove(decor)
       this.disposeDecoration(decor)
     }
   }
@@ -200,6 +238,15 @@ export class TerrainLOD {
         }
       }
     })
+  }
+
+  /** Attach a dark semi-transparent disc under a decor to fake ambient occlusion. */
+  private addShadow(parent: THREE.Object3D, radius: number) {
+    const disc = new THREE.Mesh(this.shadowDisc.geom, this.shadowDisc.mat)
+    disc.scale.setScalar(radius)
+    disc.position.y = 0.02
+    disc.renderOrder = 1
+    parent.add(disc)
   }
 
   private createChunk(cx: number, cz: number, cameraPos: THREE.Vector3) {
@@ -271,12 +318,12 @@ export class TerrainLOD {
     mesh.castShadow = true
     mesh.receiveShadow = true
 
-    this.scene.add(mesh)
+    this.parent.add(mesh)
     // Distant (low-res) chunks get fewer decorations
     const densityScale = resolution === 64 ? 1 : resolution === 32 ? 0.5 : 0.25
     const decorations = this.createDecorations(worldX, worldZ, params, densityScale)
     for (const decor of decorations) {
-      this.scene.add(decor)
+      this.parent.add(decor)
     }
     this.chunks.set(`${cx},${cz}`, { mesh, decorations, x: cx, z: cz, lod: resolution })
   }
@@ -362,6 +409,7 @@ export class TerrainLOD {
 
     tree.add(trunk)
     tree.add(foliage)
+    this.addShadow(tree, 1.2)
     return tree
   }
 
@@ -396,6 +444,7 @@ export class TerrainLOD {
       puff.castShadow = true
       tree.add(puff)
     }
+    this.addShadow(tree, 1.0)
     return tree
   }
 
@@ -416,6 +465,7 @@ export class TerrainLOD {
     foliage.position.y = 2.8
     foliage.castShadow = true
     tree.add(foliage)
+    this.addShadow(tree, 1.4)
     return tree
   }
 
@@ -450,6 +500,7 @@ export class TerrainLOD {
       )
       tree.add(branch)
     }
+    this.addShadow(tree, 0.6)
     return tree
   }
 
@@ -461,6 +512,7 @@ export class TerrainLOD {
     const mat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.8, flatShading: true })
     const rock = new THREE.Mesh(geom, mat)
     rock.castShadow = true
+    this.addShadow(rock, size * 0.6)
     return rock
   }
 
@@ -473,6 +525,7 @@ export class TerrainLOD {
     const bush = new THREE.Mesh(geom, mat)
     bush.scale.y = 0.6
     bush.castShadow = true
+    this.addShadow(bush, r * 0.7)
     return bush
   }
 
@@ -547,6 +600,7 @@ export class TerrainLOD {
     win.position.set(w * 0.25, h * 0.55, d / 2 + 0.01)
     bldg.add(win)
 
+    this.addShadow(bldg, Math.max(w, d) * 0.6)
     return bldg
   }
 
@@ -599,5 +653,7 @@ export class TerrainLOD {
   dispose() {
     this.clearChunks()
     this.material.dispose()
+    this.shadowDisc.geom.dispose()
+    this.shadowDisc.mat.dispose()
   }
 }

@@ -29,8 +29,9 @@ export class TrainCamera {
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.1, 2000)
     this.camera.position.set(0, 2, 5)
     this.camera.lookAt(LOOK_AHEAD_X, LOOK_Y, 5)
-    // Start at cruise so the setup page shows moving scenery
-    this.currentSpeed = CRUISE_SPEED
+    // Start stopped at the station — train departs when the journey begins
+    this.currentSpeed = 0
+    this.targetSpeed = 0
   }
 
   updateAspect(width: number, height: number) {

@@ -206,14 +206,13 @@ export default function Home() {
       // 列车已在始发站停稳，检票上车后稍候发车（关门-启动的节奏）
       eng.arrive(originRef.current);
       eng.platformMode = 'dwell';
-      trainControlRef.current?.setSpeed(0); // 停靠站台
-      // Show the origin station at the camera's current position
+      // 已经停在站台上了，不需要再 setSpeed(0)
       const camZ = trainControlRef.current?.getZ() ?? 0;
       trainControlRef.current?.showStation(originRef.current, camZ);
       window.setTimeout(() => {
         eng.depart();
-        trainControlRef.current?.setSpeed(15); // 发车
-        trainControlRef.current?.hideStation(); // 收起站台
+        trainControlRef.current?.setSpeed(15); // 缓缓加速开出车站
+        // 车站会在完全离开视野后由 StationManager 自动隐藏（0.8s 缓冲）
       }, 2600);
     }
     if (soundRef.current) {
@@ -229,8 +228,11 @@ export default function Home() {
     phaseRef.current = 'abort';
     setConfirmAbort(false);
     audioRef.current?.stop();
+    // 渐变减速到静止，在原地显示一个车站
+    trainControlRef.current?.setSpeed(0);
+    const camZ = trainControlRef.current?.getZ() ?? 0;
+    trainControlRef.current?.showStation('临时停车', camZ);
     engineRef.current?.setCruising();
-    trainControlRef.current?.setSpeed(15);
     setHud((p) => ({ ...p, phase: 'abort' }));
   }, []);
 
@@ -243,7 +245,10 @@ export default function Home() {
     eng.arrive(pickStations(1)[0]);
     eng.platformMode = 'dwell';
     engineRef.current = eng;
-    trainControlRef.current?.setSpeed(15);
+    // Return to stopped-at-station state
+    trainControlRef.current?.setSpeed(0);
+    const camZ = trainControlRef.current?.getZ() ?? 0;
+    trainControlRef.current?.showStation(pickStations(1)[0], camZ);
     setHud((p) => ({ ...p, phase: 'setup' }));
   }, [tod]);
 

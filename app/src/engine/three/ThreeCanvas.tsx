@@ -12,6 +12,7 @@ import { TrackSystem } from './track/TrackSystem'
 import { LinesideProps } from './track/LinesideProps'
 import { StationManager } from './track/Station'
 import { PerfMonitor } from './core/PerfMonitor'
+import { DebugMode } from './core/DebugMode'
 
 const MAX_DT = 0.1 // clamp delta time to avoid spiral of death on lag
 
@@ -42,10 +43,19 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     const container = containerRef.current
     if (!container) return
 
+    // ---- Scene ----
     const scene = new Scene3D()
+
+    // ---- Exterior group: everything outside the window frame ----
+    // DebugMode F6 toggles this group's visibility to hide the outside world.
+    const exteriorGroup = new THREE.Group()
+    exteriorGroup.name = 'exterior'
+    scene.add(exteriorGroup)
+
+    // ---- Core systems ----
     const camera = new TrainCamera()
     const renderer = new WebGLRenderer()
-    const terrain = new TerrainLOD(scene.scene, 'field')
+    const terrain = new TerrainLOD(exteriorGroup, 'field')
     const skyDome = new SkyDome()
     const timeOfDay = new TimeOfDay()
     const weather = new WeatherSystem()
@@ -54,14 +64,26 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     const lineside = new LinesideProps((x, z) => terrain.sampleHeight(x, z))
     const stations = new StationManager()
     const perfMonitor = new PerfMonitor(renderer.renderer)
+    const debugMode = new DebugMode()
 
-    scene.add(skyDome.mesh)
-    scene.add(weather.group)
+    // Add exterior objects to the exteriorGroup
+    exteriorGroup.add(skyDome.mesh)
+    exteriorGroup.add(weather.group)
+    exteriorGroup.add(trackSystem.group)
+    exteriorGroup.add(lineside.group)
+    exteriorGroup.add(stations.group)
+
+    // Window frame is NOT in exteriorGroup — it stays visible in scene-hidden mode
     scene.add(windowFrame.group)
-    scene.add(trackSystem.group)
-    scene.add(lineside.group)
-    scene.add(stations.group)
+
     scene.scene.fog = new THREE.Fog(0xbfe3f2, 200, 900)
+
+    // Wire debug mode
+    debugMode.init(scene.scene, exteriorGroup)
+    debugMode.perfMonitor = perfMonitor
+
+    // Show the origin station at the camera's starting position
+    stations.showStation('始发站', camera.z)
 
     // Expose speed control to parent
     if (controlRef) {
@@ -99,11 +121,35 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     scene.add(dirLight)
     scene.add(dirLight.target)
 
+    // ---- Top-down state tracking ----
+    let wasTopDown = false
+
+    // ---- Biome boundary update throttle ----
+    let lastSegmentZ = terrain.zSegmentStart
+    let boundaryFrameCounter = 0
+
     const loop = () => {
       rafRef.current = requestAnimationFrame(loop)
 
       const dt = Math.min(clockRef.current.getDelta(), MAX_DT)
+
+      // ---- Top-down camera toggle ----
+      if (debugMode.isTopDown !== wasTopDown) {
+        if (debugMode.isTopDown) {
+          debugMode.enterTopDown(camera.camera)
+        } else {
+          debugMode.exitTopDown(camera.camera)
+        }
+        wasTopDown = debugMode.isTopDown
+      }
+
+      // Always run camera physics so Z advances (top-down only overrides view)
       camera.update(dt)
+
+      if (debugMode.isTopDown) {
+        // Override position/orientation for top-down aerial view
+        debugMode.applyTopDown(camera.camera)
+      }
 
       const cam = camera.getCamera()
       const camPos = cam.position
@@ -135,10 +181,46 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
       terrain.applyFrustumCulling(cam)
       trackSystem.update(camPos.z)
       lineside.update(camPos.z)
+      stations.update(camPos.z, dt)
       windowFrame.update(cam, clockRef.current.elapsedTime)
 
       renderer.render(scene.scene, cam)
-      perfMonitor.update()
+      perfMonitor.update() // F3 perf overlay
+
+      // ---- Debug HUD (F4) ----
+      boundaryFrameCounter++
+      if (boundaryFrameCounter % 30 === 0) {
+        // Refresh biome boundaries if segment shifted
+        if (terrain.zSegmentStart !== lastSegmentZ) {
+          lastSegmentZ = terrain.zSegmentStart
+          debugMode.updateBiomeBoundaries(
+            terrain.zSegmentStart,
+            TerrainLOD.SEGMENT_LENGTH,
+            TerrainLOD.BLEND_LENGTH,
+          )
+        }
+        // Refresh chunk grid
+        debugMode.updateChunkBoundaries(camPos.z)
+      }
+
+      const info = renderer.renderer.info
+      debugMode.updateHud({
+        camPos,
+        camSpeed: camera.currentSpeed,
+        targetSpeed: camera.targetSpeed,
+        currentBiome: terrain.currentBiomeName,
+        nextBiome: terrain.nextBiomeName,
+        segmentStartZ: terrain.zSegmentStart,
+        segmentLength: TerrainLOD.SEGMENT_LENGTH,
+        blendLength: TerrainLOD.BLEND_LENGTH,
+        chunkCount: terrain.chunkCount,
+        fps: perfMonitor.currentFps,
+        frameTime: perfMonitor.currentFrameTime,
+        drawCalls: info.render.calls,
+        triangles: info.render.triangles,
+        topDown: debugMode.topDown,
+        sceneHidden: debugMode.sceneHidden,
+      })
     }
     rafRef.current = requestAnimationFrame(loop)
 
@@ -153,6 +235,7 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
       cancelAnimationFrame(rafRef.current)
       window.removeEventListener('resize', onResize)
       if (controlRef) controlRef.current = null
+      debugMode.dispose()
       terrain.dispose()
       skyDome.dispose()
       weather.dispose()

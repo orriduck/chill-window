@@ -232,26 +232,54 @@ export class Station {
 /**
  * Manages a single dynamically-placed station.
  * The parent calls showStation() when the train approaches, hideStation() after departure.
+ * Auto-hides the station once it has fully left the camera's view, with a short grace period.
  */
 export class StationManager {
   readonly group = new THREE.Group()
   private current: Station | null = null
+  private currentZ = 0
+  private hideTimer = 0
 
   static readonly PLATFORM_LENGTH = PLATFORM_LENGTH
+  /** Extra distance past the platform edge before hiding (units). */
+  private static readonly HIDE_BUFFER = 60
+  /** Grace period after the station leaves view before hiding (seconds). */
+  private static readonly HIDE_DELAY = 0.8
 
   /** Show a station at the given Z center. Replaces any existing station. */
   showStation(name: string, zCenter: number) {
     this.hideStation()
     this.current = new Station(name, zCenter)
+    this.currentZ = zCenter
+    this.hideTimer = 0
     this.group.add(this.current.group)
   }
 
-  /** Remove the current station. */
+  /** Remove the current station immediately. */
   hideStation() {
     if (this.current) {
       this.group.remove(this.current.group)
       this.current.dispose()
       this.current = null
+    }
+    this.hideTimer = 0
+  }
+
+  /**
+   * Call every frame with the camera Z position.
+   * Automatically hides the station once it has fully left the view,
+   * after a short grace period so the transition is not jarring.
+   */
+  update(camZ: number, dt: number) {
+    if (!this.current) return
+    const hideThreshold = this.currentZ + StationManager.PLATFORM_LENGTH / 2 + StationManager.HIDE_BUFFER
+    if (camZ > hideThreshold) {
+      this.hideTimer += dt
+      if (this.hideTimer >= StationManager.HIDE_DELAY) {
+        this.hideStation()
+      }
+    } else {
+      this.hideTimer = 0
     }
   }
 
