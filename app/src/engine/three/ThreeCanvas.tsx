@@ -184,8 +184,22 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
       stations.update(camPos.z, dt)
       windowFrame.update(cam, clockRef.current.elapsedTime)
 
+      // Push fog back in top-down mode so terrain is visible from above
+      const savedFogNear = fog.near
+      const savedFogFar = fog.far
+      if (debugMode.isTopDown) {
+        fog.near = 400
+        fog.far = 3000
+      }
+
       renderer.render(scene.scene, cam)
       perfMonitor.update() // F3 perf overlay
+
+      // Restore fog for HUD boundary rendering
+      if (debugMode.isTopDown) {
+        fog.near = savedFogNear
+        fog.far = savedFogFar
+      }
 
       // ---- Debug HUD (F4) ----
       boundaryFrameCounter++

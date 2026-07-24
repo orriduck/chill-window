@@ -130,9 +130,9 @@ export class DebugMode {
 
   /** Override camera to top-down view.  Call AFTER camera.update() so Z position is fresh. */
   applyTopDown(cam: THREE.PerspectiveCamera) {
-    cam.position.set(0, 220, cam.position.z)
-    cam.lookAt(0, 0, cam.position.z + 1)
-    cam.fov = 50
+    cam.position.set(0, 100, cam.position.z)
+    cam.lookAt(0, 0, cam.position.z + 20)
+    cam.fov = 45
     cam.updateProjectionMatrix()
   }
 
