@@ -63,8 +63,10 @@ export class TrackSystem {
     }
     this.group.add(this.sleepers)
 
+    // Baked AO: dark contact strips under the rails and ballast
+    this.addContactAO()
+
     // Lineside fence on the window side: posts + two wire strands.
-    // Uniform along Z, so it follows the camera like the rest of the track.
     const postGeom = this.track(new THREE.BoxGeometry(0.09, 1.1, 0.09))
     postGeom.translate(0, 0.55, 0)
     this.fencePosts = new THREE.InstancedMesh(postGeom, postMat, FENCE_COUNT)
@@ -83,10 +85,50 @@ export class TrackSystem {
     }
   }
 
+  /** Fake ambient occlusion: dark strips where objects meet the ground. */
+  private addContactAO() {
+    // Wide soft strip under the entire ballast bed
+    const aoMat = this.track(
+      new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.25,
+        depthWrite: false,
+      })
+    )
+    const strip = new THREE.Mesh(
+      this.track(new THREE.PlaneGeometry(10, SEGMENT)),
+      aoMat
+    )
+    strip.rotation.x = -Math.PI / 2
+    strip.position.y = 0.005
+    strip.renderOrder = 1
+    this.group.add(strip)
+
+    // Narrower, darker strip right under each rail
+    const railAOMat = this.track(
+      new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+      })
+    )
+    for (const side of [-1, 1]) {
+      const railAO = new THREE.Mesh(
+        this.track(new THREE.PlaneGeometry(0.5, SEGMENT)),
+        railAOMat
+      )
+      railAO.rotation.x = -Math.PI / 2
+      railAO.position.set(side * (RAIL_GAUGE / 2), 0.17, 0)
+      railAO.renderOrder = 2
+      this.group.add(railAO)
+    }
+  }
+
   /** Follow the camera along Z; sleepers/fence re-align to the world lattice. */
   update(camZ: number) {
     this.group.position.z = camZ
-    // Shift instanced lattices so world positions stay continuous
     this.sleepers.position.z = -(camZ % SLEEPER_SPACING)
     this.fencePosts.position.z = -(camZ % FENCE_SPACING)
   }

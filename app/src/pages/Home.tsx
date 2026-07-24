@@ -6,10 +6,19 @@ import {
   buildFreeJourney, buildPomodoroJourney, suggestStops,
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
-import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, Palette, Pencil } from 'lucide-react';
-import ThreeCanvas from '@/engine/three/ThreeCanvas';
+import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, Palette, Pencil, Settings2 } from 'lucide-react';
+import ThreeCanvas, { type TrainControl } from '@/engine/three/ThreeCanvas';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
+
+// 根据真实时间自动选择出发时段
+function detectTimeOfDay(): TimeOfDay {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 9) return 'morning';
+  if (h >= 9 && h < 17) return 'day';
+  if (h >= 17 && h < 19) return 'dusk';
+  return 'night';
+}
 
 interface HudState {
   phase: Phase;
@@ -26,6 +35,7 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<SceneryEngine | null>(null);
+  const trainControlRef = useRef<TrainControl | null>(null);
   const pencilRef = useRef<PencilRenderer | null>(null);
   const offscreenRef = useRef<HTMLCanvasElement | null>(null);
   const styleRef = useRef<'color' | 'pencil'>('pencil');
@@ -47,7 +57,7 @@ export default function Home() {
   const [focusMin, setFocusMin] = useState(45);
   const [stops, setStops] = useState(1);
   const [rounds, setRounds] = useState(4);
-  const [tod, setTod] = useState<TimeOfDay>('day');
+  const [tod, setTod] = useState<TimeOfDay>(detectTimeOfDay);
   const [sound, setSound] = useState(true);
   const [artStyle, setArtStyle] = useState<'color' | 'pencil'>('pencil');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -130,6 +140,9 @@ export default function Home() {
           if (!arrivingRef.current && left <= 16) {
             arrivingRef.current = true;
             eng.arrive(seg.name);
+            // Show the approaching station ~16s ahead at cruise speed
+            const camZ = trainControlRef.current?.getZ() ?? 0;
+            trainControlRef.current?.showStation(seg.name, camZ + 16 * 15);
             if (audioRef.current?.isRunning) audioRef.current.chime();
           }
           if (left <= 0 && eng.speed < 0.02) {
@@ -141,6 +154,7 @@ export default function Home() {
             } else {
               phaseRef.current = 'dwell';
               dwellLeftRef.current = plan.dwellSec;
+              trainControlRef.current?.setSpeed(0); // 到站停车
             }
           }
         } else if (phase === 'dwell') {
@@ -151,6 +165,8 @@ export default function Home() {
             arrivingRef.current = false;
             phaseRef.current = 'ride';
             eng.depart();
+            trainControlRef.current?.setSpeed(15); // 离站发车
+            trainControlRef.current?.hideStation(); // 收起站台
           }
         }
       }
@@ -190,7 +206,15 @@ export default function Home() {
       // 列车已在始发站停稳，检票上车后稍候发车（关门-启动的节奏）
       eng.arrive(originRef.current);
       eng.platformMode = 'dwell';
-      window.setTimeout(() => eng.depart(), 2600);
+      trainControlRef.current?.setSpeed(0); // 停靠站台
+      // Show the origin station at the camera's current position
+      const camZ = trainControlRef.current?.getZ() ?? 0;
+      trainControlRef.current?.showStation(originRef.current, camZ);
+      window.setTimeout(() => {
+        eng.depart();
+        trainControlRef.current?.setSpeed(15); // 发车
+        trainControlRef.current?.hideStation(); // 收起站台
+      }, 2600);
     }
     if (soundRef.current) {
       const au = new TrainAudio();
@@ -206,6 +230,7 @@ export default function Home() {
     setConfirmAbort(false);
     audioRef.current?.stop();
     engineRef.current?.setCruising();
+    trainControlRef.current?.setSpeed(15);
     setHud((p) => ({ ...p, phase: 'abort' }));
   }, []);
 
@@ -218,6 +243,7 @@ export default function Home() {
     eng.arrive(pickStations(1)[0]);
     eng.platformMode = 'dwell';
     engineRef.current = eng;
+    trainControlRef.current?.setSpeed(15);
     setHud((p) => ({ ...p, phase: 'setup' }));
   }, [tod]);
 
@@ -259,7 +285,7 @@ export default function Home() {
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" style={{ zIndex: 1, visibility: 'hidden' }} />
-      <ThreeCanvas className="absolute inset-0" />
+      <ThreeCanvas className="absolute inset-0" controlRef={trainControlRef} />
 
       {/* 车窗框（橡胶密封条 + 内框 + 车身壁板，加厚） */}
       <div className="pointer-events-none absolute inset-0 z-10"
@@ -327,73 +353,103 @@ export default function Home() {
       {/* ================= 设置页 ================= */}
       {hud.phase === 'setup' && (
         <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-black/55 p-7 text-white shadow-2xl backdrop-blur-md">
-            <div className="mb-1 flex items-center gap-2 text-2xl font-bold tracking-wide">
-              <TrainFront className="h-7 w-7 text-amber-300" />
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-black/60 p-6 text-white shadow-2xl backdrop-blur-xl">
+            {/* 标题 */}
+            <div className="mb-1 flex items-center gap-2 text-lg font-bold tracking-wide">
+              <TrainFront className="h-5 w-5 text-amber-300" />
               窗景 · 专注列车
             </div>
-            <p className="mb-6 text-sm text-white/60">买一张车票，让窗外的风景陪你抵达目的地。</p>
+            <p className="mb-5 text-xs text-white/40">买一张车票，让窗外的风景陪你抵达目的地。</p>
 
             {/* 模式 */}
-            <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-white/10 p-1">
+            <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-lg bg-white/8 p-1">
               {([['free', '自由旅程'], ['pomodoro', '番茄钟']] as [Mode, string][]).map(([m, label]) => (
                 <button key={m} onClick={() => setMode(m)}
-                  className={`rounded-lg py-2 text-sm font-medium transition ${mode === m ? 'bg-amber-400 text-black' : 'text-white/70 hover:text-white'}`}>
+                  className={`rounded-md py-1.5 text-sm font-medium transition ${mode === m ? 'bg-amber-400 text-black' : 'text-white/60 hover:text-white'}`}>
                   {label}
                 </button>
               ))}
             </div>
 
+            {/* 核心设置 */}
             {mode === 'free' ? (
-              <>
-                <label className="mb-1 flex justify-between text-sm text-white/80">
-                  <span>旅程时长</span><span className="font-mono text-amber-300">{focusMin} 分钟</span>
-                </label>
+              <div className="mb-6">
+                <div className="mb-1.5 flex justify-between text-sm">
+                  <span className="text-white/70">专注时长</span>
+                  <span className="font-mono text-amber-300">{focusMin} 分钟</span>
+                </div>
                 <input type="range" min={10} max={120} step={5} value={focusMin}
                   onChange={(e) => { const v = +e.target.value; setFocusMin(v); setStops(suggestStops(v)); }}
-                  className="mb-4 w-full accent-amber-400" />
-                <label className="mb-1 flex justify-between text-sm text-white/80">
-                  <span>沿途经停站</span><span className="font-mono text-amber-300">{stops} 站</span>
-                </label>
-                <input type="range" min={0} max={5} value={stops} onChange={(e) => setStops(+e.target.value)}
-                  className="mb-4 w-full accent-amber-400" />
-              </>
+                  className="w-full accent-amber-400" />
+                <div className="mt-1 flex justify-between text-[10px] text-white/30">
+                  <span>10</span><span>120</span>
+                </div>
+              </div>
             ) : (
-              <>
-                <label className="mb-1 flex justify-between text-sm text-white/80">
-                  <span>番茄轮次（25 分钟 / 站，经停休息 5 分钟）</span>
+              <div className="mb-6">
+                <div className="mb-1.5 flex justify-between text-sm">
+                  <span className="text-white/70">番茄轮次</span>
                   <span className="font-mono text-amber-300">{rounds} 轮</span>
-                </label>
+                </div>
                 <input type="range" min={1} max={8} value={rounds} onChange={(e) => setRounds(+e.target.value)}
-                  className="mb-4 w-full accent-amber-400" />
-              </>
+                  className="w-full accent-amber-400" />
+                <div className="mt-1 flex justify-between text-[10px] text-white/30">
+                  <span>1</span><span>8</span>
+                </div>
+                <p className="mt-1 text-[11px] text-white/35">25 分钟专注 / 5 分钟休息</p>
+              </div>
             )}
 
-            <label className="mb-2 block text-sm text-white/80">出发时段</label>
-            <div className="mb-6 grid grid-cols-4 gap-2">
-              {TIME_OPTIONS.map((o) => (
-                <button key={o.value} onClick={() => setTod(o.value)}
-                  className={`rounded-lg border py-2 text-sm transition ${tod === o.value ? 'border-amber-400 bg-amber-400/20 text-amber-200' : 'border-white/15 text-white/60 hover:text-white'}`}>
-                  {o.label}
-                </button>
-              ))}
-            </div>
-
-            <label className="mb-2 block text-sm text-white/80">画面风格</label>
-            <div className="mb-6 grid grid-cols-2 gap-2">
-              {([['pencil', '铅笔素描'], ['color', '彩色']] as const).map(([v, label]) => (
-                <button key={v} onClick={() => { setArtStyle(v); styleRef.current = v; }}
-                  className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-sm transition ${artStyle === v ? 'border-amber-400 bg-amber-400/20 text-amber-200' : 'border-white/15 text-white/60 hover:text-white'}`}>
-                  {v === 'pencil' ? <Pencil className="h-4 w-4" /> : <Palette className="h-4 w-4" />}
-                  {label}
-                </button>
-              ))}
-            </div>
-
+            {/* 检票上车 */}
             <button onClick={startJourney}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-3 text-base font-bold text-black transition hover:bg-amber-300 active:scale-[0.98]">
-              <Play className="h-5 w-5" /> 检票上车
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-2.5 text-sm font-bold text-black transition hover:bg-amber-300 active:scale-[0.98]">
+              <Play className="h-4 w-4" /> 检票上车
             </button>
+
+            {/* 高级设置（折叠） */}
+            <details className="mt-4">
+              <summary className="flex cursor-pointer items-center gap-1 text-[11px] text-white/35 transition hover:text-white/55">
+                <Settings2 className="h-3 w-3" /> 高级设置
+              </summary>
+              <div className="mt-3 space-y-3 border-t border-white/8 pt-3">
+                {/* 经停站 */}
+                {mode === 'free' && (
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs">
+                      <span className="text-white/50">沿途经停站</span>
+                      <span className="font-mono text-amber-300/70">{stops} 站</span>
+                    </div>
+                    <input type="range" min={0} max={5} value={stops} onChange={(e) => setStops(+e.target.value)}
+                      className="w-full accent-amber-400/60" />
+                  </div>
+                )}
+                {/* 出发时段 */}
+                <div>
+                  <div className="mb-1 text-xs text-white/50">出发时段</div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {TIME_OPTIONS.map((o) => (
+                      <button key={o.value} onClick={() => setTod(o.value)}
+                        className={`rounded-md border py-1 text-[11px] transition ${tod === o.value ? 'border-amber-400/60 bg-amber-400/15 text-amber-200' : 'border-white/10 text-white/40 hover:text-white/70'}`}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* 画面风格 */}
+                <div>
+                  <div className="mb-1 text-xs text-white/50">画面风格</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {([['pencil', '铅笔素描'], ['color', '彩色']] as const).map(([v, label]) => (
+                      <button key={v} onClick={() => { setArtStyle(v); styleRef.current = v; }}
+                        className={`flex items-center justify-center gap-1 rounded-md border py-1 text-[11px] transition ${artStyle === v ? 'border-amber-400/60 bg-amber-400/15 text-amber-200' : 'border-white/10 text-white/40 hover:text-white/70'}`}>
+                        {v === 'pencil' ? <Pencil className="h-3 w-3" /> : <Palette className="h-3 w-3" />}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
       )}

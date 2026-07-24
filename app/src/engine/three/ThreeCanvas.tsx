@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import { Scene3D } from './core/Scene3D'
 import { TrainCamera } from './core/Camera'
@@ -10,14 +10,30 @@ import { WeatherSystem } from './weather/WeatherSystem'
 import { WindowFrame } from './interior/WindowFrame'
 import { TrackSystem } from './track/TrackSystem'
 import { LinesideProps } from './track/LinesideProps'
+import { StationManager } from './track/Station'
+import { PerfMonitor } from './core/PerfMonitor'
 
 const MAX_DT = 0.1 // clamp delta time to avoid spiral of death on lag
 
-interface ThreeCanvasProps {
-  className?: string
+/** Methods exposed to the parent for controlling the 3D train. */
+export interface TrainControl {
+  /** Set target speed (0 = stop at station, 15 = cruise). */
+  setSpeed: (speed: number) => void
+  /** Current camera Z position. */
+  getZ: () => number
+  /** Show a station ahead of the camera. */
+  showStation: (name: string, zCenter: number) => void
+  /** Remove the current station. */
+  hideStation: () => void
 }
 
-export default function ThreeCanvas({ className }: ThreeCanvasProps) {
+interface ThreeCanvasProps {
+  className?: string
+  /** Parent passes a ref; we fill it with train control methods. */
+  controlRef?: RefObject<TrainControl | null>
+}
+
+export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const clockRef = useRef<THREE.Clock>(new THREE.Clock())
   const rafRef = useRef<number>(0)
@@ -36,13 +52,26 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
     const windowFrame = new WindowFrame()
     const trackSystem = new TrackSystem()
     const lineside = new LinesideProps((x, z) => terrain.sampleHeight(x, z))
+    const stations = new StationManager()
+    const perfMonitor = new PerfMonitor(renderer.renderer)
 
     scene.add(skyDome.mesh)
     scene.add(weather.group)
     scene.add(windowFrame.group)
     scene.add(trackSystem.group)
     scene.add(lineside.group)
+    scene.add(stations.group)
     scene.scene.fog = new THREE.Fog(0xbfe3f2, 200, 900)
+
+    // Expose speed control to parent
+    if (controlRef) {
+      controlRef.current = {
+        setSpeed: (s: number) => camera.setTargetSpeed(s),
+        getZ: () => camera.z,
+        showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
+        hideStation: () => stations.hideStation(),
+      }
+    }
 
     const canvas = renderer.getDomElement()
     canvas.style.width = '100%'
@@ -109,6 +138,7 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
       windowFrame.update(cam, clockRef.current.elapsedTime)
 
       renderer.render(scene.scene, cam)
+      perfMonitor.update()
     }
     rafRef.current = requestAnimationFrame(loop)
 
@@ -122,12 +152,15 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
     return () => {
       cancelAnimationFrame(rafRef.current)
       window.removeEventListener('resize', onResize)
+      if (controlRef) controlRef.current = null
       terrain.dispose()
       skyDome.dispose()
       weather.dispose()
       windowFrame.dispose()
       trackSystem.dispose()
       lineside.dispose()
+      stations.dispose()
+      perfMonitor.dispose()
       renderer.dispose()
       scene.dispose()
       if (canvas.parentNode) {

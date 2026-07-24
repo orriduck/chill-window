@@ -253,7 +253,7 @@ export class TerrainLOD {
       const dist = Math.abs(x)
       if (dist < TRACK_FLAT_HALF + 3) {
         const t = THREE.MathUtils.smoothstep(
-          THREE.MathUtils.clamp((dist - TRACK_FLAT_HALF + 2) / 5, 0, 1)
+          (dist - TRACK_FLAT_HALF + 2) / 5, 0, 1
         )
         const gravelTone = hash2(x, z) > 0.5 ? BALLAST_LIGHT : BALLAST_DARK
         color = this.lerpColor(gravelTone, this.rgbToHex(color), t)
@@ -313,7 +313,20 @@ export class TerrainLOD {
       }
       if (tooClose) continue
 
-      const decor = Math.random() > 0.3 ? this.createTree() : this.createRock()
+      // Weighted random: 50% tree, 15% rock, 15% bush, 12% building, 8% flower patch
+      const roll = Math.random()
+      let decor: THREE.Object3D
+      if (roll < 0.50) {
+        decor = this.createRandomTree()
+      } else if (roll < 0.65) {
+        decor = this.createRock()
+      } else if (roll < 0.80) {
+        decor = this.createBush()
+      } else if (roll < 0.92) {
+        decor = this.createBuilding()
+      } else {
+        decor = this.createFlowerPatch()
+      }
       decor.position.set(x, height, z)
       decor.rotation.y = Math.random() * Math.PI * 2
       decorations.push(decor)
@@ -322,7 +335,18 @@ export class TerrainLOD {
     return decorations
   }
 
-  private createTree(): THREE.Group {
+  // ---- Tree variety ----
+
+  private createRandomTree(): THREE.Group {
+    const kind = Math.random()
+    if (kind < 0.35) return this.createPineTree()
+    if (kind < 0.65) return this.createBroadleafTree()
+    if (kind < 0.85) return this.createWillowTree()
+    return this.createBareTree()
+  }
+
+  /** Classic pine: layered cone foliage */
+  private createPineTree(): THREE.Group {
     const tree = new THREE.Group()
     const trunkGeom = new THREE.CylinderGeometry(0.2, 0.25, 1, 6)
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B5A2B, roughness: 0.9 })
@@ -341,6 +365,96 @@ export class TerrainLOD {
     return tree
   }
 
+  /** Broadleaf: trunk + clustered sphere foliage puffs */
+  private createBroadleafTree(): THREE.Group {
+    const tree = new THREE.Group()
+    const h = 1.5 + Math.random() * 1.5 // trunk height
+    const trunkGeom = new THREE.CylinderGeometry(0.12, 0.2, h, 5)
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a4a32, roughness: 0.9 })
+    const trunk = new THREE.Mesh(trunkGeom, trunkMat)
+    trunk.position.y = h / 2
+    trunk.castShadow = true
+    tree.add(trunk)
+
+    // 3-5 foliage spheres clustered on top
+    const greenBase = 0x3a7a3a + Math.floor(Math.random() * 0x001010)
+    const puffCount = 3 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < puffCount; i++) {
+      const r = 0.5 + Math.random() * 0.6
+      const geom = new THREE.SphereGeometry(r, 6, 5)
+      const mat = new THREE.MeshStandardMaterial({
+        color: greenBase + Math.floor(Math.random() * 0x000808),
+        roughness: 0.85,
+        flatShading: true,
+      })
+      const puff = new THREE.Mesh(geom, mat)
+      puff.position.set(
+        (Math.random() - 0.5) * 0.8,
+        h + (Math.random() - 0.3) * 0.6,
+        (Math.random() - 0.5) * 0.8
+      )
+      puff.castShadow = true
+      tree.add(puff)
+    }
+    return tree
+  }
+
+  /** Willow: short trunk + drooping cone strands */
+  private createWillowTree(): THREE.Group {
+    const tree = new THREE.Group()
+    const trunkGeom = new THREE.CylinderGeometry(0.15, 0.22, 1.8, 5)
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.9 })
+    const trunk = new THREE.Mesh(trunkGeom, trunkMat)
+    trunk.position.y = 0.9
+    trunk.castShadow = true
+    tree.add(trunk)
+
+    // Drooping foliage: inverted cone with wider base
+    const foliageGeom = new THREE.ConeGeometry(1.4, 2.2, 7)
+    const foliageMat = new THREE.MeshStandardMaterial({ color: 0x5a8a4a, roughness: 0.85, flatShading: true })
+    const foliage = new THREE.Mesh(foliageGeom, foliageMat)
+    foliage.position.y = 2.8
+    foliage.castShadow = true
+    tree.add(foliage)
+    return tree
+  }
+
+  /** Bare tree: trunk + branch cylinders, no leaves */
+  private createBareTree(): THREE.Group {
+    const tree = new THREE.Group()
+    const h = 1.8 + Math.random() * 1.2
+    const branchMat = new THREE.MeshStandardMaterial({ color: 0x4a3c30, roughness: 0.95 })
+
+    const trunkGeom = new THREE.CylinderGeometry(0.1, 0.18, h, 5)
+    const trunk = new THREE.Mesh(trunkGeom, branchMat)
+    trunk.position.y = h / 2
+    trunk.castShadow = true
+    tree.add(trunk)
+
+    // 3-5 branches radiating from the top
+    const branchCount = 3 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < branchCount; i++) {
+      const len = 0.5 + Math.random() * 0.8
+      const geom = new THREE.CylinderGeometry(0.03, 0.05, len, 4)
+      const branch = new THREE.Mesh(geom, branchMat)
+      const angle = (i / branchCount) * Math.PI * 2 + Math.random() * 0.5
+      branch.position.set(
+        Math.cos(angle) * len * 0.4,
+        h * 0.8 + Math.random() * h * 0.2,
+        Math.sin(angle) * len * 0.4
+      )
+      branch.rotation.set(
+        (Math.random() - 0.5) * 0.8,
+        0,
+        (Math.random() - 0.5) * 0.8 + 0.4
+      )
+      tree.add(branch)
+    }
+    return tree
+  }
+
+  // ---- Other decorations ----
+
   private createRock(): THREE.Mesh {
     const size = 0.5 + Math.random() * 0.5
     const geom = new THREE.DodecahedronGeometry(size, 0)
@@ -348,6 +462,92 @@ export class TerrainLOD {
     const rock = new THREE.Mesh(geom, mat)
     rock.castShadow = true
     return rock
+  }
+
+  /** Low bush: squashed sphere */
+  private createBush(): THREE.Mesh {
+    const r = 0.3 + Math.random() * 0.4
+    const geom = new THREE.SphereGeometry(r, 5, 4)
+    const greenShade = 0x2a6a2a + Math.floor(Math.random() * 0x001508)
+    const mat = new THREE.MeshStandardMaterial({ color: greenShade, roughness: 0.9, flatShading: true })
+    const bush = new THREE.Mesh(geom, mat)
+    bush.scale.y = 0.6
+    bush.castShadow = true
+    return bush
+  }
+
+  /** Small flower patch: cluster of tiny colored spheres */
+  private createFlowerPatch(): THREE.Group {
+    const patch = new THREE.Group()
+    const colors = [0xff6a6a, 0xffcc44, 0xff8aff, 0xffffff, 0xffaa33]
+    const count = 3 + Math.floor(Math.random() * 4)
+    for (let i = 0; i < count; i++) {
+      const r = 0.04 + Math.random() * 0.04
+      const geom = new THREE.SphereGeometry(r, 4, 3)
+      const mat = new THREE.MeshStandardMaterial({
+        color: colors[Math.floor(Math.random() * colors.length)],
+        roughness: 0.6,
+      })
+      const flower = new THREE.Mesh(geom, mat)
+      flower.position.set(
+        (Math.random() - 0.5) * 0.6,
+        0.05 + Math.random() * 0.1,
+        (Math.random() - 0.5) * 0.6
+      )
+      patch.add(flower)
+    }
+    return patch
+  }
+
+  /** Small building: farmhouse or shed */
+  private createBuilding(): THREE.Group {
+    const bldg = new THREE.Group()
+    const w = 2 + Math.random() * 2
+    const d = 1.5 + Math.random() * 1.5
+    const h = 1.2 + Math.random() * 0.8
+
+    // Walls
+    const wallColors = [0xb8a088, 0xa89878, 0xc0b090, 0x988868]
+    const wallGeom = new THREE.BoxGeometry(w, h, d)
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: wallColors[Math.floor(Math.random() * wallColors.length)],
+      roughness: 0.85,
+    })
+    const walls = new THREE.Mesh(wallGeom, wallMat)
+    walls.position.y = h / 2
+    walls.castShadow = true
+    bldg.add(walls)
+
+    // Roof (triangular prism)
+    const roofH = h * 0.6
+    const roofGeom = new THREE.CylinderGeometry(0, Math.max(w, d) * 0.75, roofH, 4)
+    const roofColors = [0x8a4a3a, 0x6a5a4a, 0x7a3a2a]
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: roofColors[Math.floor(Math.random() * roofColors.length)],
+      roughness: 0.8,
+      flatShading: true,
+    })
+    const roof = new THREE.Mesh(roofGeom, roofMat)
+    roof.position.y = h + roofH / 2
+    roof.rotation.y = Math.PI / 4
+    roof.castShadow = true
+    bldg.add(roof)
+
+    // Door (dark rectangle on one face)
+    const doorGeom = new THREE.BoxGeometry(0.4, 0.7, 0.02)
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.9 })
+    const door = new THREE.Mesh(doorGeom, doorMat)
+    door.position.set(0, 0.35, d / 2 + 0.01)
+    bldg.add(door)
+
+    // Window (small bright rectangle)
+    const winGeom = new THREE.BoxGeometry(0.3, 0.3, 0.02)
+    const winMat = new THREE.MeshStandardMaterial({ color: 0xffeeaa, roughness: 0.3, emissive: 0xffeeaa, emissiveIntensity: 0.2 })
+    const win = new THREE.Mesh(winGeom, winMat)
+    win.position.set(w * 0.25, h * 0.55, d / 2 + 0.01)
+    bldg.add(win)
+
+    return bldg
   }
 
   private computeVertexColor(
