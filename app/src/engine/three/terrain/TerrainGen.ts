@@ -1,6 +1,16 @@
 import { createNoise2D } from 'simplex-noise'
 import type { HeightParams } from './Biome'
 
+/** Track runs along Z at x=0. Terrain is flattened to rail-bed level nearby,
+ *  both to avoid clipping through the train and to mimic a real rail corridor. */
+export const TRACK_BED_HEIGHT = 0
+export const TRACK_FLAT_HALF = 10 // fully flat within |x| < this
+export const TRACK_BLEND_END = 60 // smooth blend out to natural terrain
+
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t)
+}
+
 export class TerrainGen {
   private noise = createNoise2D()
 
@@ -15,7 +25,11 @@ export class TerrainGen {
       frequency *= 2
     }
 
-    return height
+    const dist = Math.abs(x)
+    if (dist >= TRACK_BLEND_END) return height
+    if (dist <= TRACK_FLAT_HALF) return TRACK_BED_HEIGHT
+    const t = smoothstep((dist - TRACK_FLAT_HALF) / (TRACK_BLEND_END - TRACK_FLAT_HALF))
+    return TRACK_BED_HEIGHT + (height - TRACK_BED_HEIGHT) * t
   }
 
   getNormal(x: number, z: number, params: HeightParams, epsilon = 0.5): { nx: number; ny: number; nz: number } {

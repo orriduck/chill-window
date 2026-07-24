@@ -82,6 +82,8 @@ export default function Home() {
 
       eng.update(dt);
 
+      // 2D 画布隐藏时跳过绘制（3D 场景由 ThreeCanvas 渲染），引擎仍驱动旅程状态
+      if (cv.style.visibility !== 'hidden') {
       // 场景先绘制到离屏画布
       if (!offscreenRef.current) offscreenRef.current = document.createElement('canvas');
       const off = offscreenRef.current;
@@ -111,6 +113,7 @@ export default function Home() {
         if (!ctx) return;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(off, 0, 0);
+      }
       }
 
       const plan = planRef.current;
@@ -255,7 +258,7 @@ export default function Home() {
 
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" style={{ zIndex: 1 }} />
+      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" style={{ zIndex: 1, visibility: 'hidden' }} />
       <ThreeCanvas className="absolute inset-0" />
 
       {/* 车窗框（橡胶密封条 + 内框 + 车身壁板，加厚） */}

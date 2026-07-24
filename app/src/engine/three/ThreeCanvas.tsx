@@ -8,6 +8,8 @@ import { SkyDome } from './sky/SkyDome'
 import { TimeOfDay } from './sky/TimeOfDay'
 import { WeatherSystem } from './weather/WeatherSystem'
 import { WindowFrame } from './interior/WindowFrame'
+import { TrackSystem } from './track/TrackSystem'
+import { LinesideProps } from './track/LinesideProps'
 
 const MAX_DT = 0.1 // clamp delta time to avoid spiral of death on lag
 
@@ -32,10 +34,14 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
     const timeOfDay = new TimeOfDay()
     const weather = new WeatherSystem()
     const windowFrame = new WindowFrame()
+    const trackSystem = new TrackSystem()
+    const lineside = new LinesideProps((x, z) => terrain.sampleHeight(x, z))
 
     scene.add(skyDome.mesh)
     scene.add(weather.group)
     scene.add(windowFrame.group)
+    scene.add(trackSystem.group)
+    scene.add(lineside.group)
     scene.scene.fog = new THREE.Fog(0xbfe3f2, 200, 900)
 
     const canvas = renderer.getDomElement()
@@ -98,7 +104,9 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
 
       terrain.update(camPos)
       terrain.applyFrustumCulling(cam)
-      windowFrame.update(cam)
+      trackSystem.update(camPos.z)
+      lineside.update(camPos.z)
+      windowFrame.update(cam, clockRef.current.elapsedTime)
 
       renderer.render(scene.scene, cam)
     }
@@ -118,6 +126,8 @@ export default function ThreeCanvas({ className }: ThreeCanvasProps) {
       skyDome.dispose()
       weather.dispose()
       windowFrame.dispose()
+      trackSystem.dispose()
+      lineside.dispose()
       renderer.dispose()
       scene.dispose()
       if (canvas.parentNode) {

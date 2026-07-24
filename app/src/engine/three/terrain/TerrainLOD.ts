@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { TerrainGen } from './TerrainGen'
+import { TerrainGen, TRACK_FLAT_HALF } from './TerrainGen'
 import type { BiomeType, BiomeColors, HeightParams } from './Biome'
 import { getBiomeConfig } from './Biome'
 
@@ -12,12 +12,21 @@ interface Chunk {
 }
 
 const CHUNK_SIZE = 256
-const MAX_CHUNKS_Z = 4
-const MAX_CHUNKS_X = 3
+const CHUNKS_BEHIND_Z = 2 // chunks behind the camera along travel (+Z)
+const CHUNKS_AHEAD_Z = 2 // chunks ahead of the camera along travel (+Z)
+const CHUNKS_VIEW_X = 3 // chunks in the view direction (+X side window)
 const UPDATE_INTERVAL = 10 // frames
 const SEGMENT_LENGTH = 2000 // travel distance per biome
 const BLEND_LENGTH = 500 // transition distance between biomes
 const BIOME_ORDER: BiomeType[] = ['field', 'forest', 'mountain', 'river', 'town']
+const BALLAST_LIGHT = 0x8a8078
+const BALLAST_DARK = 0x5f564c
+
+/** Deterministic per-position hash, used for gravel speckle. */
+function hash2(x: number, z: number): number {
+  const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453
+  return s - Math.floor(s)
+}
 
 export class TerrainLOD {
   private scene: THREE.Scene
@@ -69,8 +78,10 @@ export class TerrainLOD {
 
     const needed = new Set<string>()
 
-    for (let dz = -1; dz < MAX_CHUNKS_Z; dz++) {
-      for (let dx = -Math.floor(MAX_CHUNKS_X / 2); dx <= Math.floor(MAX_CHUNKS_X / 2); dx++) {
+    // Camera travels along +Z and looks toward +X (side window).
+    // Grid: straddle the track on Z, extend outward on +X.
+    for (let dz = -CHUNKS_BEHIND_Z; dz < CHUNKS_AHEAD_Z; dz++) {
+      for (let dx = 0; dx < CHUNKS_VIEW_X; dx++) {
         const chunkX = cx + dx
         const chunkZ = cz + dz
         const key = `${chunkX},${chunkZ}`
@@ -103,6 +114,19 @@ export class TerrainLOD {
 
   getCurrentBiome(): BiomeType {
     return this.currentBiome
+  }
+
+  /** World-space terrain height under the current (possibly blending) biome. */
+  sampleHeight(x: number, z: number): number {
+    return this.terrainGen.getHeight(x, z, this.activeParams)
+  }
+
+  private rgbToHex(c: { r: number; g: number; b: number }): number {
+    return (
+      (Math.round(c.r * 255) << 16) |
+      (Math.round(c.g * 255) << 8) |
+      Math.round(c.b * 255)
+    )
   }
 
   // ---- Biome transitions ----
@@ -209,14 +233,31 @@ export class TerrainLOD {
     const params = this.activeParams
     const cols = this.activeColors
 
+    const centerX = worldX + CHUNK_SIZE / 2
+    const centerZ = worldZ + CHUNK_SIZE / 2
+
     for (let i = 0; i < positions.length; i += 3) {
-      const x = positions[i]
-      const z = positions[i + 2]
+      // Sample in world coordinates: the track corridor flattening and the
+      // noise field are both defined in world space, not chunk-local space.
+      const x = positions[i] + centerX
+      const z = positions[i + 2] + centerZ
       const h = this.terrainGen.getHeight(x, z, params)
       positions[i + 1] = h
 
       const slope = this.terrainGen.getSlope(x, z, params)
-      const color = this.computeVertexColor(h, slope, cols, params)
+      let color = this.computeVertexColor(h, slope, cols, params)
+
+      // Ballast coloring: paint the flattened rail corridor with gravel
+      // speckle (two tones hashed per-vertex) so the near ground reads as
+      // crushed stone instead of a flat slab.
+      const dist = Math.abs(x)
+      if (dist < TRACK_FLAT_HALF + 3) {
+        const t = THREE.MathUtils.smoothstep(
+          THREE.MathUtils.clamp((dist - TRACK_FLAT_HALF + 2) / 5, 0, 1)
+        )
+        const gravelTone = hash2(x, z) > 0.5 ? BALLAST_LIGHT : BALLAST_DARK
+        color = this.lerpColor(gravelTone, this.rgbToHex(color), t)
+      }
       colors[i] = color.r
       colors[i + 1] = color.g
       colors[i + 2] = color.b
@@ -226,7 +267,7 @@ export class TerrainLOD {
     geometry.computeVertexNormals()
 
     const mesh = new THREE.Mesh(geometry, this.material)
-    mesh.position.set(worldX + CHUNK_SIZE / 2, 0, worldZ + CHUNK_SIZE / 2)
+    mesh.position.set(centerX, 0, centerZ)
     mesh.castShadow = true
     mesh.receiveShadow = true
 
@@ -252,6 +293,10 @@ export class TerrainLOD {
     for (let i = 0; i < attempts; i++) {
       const x = worldX + Math.random() * CHUNK_SIZE
       const z = worldZ + Math.random() * CHUNK_SIZE
+
+      // Keep the rail corridor clear of trees/rocks
+      if (Math.abs(x) < TRACK_FLAT_HALF + 4) continue
+
       const height = this.terrainGen.getHeight(x, z, params)
       const slope = this.terrainGen.getSlope(x, z, params)
 
