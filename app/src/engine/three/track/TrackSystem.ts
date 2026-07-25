@@ -4,9 +4,6 @@ const RAIL_GAUGE = 1.5
 const SEGMENT = 400 // track length that follows the camera (uniform, no seam)
 const SLEEPER_SPACING = 1.2
 const SLEEPER_COUNT = Math.ceil(SEGMENT / SLEEPER_SPACING)
-const FENCE_X = 5.5 // lineside fence on the window side, inside the corridor
-const FENCE_SPACING = 6
-const FENCE_COUNT = Math.ceil(SEGMENT / FENCE_SPACING)
 
 /**
  * The permanent way: ballast strip, twin rails and sleepers.
@@ -15,26 +12,48 @@ const FENCE_COUNT = Math.ceil(SEGMENT / FENCE_SPACING)
  */
 export class TrackSystem {
   readonly group = new THREE.Group()
-  private disposables: (THREE.BufferGeometry | THREE.Material)[] = []
+  private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
   private sleepers: THREE.InstancedMesh
-  private fencePosts: THREE.InstancedMesh
   private dummy = new THREE.Object3D()
+
+  /** Procedural gravel speckle so the ballast reads as crushed stone up close. */
+  private makeBallastTexture(): THREE.Texture {
+    const size = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#8a8078'
+    ctx.fillRect(0, 0, size, size)
+    // Scatter stones: mixed light/dark angular specks, a few warm ones
+    const tones = ['#9a9188', '#7a7068', '#6a6158', '#a39a8e', '#5f564c', '#948a7a']
+    for (let i = 0; i < 900; i++) {
+      const s = 1 + Math.random() * 2.5
+      ctx.fillStyle = tones[Math.floor(Math.random() * tones.length)]
+      ctx.fillRect(Math.random() * size, Math.random() * size, s, s * (0.6 + Math.random() * 0.8))
+    }
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    tex.repeat.set(2, 60)
+    tex.colorSpace = THREE.SRGBColorSpace
+    return this.track(tex)
+  }
 
   constructor() {
     const ballastMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x7d7468, roughness: 1.0, metalness: 0 })
+      new THREE.MeshStandardMaterial({
+        color: 0xbdb4a8, // tinted down by the texture's own mid-grey
+        map: this.makeBallastTexture(),
+        roughness: 1.0,
+        metalness: 0,
+      })
     )
     const steelMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x9a9a9e, roughness: 0.3, metalness: 0.9 })
+      new THREE.MeshStandardMaterial({ color: 0xb8bcc4, roughness: 0.25, metalness: 0.95 })
     )
     const sleeperMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x4a3a28, roughness: 0.95, metalness: 0 })
-    )
-    const postMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.9, metalness: 0 })
-    )
-    const fenceWireMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x777770, roughness: 0.5, metalness: 0.6 })
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, metalness: 0 })
     )
 
     // Ballast bed: slightly raised trapezoid-ish strip
@@ -51,38 +70,25 @@ export class TrackSystem {
       this.group.add(rail)
     }
 
-    // Sleepers (instanced)
+    // Sleepers (instanced), per-sleeper brown variation — weathered timber,
+    // not a uniform plastic strip
     const sleeperGeom = this.track(new THREE.BoxGeometry(2.4, 0.12, 0.3))
     this.sleepers = new THREE.InstancedMesh(sleeperGeom, sleeperMat, SLEEPER_COUNT)
     this.sleepers.castShadow = true
     this.sleepers.receiveShadow = true
+    const sleeperColor = new THREE.Color()
     for (let i = 0; i < SLEEPER_COUNT; i++) {
       this.dummy.position.set(0, 0.16, i * SLEEPER_SPACING - SEGMENT / 2)
       this.dummy.updateMatrix()
       this.sleepers.setMatrixAt(i, this.dummy.matrix)
+      sleeperColor.setHSL(0.07, 0.35 + Math.random() * 0.15, 0.16 + Math.random() * 0.08)
+      this.sleepers.setColorAt(i, sleeperColor)
     }
+    if (this.sleepers.instanceColor) this.sleepers.instanceColor.needsUpdate = true
     this.group.add(this.sleepers)
 
     // Baked AO: dark contact strips under the rails and ballast
     this.addContactAO()
-
-    // Lineside fence on the window side: posts + two wire strands.
-    const postGeom = this.track(new THREE.BoxGeometry(0.09, 1.1, 0.09))
-    postGeom.translate(0, 0.55, 0)
-    this.fencePosts = new THREE.InstancedMesh(postGeom, postMat, FENCE_COUNT)
-    this.fencePosts.castShadow = true
-    for (let i = 0; i < FENCE_COUNT; i++) {
-      this.dummy.position.set(FENCE_X, 0, i * FENCE_SPACING - SEGMENT / 2)
-      this.dummy.updateMatrix()
-      this.fencePosts.setMatrixAt(i, this.dummy.matrix)
-    }
-    this.group.add(this.fencePosts)
-
-    for (const wireY of [0.6, 1.0]) {
-      const strand = new THREE.Mesh(this.box(0.03, 0.03, SEGMENT), fenceWireMat)
-      strand.position.set(FENCE_X, wireY, 0)
-      this.group.add(strand)
-    }
   }
 
   /** Fake ambient occlusion: dark strips where objects meet the ground. */
@@ -126,18 +132,17 @@ export class TrackSystem {
     }
   }
 
-  /** Follow the camera along Z; sleepers/fence re-align to the world lattice. */
+  /** Follow the camera along Z; sleepers re-align to the world lattice. */
   update(camZ: number) {
     this.group.position.z = camZ
     this.sleepers.position.z = -(camZ % SLEEPER_SPACING)
-    this.fencePosts.position.z = -(camZ % FENCE_SPACING)
   }
 
   private box(w: number, h: number, d: number): THREE.BoxGeometry {
     return this.track(new THREE.BoxGeometry(w, h, d))
   }
 
-  private track<T extends THREE.BufferGeometry | THREE.Material>(resource: T): T {
+  private track<T extends THREE.BufferGeometry | THREE.Material | THREE.Texture>(resource: T): T {
     this.disposables.push(resource)
     return resource
   }
@@ -146,6 +151,5 @@ export class TrackSystem {
     for (const resource of this.disposables) resource.dispose()
     this.disposables = []
     this.sleepers.dispose()
-    this.fencePosts.dispose()
   }
 }

@@ -9,6 +9,10 @@ export class WebGLRenderer {
     this.renderer.setClearColor(0x111111)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    // Filmic tone mapping: richer highlights, less flat-poster colors.
+    // (Custom ShaderMaterials like the sky dome bypass this and stay as authored.)
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.15
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera) {

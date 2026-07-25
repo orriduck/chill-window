@@ -22,18 +22,42 @@ uniform float sunIntensity;
 
 varying vec3 vDir;
 
+// Per-pixel hash for dithering (kills gradient banding)
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 void main() {
   vec3 dir = normalize(vDir);
+  float y = clamp(dir.y, 0.0, 1.0);
 
-  // Vertical gradient: horizon at eye level, zenith overhead
-  float t = pow(clamp(dir.y, 0.0, 1.0), 0.55);
-  vec3 sky = mix(horizonColor, zenithColor, t);
+  // Three-stop gradient: horizon -> mid -> zenith. A mid mix keeps the
+  // transition soft instead of a two-color ramp that bands near the horizon.
+  vec3 midColor = mix(horizonColor, zenithColor, 0.45);
+  float t = pow(y, 0.6);
+  vec3 sky = t < 0.35
+    ? mix(horizonColor, midColor, smoothstep(0.0, 0.35, t))
+    : mix(midColor, zenithColor, smoothstep(0.35, 1.0, t));
 
-  // Sun disc + soft glow, larger near the horizon
+  // Haze band hugging the horizon — softens the sky/terrain junction so the
+  // world doesn't read as a hard color-card edge.
+  float haze = pow(1.0 - y, 6.0);
+  sky = mix(sky, horizonColor, haze * 0.85);
+
+  // Sun: hot core + defined disc + wide halo. The halo (not the disc) carries
+  // most of the dawn/dusk warmth, so a low sun tints the sky instead of
+  // showing a pale grey coin.
   float sunDot = dot(dir, normalize(sunDirection));
-  float disc = smoothstep(1.0 - sunSize, 1.0 - sunSize * 0.4, sunDot);
-  float glow = pow(max(sunDot, 0.0), 64.0) * 0.35;
-  sky += sunColor * (disc + glow) * sunIntensity;
+  float core = smoothstep(1.0 - sunSize * 0.35, 1.0 - sunSize * 0.1, sunDot);
+  float disc = smoothstep(1.0 - sunSize, 1.0 - sunSize * 0.35, sunDot);
+  float halo = pow(max(sunDot, 0.0), 32.0) * 0.5 + pow(max(sunDot, 0.0), 8.0) * 0.15;
+  sky += sunColor * (core * 1.2 + disc * 0.55 + halo) * sunIntensity;
+
+  // Below the horizon, settle on the horizon color (dome bottom, safety)
+  sky = mix(horizonColor, sky, smoothstep(-0.06, 0.0, dir.y));
+
+  // Dither to prevent banding in smooth gradients
+  sky += (hash(gl_FragCoord.xy) - 0.5) * (1.5 / 255.0);
 
   gl_FragColor = vec4(sky, 1.0);
 }
@@ -67,13 +91,13 @@ export class SkyDome {
     this.mesh.renderOrder = -100
 
     this.starMaterial = new THREE.PointsMaterial({
-      color: 0xffffff,
       size: 2,
       sizeAttenuation: false,
       transparent: true,
       opacity: 0,
       depthWrite: false,
       fog: false,
+      vertexColors: true, // per-star brightness: dim dust + a few bright anchors
     })
     this.stars = new THREE.Points(this.createStarGeometry(), this.starMaterial)
     this.stars.frustumCulled = false
@@ -82,8 +106,9 @@ export class SkyDome {
   }
 
   private createStarGeometry(): THREE.BufferGeometry {
-    const count = 600
+    const count = 900
     const positions = new Float32Array(count * 3)
+    const colors = new Float32Array(count * 3)
     const v = new THREE.Vector3()
     for (let i = 0; i < count; i++) {
       // Random points on the upper hemisphere of the dome
@@ -94,9 +119,16 @@ export class SkyDome {
       positions[i * 3] = v.x
       positions[i * 3 + 1] = v.y
       positions[i * 3 + 2] = v.z
+      // Mostly dim dust, ~8% bright anchors, slight warm/cool variety
+      const bright = Math.random() < 0.08 ? 0.9 + Math.random() * 0.1 : 0.25 + Math.random() * 0.45
+      const warm = Math.random() < 0.3
+      colors[i * 3] = bright
+      colors[i * 3 + 1] = bright * (warm ? 0.92 : 0.97)
+      colors[i * 3 + 2] = bright * (warm ? 0.82 : 1.0)
     }
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
     return geometry
   }
 

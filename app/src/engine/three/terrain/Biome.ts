@@ -6,6 +6,8 @@ export interface HeightParams {
   frequency: number
   octaves: number
   persistence: number
+  /** 0..1 — strength of the meandering river channel carve. */
+  river?: number
 }
 
 export interface BiomeColors {
@@ -85,10 +87,11 @@ export const BIOMES: Record<BiomeType, BiomeConfig> = {
   river: {
     heightParams: {
       baseHeight: -1,
-      amplitude: 2,
+      amplitude: 1.4, // gentle banks — tall bumps would hide the water
       frequency: 0.012,
       octaves: 3,
       persistence: 0.4,
+      river: 1, // meandering channel with water, banks and sand
     },
     colors: {
       ground: 0x5d9250,

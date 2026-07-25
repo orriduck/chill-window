@@ -4,6 +4,8 @@ import { Scene3D } from './core/Scene3D'
 import { TrainCamera } from './core/Camera'
 import { WebGLRenderer } from './core/Renderer'
 import { TerrainLOD } from './terrain/TerrainLOD'
+import { WaterSystem } from './terrain/WaterSystem'
+import { FieldPlots } from './terrain/FieldPlots'
 import { SkyDome } from './sky/SkyDome'
 import { TimeOfDay } from './sky/TimeOfDay'
 import { WeatherSystem } from './weather/WeatherSystem'
@@ -11,6 +13,7 @@ import { WindowFrame } from './interior/WindowFrame'
 import { TrackSystem } from './track/TrackSystem'
 import { LinesideProps } from './track/LinesideProps'
 import { StationManager } from './track/Station'
+import { TunnelManager } from './track/Tunnel'
 import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
 
@@ -56,6 +59,8 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     const camera = new TrainCamera()
     const renderer = new WebGLRenderer()
     const terrain = new TerrainLOD(exteriorGroup, 'field')
+    const water = new WaterSystem()
+    const fields = new FieldPlots((x, z) => terrain.sampleHeight(x, z))
     const skyDome = new SkyDome()
     const timeOfDay = new TimeOfDay()
     const weather = new WeatherSystem()
@@ -63,6 +68,7 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     const trackSystem = new TrackSystem()
     const lineside = new LinesideProps((x, z) => terrain.sampleHeight(x, z))
     const stations = new StationManager()
+    const tunnels = new TunnelManager()
     const perfMonitor = new PerfMonitor(renderer.renderer)
     const debugMode = new DebugMode()
 
@@ -72,6 +78,9 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     exteriorGroup.add(trackSystem.group)
     exteriorGroup.add(lineside.group)
     exteriorGroup.add(stations.group)
+    exteriorGroup.add(tunnels.group)
+    exteriorGroup.add(water.mesh)
+    exteriorGroup.add(fields.group)
 
     // Window frame is NOT in exteriorGroup — it stays visible in scene-hidden mode
     scene.add(windowFrame.group)
@@ -81,6 +90,10 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     // Wire debug mode
     debugMode.init(scene.scene, exteriorGroup)
     debugMode.perfMonitor = perfMonitor
+
+    // TEMP-DEBUG: teleport hook for scene verification (remove before commit)
+    ;(window as any).__teleport = (z: number) => { camera.camera.position.z = z }
+    ;(window as any).__train = { camera, terrain, timeOfDay, tunnels, water, fields, windowFrame }
 
     // Show the origin station at the camera's starting position
     stations.showStation('始发站', camera.z)
@@ -166,22 +179,27 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
       skyDome.setStarOpacity(state.starOpacity)
 
       ambient.color.copy(state.ambientColor)
-      ambient.intensity = state.ambientIntensity
       dirLight.color.copy(state.dirColor)
-      dirLight.intensity = state.dirIntensity
       dirLight.position.copy(state.dirPosition).add(camPos)
       dirLight.target.position.copy(camPos)
 
       const fog = scene.scene.fog as THREE.Fog
       fog.color.copy(state.fogColor)
-      fog.near = state.fogNear
-      fog.far = state.fogFar
+
+      // Tunnel enclosure: lights dim and fog closes in while inside the bore
+      const tunnelD = tunnels.update(camPos.z)
+      ambient.intensity = state.ambientIntensity * (1 - tunnelD * 0.8)
+      dirLight.intensity = state.dirIntensity * (1 - tunnelD * 0.92)
+      fog.near = THREE.MathUtils.lerp(state.fogNear, 8, tunnelD)
+      fog.far = THREE.MathUtils.lerp(state.fogFar, 130, tunnelD)
 
       terrain.update(camPos)
       terrain.applyFrustumCulling(cam)
       trackSystem.update(camPos.z)
       lineside.update(camPos.z)
       stations.update(camPos.z, dt)
+      water.update(camPos.z, terrain.riverStrength, clockRef.current.elapsedTime)
+      fields.update(camPos.z, terrain.currentBiomeName === 'field')
       windowFrame.update(cam, clockRef.current.elapsedTime)
 
       // Push fog back in top-down mode so terrain is visible from above
@@ -251,12 +269,15 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
       if (controlRef) controlRef.current = null
       debugMode.dispose()
       terrain.dispose()
+      water.dispose()
+      fields.dispose()
       skyDome.dispose()
       weather.dispose()
       windowFrame.dispose()
       trackSystem.dispose()
       lineside.dispose()
       stations.dispose()
+      tunnels.dispose()
       perfMonitor.dispose()
       renderer.dispose()
       scene.dispose()

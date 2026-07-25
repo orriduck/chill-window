@@ -1,7 +1,12 @@
 import * as THREE from 'three'
-import { TerrainGen, TRACK_FLAT_HALF } from './TerrainGen'
+import {
+  TerrainGen, TRACK_FLAT_HALF,
+  riverCenterX, RIVER_BANK, RIVER_HALF_WIDTH,
+  roadCenterX, ROAD_HALF_WIDTH, ROAD_VERGE,
+} from './TerrainGen'
 import type { BiomeType, BiomeColors, HeightParams } from './Biome'
 import { getBiomeConfig } from './Biome'
+import { createHouse, createTownCluster } from './TownGenerator'
 
 interface Chunk {
   mesh: THREE.Mesh
@@ -21,6 +26,13 @@ const BLEND_LENGTH = 500 // transition distance between biomes
 const BIOME_ORDER: BiomeType[] = ['field', 'forest', 'mountain', 'river', 'town']
 const BALLAST_LIGHT = 0x8a8078
 const BALLAST_DARK = 0x5f564c
+// Slowroad-style mottled meadow tones: dry golden straw vs deep olive
+const MEADOW_GOLD = 0xc2b26a
+const MEADOW_OLIVE = 0x3d6631
+// Country road: packed dirt with darker wheel ruts (asphalt in town)
+const ROAD_DIRT = 0x9a8258
+const ROAD_RUT = 0x7a6642
+const ROAD_ASPHALT = 0x4e4a44
 
 /** Deterministic per-position hash, used for gravel speckle. */
 function hash2(x: number, z: number): number {
@@ -73,10 +85,52 @@ export class TerrainLOD {
 
     this.material = new THREE.MeshStandardMaterial({
       vertexColors: true,
+      map: this.makeGroundDetailTexture(),
       roughness: 0.9,
       metalness: 0.0,
-      flatShading: true,
+      // Smooth shading + detail texture: rolling turf instead of low-poly facets
+      flatShading: false,
     })
+  }
+
+  /** Fine turf/soil grain tiled over the terrain, multiplied with vertex
+   *  colors. Near-white average so it only adds texture, not brightness. */
+  private makeGroundDetailTexture(): THREE.Texture {
+    const size = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#f2f2f2'
+    ctx.fillRect(0, 0, size, size)
+    // Short turf strokes: tiny darker/lighter dashes at random angles
+    for (let i = 0; i < 2600; i++) {
+      const v = 205 + Math.floor(Math.random() * 50)
+      ctx.strokeStyle = `rgba(${v - 30},${v},${v - 45},0.55)`
+      ctx.lineWidth = 1
+      const x = Math.random() * size
+      const y = Math.random() * size
+      const a = Math.random() * Math.PI
+      const len = 1 + Math.random() * 2.2
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len)
+      ctx.stroke()
+    }
+    // Sparse darker soil freckles
+    for (let i = 0; i < 260; i++) {
+      const v = 165 + Math.floor(Math.random() * 40)
+      ctx.fillStyle = `rgba(${v},${v},${v - 15},0.5)`
+      ctx.fillRect(Math.random() * size, Math.random() * size, 1.5, 1.5)
+    }
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.wrapS = THREE.RepeatWrapping
+    tex.wrapT = THREE.RepeatWrapping
+    // PlaneGeometry UVs span 0..1 per chunk; tile every ~5 world units
+    tex.repeat.set(CHUNK_SIZE / 5, CHUNK_SIZE / 5)
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.anisotropy = 4
+    return tex
   }
 
   update(cameraPos: THREE.Vector3) {
@@ -159,12 +213,22 @@ export class TerrainLOD {
     return this.terrainGen.getHeight(x, z, this.activeParams)
   }
 
+  /** 0..1 — current river carve strength (biome-blended). */
+  get riverStrength(): number {
+    return this.activeParams.river ?? 0
+  }
+
   private rgbToHex(c: { r: number; g: number; b: number }): number {
     return (
       (Math.round(c.r * 255) << 16) |
       (Math.round(c.g * 255) << 8) |
       Math.round(c.b * 255)
     )
+  }
+
+  /** Alias of rgbToHex for readability when chaining lerpColor results. */
+  private rgbToHexNum(c: { r: number; g: number; b: number }): number {
+    return this.rgbToHex(c)
   }
 
   // ---- Biome transitions ----
@@ -200,6 +264,7 @@ export class TerrainLOD {
       frequency: THREE.MathUtils.lerp(a.frequency, b.frequency, t),
       octaves: Math.round(THREE.MathUtils.lerp(a.octaves, b.octaves, t)),
       persistence: THREE.MathUtils.lerp(a.persistence, b.persistence, t),
+      river: THREE.MathUtils.lerp(a.river ?? 0, b.river ?? 0, t),
     }
   }
 
@@ -231,10 +296,17 @@ export class TerrainLOD {
     decor.traverse((obj) => {
       if (obj instanceof THREE.Mesh) {
         obj.geometry.dispose()
+        const disposeMat = (m: THREE.Material) => {
+          // Free canvas textures attached to the material (window grids etc.)
+          const std = m as THREE.MeshStandardMaterial
+          if (std.map) std.map.dispose()
+          if (std.emissiveMap) std.emissiveMap.dispose()
+          m.dispose()
+        }
         if (Array.isArray(obj.material)) {
-          obj.material.forEach((m) => m.dispose())
+          obj.material.forEach(disposeMat)
         } else {
-          obj.material.dispose()
+          disposeMat(obj.material)
         }
       }
     })
@@ -294,16 +366,51 @@ export class TerrainLOD {
       const slope = this.terrainGen.getSlope(x, z, params)
       let color = this.computeVertexColor(h, slope, cols, params)
 
-      // Ballast coloring: paint the flattened rail corridor with gravel
-      // speckle (two tones hashed per-vertex) so the near ground reads as
-      // crushed stone instead of a flat slab.
+      // Ballast coloring: gravel speckle only on the rail bed itself (|x|<6).
+      // Beyond that the verge is meadow — grass comes right up to the track
+      // like the slowroad reference, not a wide bare gravel strip.
       const dist = Math.abs(x)
-      if (dist < TRACK_FLAT_HALF + 3) {
-        const t = THREE.MathUtils.smoothstep(
-          (dist - TRACK_FLAT_HALF + 2) / 5, 0, 1
-        )
+      if (dist < 6) {
+        const t = THREE.MathUtils.smoothstep((dist - 4) / 4, 0, 1)
         const gravelTone = hash2(x, z) > 0.5 ? BALLAST_LIGHT : BALLAST_DARK
-        color = this.lerpColor(gravelTone, this.rgbToHex(color), t)
+        color = { ...this.lerpColor(gravelTone, this.rgbToHex(color), t), isGround: false }
+      } else if (color.isGround) {
+        // Slowroad-style mottled meadow: low-frequency golden-straw vs
+        // deep-olive patches, plus a fine per-vertex grain so the grass
+        // reads as dense short turf instead of a flat gradient.
+        const patch = this.terrainGen.getMottle(x, z)
+        const patchStrength = Math.min(1, Math.abs(patch - 0.5) * 2) * 0.55
+        const patchTone = patch > 0.5 ? MEADOW_GOLD : MEADOW_OLIVE
+        color = { ...this.lerpColor(this.rgbToHex(color), patchTone, patchStrength), isGround: true }
+        const grain = 0.93 + hash2(x * 3.1, z * 3.1) * 0.14
+        color.r = Math.min(1, color.r * grain)
+        color.g = Math.min(1, color.g * grain)
+        color.b = Math.min(1, color.b * grain)
+      }
+
+      // Country road: packed dirt lane with darker wheel ruts, grass verge
+      // blend on the edges. Asphalt when passing through town.
+      const roadD = Math.abs(x - roadCenterX(z))
+      if (roadD < ROAD_VERGE && dist >= 6) {
+        const inTown = this.currentBiome === 'town'
+        const base = inTown ? ROAD_ASPHALT : ROAD_DIRT
+        const speck = 0.9 + hash2(x * 7.3, z * 7.3) * 0.2
+        let roadTone = base
+        if (!inTown && Math.abs(roadD - 0.9) < 0.28) roadTone = ROAD_RUT
+        const edge = THREE.MathUtils.smoothstep((roadD - ROAD_HALF_WIDTH) / (ROAD_VERGE - ROAD_HALF_WIDTH), 0, 1)
+        const mixed = this.lerpColor(roadTone, this.rgbToHex(color), edge)
+        color = { r: Math.min(1, mixed.r * speck), g: Math.min(1, mixed.g * speck), b: Math.min(1, mixed.b * speck), isGround: false }
+      }
+
+      // River banks: sandy shore hugging the channel when the river is active
+      const riverStrength = params.river ?? 0
+      if (riverStrength > 0.05) {
+        const riverD = Math.abs(x - riverCenterX(z))
+        if (riverD < RIVER_BANK && riverD > RIVER_HALF_WIDTH * 0.7) {
+          const t = THREE.MathUtils.smoothstep((riverD - RIVER_HALF_WIDTH) / (RIVER_BANK - RIVER_HALF_WIDTH), 0, 1)
+          const sandy = this.lerpColor(cols.sand, this.rgbToHex(color), t)
+          color = { ...sandy, isGround: false }
+        }
       }
       colors[i] = color.r
       colors[i + 1] = color.g
@@ -335,6 +442,18 @@ export class TerrainLOD {
     densityScale: number
   ): THREE.Object3D[] {
     const decorations: THREE.Object3D[] = []
+    const riverStrength = params.river ?? 0
+
+    // Town biome: a coherent settlement instead of scattered farmhouses —
+    // one cluster per chunk, centred away from the road and rail corridor
+    if (this.currentBiome === 'town' && densityScale >= 0.5) {
+      const cx = Math.max(worldX + 40 + Math.random() * 60, 34)
+      const cz = worldZ + CHUNK_SIZE / 2
+      const town = createTownCluster(cx, cz, (x, z) => this.terrainGen.getHeight(x, z, params))
+      decorations.push(town)
+      // A few trees still scatter around the town edge
+    }
+
     const attempts = Math.floor(this.activeDecorDensity * 80 * densityScale)
 
     for (let i = 0; i < attempts; i++) {
@@ -343,11 +462,26 @@ export class TerrainLOD {
 
       // Keep the rail corridor clear of trees/rocks
       if (Math.abs(x) < TRACK_FLAT_HALF + 4) continue
+      // Keep the country road clear
+      if (Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
+      // Keep the river channel clear
+      if (riverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 2) continue
 
       const height = this.terrainGen.getHeight(x, z, params)
       const slope = this.terrainGen.getSlope(x, z, params)
 
-      if (slope >= 2) continue
+      // Steep ground: no trees or buildings, but rock outcrops grip the slope
+      if (slope >= 2) {
+        if (slope < 4.5 && Math.random() < 0.45) {
+          const outcrop = this.createRockOutcrop()
+          outcrop.position.set(x, height - 0.35, z)
+          outcrop.rotation.y = Math.random() * Math.PI * 2
+          const s = 0.9 + Math.random() * 1.6
+          outcrop.scale.setScalar(s)
+          decorations.push(outcrop)
+        }
+        continue
+      }
 
       let tooClose = false
       for (const decor of decorations) {
@@ -360,22 +494,27 @@ export class TerrainLOD {
       }
       if (tooClose) continue
 
-      // Weighted random: 50% tree, 15% rock, 15% bush, 12% building, 8% flower patch
+      // Weighted random: 50% tree, 13% rock, 14% bush, 12% building,
+      // 7% flower patch, 4% rock slab cluster
       const roll = Math.random()
       let decor: THREE.Object3D
       if (roll < 0.50) {
         decor = this.createRandomTree()
-      } else if (roll < 0.65) {
+      } else if (roll < 0.63) {
         decor = this.createRock()
-      } else if (roll < 0.80) {
+      } else if (roll < 0.77) {
         decor = this.createBush()
-      } else if (roll < 0.92) {
-        decor = this.createBuilding()
-      } else {
+      } else if (roll < 0.89) {
+        decor = createHouse()
+      } else if (roll < 0.96) {
         decor = this.createFlowerPatch()
+      } else {
+        decor = this.createRockOutcrop()
       }
-      decor.position.set(x, height, z)
+      decor.position.set(x, height - 0.12, z) // sink slightly — roots grip the slope
       decor.rotation.y = Math.random() * Math.PI * 2
+      const s = 0.8 + Math.random() * 0.7
+      decor.scale.setScalar(s)
       decorations.push(decor)
     }
 
@@ -392,24 +531,38 @@ export class TerrainLOD {
     return this.createBareTree()
   }
 
-  /** Classic pine: layered cone foliage */
+  /** Layered pine: 2-3 stacked cones, per-tree hue jitter — reads as a real
+   *  conifer silhouette instead of a single party hat. */
   private createPineTree(): THREE.Group {
     const tree = new THREE.Group()
-    const trunkGeom = new THREE.CylinderGeometry(0.2, 0.25, 1, 6)
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B5A2B, roughness: 0.9 })
+    const trunkGeom = new THREE.CylinderGeometry(0.18, 0.26, 1, 6)
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2e, roughness: 0.9 })
     const trunk = new THREE.Mesh(trunkGeom, trunkMat)
     trunk.position.y = 0.5
     trunk.castShadow = true
-
-    const foliageGeom = new THREE.CylinderGeometry(0, 1.2, 2.5, 8)
-    const foliageMat = new THREE.MeshStandardMaterial({ color: 0x2E8B57, roughness: 0.8 })
-    const foliage = new THREE.Mesh(foliageGeom, foliageMat)
-    foliage.position.y = 2
-    foliage.castShadow = true
-
     tree.add(trunk)
-    tree.add(foliage)
-    this.addShadow(tree, 1.2)
+
+    // Hue jitter around a deep spruce green
+    const hue = 0.33 + Math.random() * 0.05
+    const sat = 0.4 + Math.random() * 0.2
+    const layers = 2 + (Math.random() < 0.5 ? 1 : 0)
+    const baseRadius = 1.1 + Math.random() * 0.4
+    for (let i = 0; i < layers; i++) {
+      const f = i / layers // 0 bottom .. ~1 top
+      const r = baseRadius * (1 - f * 0.55)
+      const h = 1.6 - f * 0.3
+      const geom = new THREE.ConeGeometry(r, h, 7)
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color().setHSL(hue, sat, 0.28 + f * 0.07),
+        roughness: 0.85,
+        flatShading: true,
+      })
+      const cone = new THREE.Mesh(geom, mat)
+      cone.position.y = 1.1 + i * 0.85
+      cone.castShadow = true
+      tree.add(cone)
+    }
+    this.addShadow(tree, baseRadius)
     return tree
   }
 
@@ -532,7 +685,8 @@ export class TerrainLOD {
   /** Small flower patch: cluster of tiny colored spheres */
   private createFlowerPatch(): THREE.Group {
     const patch = new THREE.Group()
-    const colors = [0xff6a6a, 0xffcc44, 0xff8aff, 0xffffff, 0xffaa33]
+    // White-dominant daisy palette, per the slowroad reference
+    const colors = [0xffffff, 0xffffff, 0xf5f0dc, 0xffffff, 0xffe9a8]
     const count = 3 + Math.floor(Math.random() * 4)
     for (let i = 0; i < count; i++) {
       const r = 0.04 + Math.random() * 0.04
@@ -552,56 +706,45 @@ export class TerrainLOD {
     return patch
   }
 
-  /** Small building: farmhouse or shed */
-  private createBuilding(): THREE.Group {
-    const bldg = new THREE.Group()
-    const w = 2 + Math.random() * 2
-    const d = 1.5 + Math.random() * 1.5
-    const h = 1.2 + Math.random() * 0.8
-
-    // Walls
-    const wallColors = [0xb8a088, 0xa89878, 0xc0b090, 0x988868]
-    const wallGeom = new THREE.BoxGeometry(w, h, d)
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: wallColors[Math.floor(Math.random() * wallColors.length)],
-      roughness: 0.85,
-    })
-    const walls = new THREE.Mesh(wallGeom, wallMat)
-    walls.position.y = h / 2
-    walls.castShadow = true
-    bldg.add(walls)
-
-    // Roof (triangular prism)
-    const roofH = h * 0.6
-    const roofGeom = new THREE.CylinderGeometry(0, Math.max(w, d) * 0.75, roofH, 4)
-    const roofColors = [0x8a4a3a, 0x6a5a4a, 0x7a3a2a]
-    const roofMat = new THREE.MeshStandardMaterial({
-      color: roofColors[Math.floor(Math.random() * roofColors.length)],
-      roughness: 0.8,
-      flatShading: true,
-    })
-    const roof = new THREE.Mesh(roofGeom, roofMat)
-    roof.position.y = h + roofH / 2
-    roof.rotation.y = Math.PI / 4
-    roof.castShadow = true
-    bldg.add(roof)
-
-    // Door (dark rectangle on one face)
-    const doorGeom = new THREE.BoxGeometry(0.4, 0.7, 0.02)
-    const doorMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 0.9 })
-    const door = new THREE.Mesh(doorGeom, doorMat)
-    door.position.set(0, 0.35, d / 2 + 0.01)
-    bldg.add(door)
-
-    // Window (small bright rectangle)
-    const winGeom = new THREE.BoxGeometry(0.3, 0.3, 0.02)
-    const winMat = new THREE.MeshStandardMaterial({ color: 0xffeeaa, roughness: 0.3, emissive: 0xffeeaa, emissiveIntensity: 0.2 })
-    const win = new THREE.Mesh(winGeom, winMat)
-    win.position.set(w * 0.25, h * 0.55, d / 2 + 0.01)
-    bldg.add(win)
-
-    this.addShadow(bldg, Math.max(w, d) * 0.6)
-    return bldg
+  /** Rock outcrop: a cluster of angular boulders + flat strata slabs that
+   *  breaks up grassy slopes — grey-brown jittered stone, not smooth pebbles. */
+  private createRockOutcrop(): THREE.Group {
+    const group = new THREE.Group()
+    const boulderCount = 2 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < boulderCount; i++) {
+      const size = 0.5 + Math.random() * 0.9
+      const geom = new THREE.DodecahedronGeometry(size, 0)
+      const shade = 0.42 + Math.random() * 0.2
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color().setHSL(0.08 + Math.random() * 0.03, 0.06 + Math.random() * 0.08, shade),
+        roughness: 0.95,
+        flatShading: true,
+      })
+      const rock = new THREE.Mesh(geom, mat)
+      rock.position.set(
+        (Math.random() - 0.5) * 2.2,
+        size * (0.3 + Math.random() * 0.3),
+        (Math.random() - 0.5) * 2.2
+      )
+      rock.rotation.set(Math.random() * 0.6, Math.random() * Math.PI, Math.random() * 0.6)
+      rock.castShadow = true
+      group.add(rock)
+    }
+    // Strata slab: a thin tilted slab leaning against the boulders
+    if (Math.random() < 0.7) {
+      const slabMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color().setHSL(0.09, 0.07, 0.36 + Math.random() * 0.12),
+        roughness: 0.9,
+        flatShading: true,
+      })
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(1.6 + Math.random(), 0.22, 0.9 + Math.random() * 0.5), slabMat)
+      slab.position.set((Math.random() - 0.5) * 1.5, 0.35 + Math.random() * 0.4, (Math.random() - 0.5) * 1.5)
+      slab.rotation.set(0.3 + Math.random() * 0.5, Math.random() * Math.PI, (Math.random() - 0.5) * 0.3)
+      slab.castShadow = true
+      group.add(slab)
+    }
+    this.addShadow(group, 1.4)
+    return group
   }
 
   private computeVertexColor(
@@ -609,31 +752,41 @@ export class TerrainLOD {
     slope: number,
     cols: BiomeColors,
     params: HeightParams
-  ): { r: number; g: number; b: number } {
+  ): { r: number; g: number; b: number; isGround: boolean } {
     const maxH = params.baseHeight + params.amplitude * 1.5
     const snowLine = maxH * 0.75
 
     // Snow on high peaks
     if (height > snowLine) {
       const t = Math.min(1, (height - snowLine) / (maxH * 0.2))
-      return this.lerpColor(cols.snow, cols.rock, t)
+      return { ...this.lerpColor(cols.snow, cols.rock, t), isGround: false }
     }
 
     // Rock on steep slopes
     if (slope > 3) {
       const t = Math.min(1, (slope - 3) / 4)
-      return this.lerpColor(cols.rock, cols.groundDark, 1 - t)
+      return { ...this.lerpColor(cols.rock, cols.groundDark, 1 - t), isGround: false }
+    }
+
+    // Scree: mid-slope transition band where turf gives way to stone —
+    // speckled rock/ground mix so the rock line is ragged, not a clean edge
+    if (slope > 1.4) {
+      const t = THREE.MathUtils.smoothstep((slope - 1.4) / 1.6, 0, 1) * 0.7
+      const ground = this.lerpColor(cols.groundDark, cols.ground, 0.4)
+      const scree = this.lerpColor(this.rgbToHexNum(ground), cols.rock, t)
+      const grain = 0.88 + Math.random() * 0.24
+      return { r: scree.r * grain, g: scree.g * grain, b: scree.b * grain, isGround: false }
     }
 
     // Sand near water (low height)
     if (height < params.baseHeight - 0.5) {
       const t = Math.min(1, (params.baseHeight - 0.5 - height) / 2)
-      return this.lerpColor(cols.sand, cols.groundDark, t)
+      return { ...this.lerpColor(cols.sand, cols.groundDark, t), isGround: false }
     }
 
     // Default ground
     const t = Math.max(0, Math.min(1, (height - params.baseHeight) / params.amplitude))
-    return this.lerpColor(cols.groundDark, cols.ground, t)
+    return { ...this.lerpColor(cols.groundDark, cols.ground, t), isGround: true }
   }
 
   private lerpColor(a: number, b: number, t: number): { r: number; g: number; b: number } {
