@@ -7,10 +7,17 @@ import {
 import type { BiomeType, BiomeColors, HeightParams } from './Biome'
 import { getBiomeConfig } from './Biome'
 import { createHouse, createTownCluster } from './TownGenerator'
+import {
+  groundGrassTex, groundRockBumpTex,
+  grassSpriteTex, bushSpriteTex,
+  treeNearTex, treeNearBTex, treeFarTex, treeFarBTex,
+  applyAtlasUV,
+} from '../textures'
 
 interface Chunk {
   mesh: THREE.Mesh
   decorations: THREE.Object3D[]
+  grass?: THREE.InstancedMesh[]
   x: number
   z: number
   lod: number
@@ -72,6 +79,18 @@ export class TerrainLOD {
     }
   })()
 
+  // ---- Shared vegetation sprite resources (one per TerrainLOD instance) ----
+  private grassGeoms: THREE.BufferGeometry[] = []   // 4 atlas variants (2x2)
+  private grassMat!: THREE.MeshStandardMaterial
+  private bushGeoms: THREE.BufferGeometry[] = []    // 4 atlas variants, crossed
+  private bushMat!: THREE.MeshStandardMaterial
+  private treeGeomsNear: THREE.BufferGeometry[] = [] // 8 variants, crossed
+  private treeGeomsFar: THREE.BufferGeometry[] = []  // 8 variants, crossed
+  private treeMatNear!: THREE.MeshStandardMaterial
+  private treeMatNearB!: THREE.MeshStandardMaterial
+  private treeMatFar!: THREE.MeshStandardMaterial
+  private treeMatFarB!: THREE.MeshStandardMaterial
+
   constructor(scene: THREE.Object3D, biome: BiomeType = 'field') {
     this.parent = scene
     this.currentBiome = biome
@@ -83,54 +102,99 @@ export class TerrainLOD {
     this.activeColors = { ...config.colors }
     this.activeDecorDensity = config.decorDensity
 
+    // Ground: real grass photo texture + bump, tinted by vertex colors
+    groundGrassTex.wrapS = THREE.RepeatWrapping
+    groundGrassTex.wrapT = THREE.RepeatWrapping
+    groundGrassTex.repeat.set(CHUNK_SIZE / 10, CHUNK_SIZE / 10)
+    groundRockBumpTex.wrapS = THREE.RepeatWrapping
+    groundRockBumpTex.wrapT = THREE.RepeatWrapping
+    groundRockBumpTex.repeat.set(CHUNK_SIZE / 10, CHUNK_SIZE / 10)
     this.material = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      map: this.makeGroundDetailTexture(),
-      roughness: 0.9,
+      map: groundGrassTex,
+      bumpMap: groundRockBumpTex,
+      bumpScale: 0.35,
+      roughness: 0.95,
       metalness: 0.0,
-      // Smooth shading + detail texture: rolling turf instead of low-poly facets
       flatShading: false,
     })
+
+    // Grass sprites: single quads, one geometry per atlas variant (UV-baked)
+    this.grassMat = new THREE.MeshStandardMaterial({
+      map: grassSpriteTex,
+      alphaTest: 0.45,
+      side: THREE.DoubleSide,
+      roughness: 1.0,
+      metalness: 0,
+    })
+    for (let v = 0; v < 4; v++) {
+      const g = new THREE.PlaneGeometry(0.75, 0.6)
+      g.translate(0, 0.28, 0)
+      applyAtlasUV(g, v % 2, Math.floor(v / 2), 2, 2)
+      this.grassGeoms.push(g)
+    }
+
+    // Bush sprites: crossed quads, one geometry per atlas variant
+    this.bushMat = new THREE.MeshStandardMaterial({
+      map: bushSpriteTex,
+      alphaTest: 0.45,
+      side: THREE.DoubleSide,
+      roughness: 1.0,
+      metalness: 0,
+    })
+    for (let v = 0; v < 4; v++) {
+      this.bushGeoms.push(this.makeCrossedSprite(1.6, 0.8, v % 2, Math.floor(v / 2), 2, 2))
+    }
+
+    // Tree sprites: crossed quads, near + far atlases (4x1 each, two sheets)
+    const treeMatOpts: THREE.MeshStandardMaterialParameters = {
+      alphaTest: 0.45,
+      side: THREE.DoubleSide,
+      roughness: 1.0,
+      metalness: 0,
+    }
+    this.treeMatNear = new THREE.MeshStandardMaterial({ ...treeMatOpts, map: treeNearTex })
+    this.treeMatNearB = new THREE.MeshStandardMaterial({ ...treeMatOpts, map: treeNearBTex })
+    this.treeMatFar = new THREE.MeshStandardMaterial({ ...treeMatOpts, map: treeFarTex })
+    this.treeMatFarB = new THREE.MeshStandardMaterial({ ...treeMatOpts, map: treeFarBTex })
+    for (let v = 0; v < 8; v++) {
+      this.treeGeomsNear.push(this.makeCrossedSprite(2.4, 4.8, v % 4, 0, 4, 1))
+      this.treeGeomsFar.push(this.makeCrossedSprite(2.4, 4.8, v % 4, 0, 4, 1))
+    }
   }
 
-  /** Fine turf/soil grain tiled over the terrain, multiplied with vertex
-   *  colors. Near-white average so it only adds texture, not brightness. */
-  private makeGroundDetailTexture(): THREE.Texture {
-    const size = 128
-    const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#f2f2f2'
-    ctx.fillRect(0, 0, size, size)
-    // Short turf strokes: tiny darker/lighter dashes at random angles
-    for (let i = 0; i < 2600; i++) {
-      const v = 205 + Math.floor(Math.random() * 50)
-      ctx.strokeStyle = `rgba(${v - 30},${v},${v - 45},0.55)`
-      ctx.lineWidth = 1
-      const x = Math.random() * size
-      const y = Math.random() * size
-      const a = Math.random() * Math.PI
-      const len = 1 + Math.random() * 2.2
-      ctx.beginPath()
-      ctx.moveTo(x, y)
-      ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len)
-      ctx.stroke()
+  /** Two quads crossed at 90°, merged into one geometry, UV-windowed into an
+   *  atlas cell. Base of the sprite sits at local y=0. */
+  private makeCrossedSprite(
+    w: number,
+    h: number,
+    col: number,
+    row: number,
+    cols: number,
+    rows: number,
+  ): THREE.BufferGeometry {
+    const p1 = new THREE.PlaneGeometry(w, h)
+    p1.translate(0, h / 2, 0)
+    const p2 = p1.clone()
+    p2.rotateY(Math.PI / 2)
+    const a = p1.toNonIndexed()
+    const b = p2.toNonIndexed()
+    const merged = new THREE.BufferGeometry()
+    for (const name of ['position', 'normal', 'uv'] as const) {
+      const aa = a.attributes[name].array as Float32Array
+      const bb = b.attributes[name].array as Float32Array
+      const itemSize = a.attributes[name].itemSize
+      const out = new Float32Array(aa.length + bb.length)
+      out.set(aa, 0)
+      out.set(bb, aa.length)
+      merged.setAttribute(name, new THREE.BufferAttribute(out, itemSize))
     }
-    // Sparse darker soil freckles
-    for (let i = 0; i < 260; i++) {
-      const v = 165 + Math.floor(Math.random() * 40)
-      ctx.fillStyle = `rgba(${v},${v},${v - 15},0.5)`
-      ctx.fillRect(Math.random() * size, Math.random() * size, 1.5, 1.5)
-    }
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.wrapS = THREE.RepeatWrapping
-    tex.wrapT = THREE.RepeatWrapping
-    // PlaneGeometry UVs span 0..1 per chunk; tile every ~5 world units
-    tex.repeat.set(CHUNK_SIZE / 5, CHUNK_SIZE / 5)
-    tex.colorSpace = THREE.SRGBColorSpace
-    tex.anisotropy = 4
-    return tex
+    applyAtlasUV(merged, col, row, cols, rows)
+    p1.dispose()
+    p2.dispose()
+    a.dispose()
+    b.dispose()
+    return merged
   }
 
   update(cameraPos: THREE.Vector3) {
@@ -286,6 +350,13 @@ export class TerrainLOD {
     this.parent.remove(chunk.mesh)
     chunk.mesh.geometry.dispose()
 
+    if (chunk.grass) {
+      for (const g of chunk.grass) this.parent.remove(g)
+      // Shared geometries/material managed by TerrainLOD, not per-chunk.
+      // GPU instance-data buffers are small; JS GC reclaims them when
+      // the InstancedMesh wrappers are collected.
+    }
+
     for (const decor of chunk.decorations) {
       this.parent.remove(decor)
       this.disposeDecoration(decor)
@@ -319,6 +390,74 @@ export class TerrainLOD {
     disc.position.y = 0.02
     disc.renderOrder = 1
     parent.add(disc)
+  }
+
+  /** Fill per-variant InstancedMeshes with grass sprite tufts for a chunk,
+   *  skipping the rail corridor, roads, rivers, and steep slopes.
+   *  Uses deterministic per-cell hash instead of Math.random() so chunk
+   *  recreation is stable and allocation-free beyond the matrix buffers. */
+  private populateGrass(
+    worldX: number,
+    worldZ: number,
+    params: HeightParams,
+    densityScale: number,
+  ): THREE.InstancedMesh[] {
+    // Dense coverage: single-quad sprites are cheap enough for high density
+    const spacing = densityScale >= 1 ? 2.3 : densityScale >= 0.5 ? 3.6 : 6.0
+    const cols = Math.floor(CHUNK_SIZE / spacing)
+    const rows = Math.floor(CHUNK_SIZE / spacing)
+    if (cols === 0 || rows === 0) return []
+
+    // Collect matrix elements into flat arrays per variant (no Matrix4 allocs)
+    const variantData: number[][] = [[], [], [], []]
+    const dummy = new THREE.Object3D()
+    const riverStrength = params.river ?? 0
+    // Slope sampling is the hot path (multiple noise evals per cell) —
+    // only bother for near chunks where steep-bank grass is visible
+    const checkSlope = densityScale >= 1
+
+    for (let ci = 0; ci < cols; ci++) {
+      for (let ri = 0; ri < rows; ri++) {
+        const jx = (hash2(ci * 997 + ri * 3, worldZ * 0.001) - 0.5) * spacing * 0.6
+        const jz = (hash2(ci * 13 + ri * 733, worldX * 0.001) - 0.5) * spacing * 0.6
+        const x = worldX + ci * spacing + spacing / 2 + jx
+        const z = worldZ + ri * spacing + spacing / 2 + jz
+
+        if (Math.abs(x) < TRACK_FLAT_HALF + 5) continue
+        if (Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
+        if (riverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 1.5) continue
+
+        const h = this.terrainGen.getHeight(x, z, params)
+        if (checkSlope && this.terrainGen.getSlope(x, z, params) > 1.3) continue
+
+        const rot = hash2(ci * 31 + ri * 17, worldZ) * Math.PI * 2
+        const scale = 0.85 + hash2(ci * 7 + ri * 11, worldX) * 1.15
+        const variant = Math.floor(hash2(ci * 5 + ri * 41, worldX + worldZ) * 4)
+
+        dummy.position.set(x, h + 0.03, z)
+        dummy.rotation.set(0, rot, 0)
+        dummy.scale.setScalar(scale)
+        dummy.updateMatrix()
+        const e = dummy.matrix.elements
+        const arr = variantData[variant]
+        for (let k = 0; k < 16; k++) arr.push(e[k])
+      }
+    }
+
+    const meshes: THREE.InstancedMesh[] = []
+    for (let v = 0; v < 4; v++) {
+      const data = variantData[v]
+      const count = data.length / 16
+      if (count === 0) continue
+      const mesh = new THREE.InstancedMesh(this.grassGeoms[v], this.grassMat, count)
+      mesh.castShadow = false // alpha-tested grass casting shadows = noise + cost
+      mesh.receiveShadow = false // and sampling shadows per-fragment is the real killer
+      mesh.frustumCulled = false
+      mesh.instanceMatrix.array.set(data)
+      mesh.instanceMatrix.needsUpdate = true
+      meshes.push(mesh)
+    }
+    return meshes
   }
 
   private createChunk(cx: number, cz: number, cameraPos: THREE.Vector3) {
@@ -432,7 +571,10 @@ export class TerrainLOD {
     for (const decor of decorations) {
       this.parent.add(decor)
     }
-    this.chunks.set(`${cx},${cz}`, { mesh, decorations, x: cx, z: cz, lod: resolution })
+    // Dense grass sprites covering all green terrain
+    const grass = this.populateGrass(worldX, worldZ, params, densityScale)
+    for (const g of grass) this.parent.add(g)
+    this.chunks.set(`${cx},${cz}`, { mesh, decorations, grass: grass.length > 0 ? grass : undefined, x: cx, z: cz, lod: resolution })
   }
 
   private createDecorations(
@@ -499,11 +641,11 @@ export class TerrainLOD {
       const roll = Math.random()
       let decor: THREE.Object3D
       if (roll < 0.50) {
-        decor = this.createRandomTree()
+        decor = this.createTreeBillboard(densityScale)
       } else if (roll < 0.63) {
         decor = this.createRock()
       } else if (roll < 0.77) {
-        decor = this.createBush()
+        decor = this.createBushBillboard()
       } else if (roll < 0.89) {
         decor = createHouse()
       } else if (roll < 0.96) {
@@ -521,143 +663,35 @@ export class TerrainLOD {
     return decorations
   }
 
-  // ---- Tree variety ----
+  // ---- Vegetation billboards ----
 
-  private createRandomTree(): THREE.Group {
-    const kind = Math.random()
-    if (kind < 0.35) return this.createPineTree()
-    if (kind < 0.65) return this.createBroadleafTree()
-    if (kind < 0.85) return this.createWillowTree()
-    return this.createBareTree()
-  }
-
-  /** Layered pine: 2-3 stacked cones, per-tree hue jitter — reads as a real
-   *  conifer silhouette instead of a single party hat. */
-  private createPineTree(): THREE.Group {
+  /** Tree billboard: crossed quads textured with a pre-rendered tree sprite.
+   *  Near chunks use the detailed sheet, far chunks the silhouette sheet. */
+  private createTreeBillboard(densityScale: number): THREE.Group {
     const tree = new THREE.Group()
-    const trunkGeom = new THREE.CylinderGeometry(0.18, 0.26, 1, 6)
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2e, roughness: 0.9 })
-    const trunk = new THREE.Mesh(trunkGeom, trunkMat)
-    trunk.position.y = 0.5
-    trunk.castShadow = true
-    tree.add(trunk)
-
-    // Hue jitter around a deep spruce green
-    const hue = 0.33 + Math.random() * 0.05
-    const sat = 0.4 + Math.random() * 0.2
-    const layers = 2 + (Math.random() < 0.5 ? 1 : 0)
-    const baseRadius = 1.1 + Math.random() * 0.4
-    for (let i = 0; i < layers; i++) {
-      const f = i / layers // 0 bottom .. ~1 top
-      const r = baseRadius * (1 - f * 0.55)
-      const h = 1.6 - f * 0.3
-      const geom = new THREE.ConeGeometry(r, h, 7)
-      const mat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color().setHSL(hue, sat, 0.28 + f * 0.07),
-        roughness: 0.85,
-        flatShading: true,
-      })
-      const cone = new THREE.Mesh(geom, mat)
-      cone.position.y = 1.1 + i * 0.85
-      cone.castShadow = true
-      tree.add(cone)
-    }
-    this.addShadow(tree, baseRadius)
+    const near = densityScale >= 0.5
+    const variant = Math.floor(Math.random() * 8)
+    const geom = near ? this.treeGeomsNear[variant] : this.treeGeomsFar[variant]
+    const mat = near
+      ? (variant < 4 ? this.treeMatNear : this.treeMatNearB)
+      : (variant < 4 ? this.treeMatFar : this.treeMatFarB)
+    const sprite = new THREE.Mesh(geom, mat)
+    sprite.castShadow = near // far sprites skip the alpha-tested shadow pass
+    tree.add(sprite)
+    this.addShadow(tree, 1.2)
     return tree
   }
 
-  /** Broadleaf: trunk + clustered sphere foliage puffs */
-  private createBroadleafTree(): THREE.Group {
-    const tree = new THREE.Group()
-    const h = 1.5 + Math.random() * 1.5 // trunk height
-    const trunkGeom = new THREE.CylinderGeometry(0.12, 0.2, h, 5)
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a4a32, roughness: 0.9 })
-    const trunk = new THREE.Mesh(trunkGeom, trunkMat)
-    trunk.position.y = h / 2
-    trunk.castShadow = true
-    tree.add(trunk)
-
-    // 3-5 foliage spheres clustered on top
-    const greenBase = 0x3a7a3a + Math.floor(Math.random() * 0x001010)
-    const puffCount = 3 + Math.floor(Math.random() * 3)
-    for (let i = 0; i < puffCount; i++) {
-      const r = 0.5 + Math.random() * 0.6
-      const geom = new THREE.SphereGeometry(r, 6, 5)
-      const mat = new THREE.MeshStandardMaterial({
-        color: greenBase + Math.floor(Math.random() * 0x000808),
-        roughness: 0.85,
-        flatShading: true,
-      })
-      const puff = new THREE.Mesh(geom, mat)
-      puff.position.set(
-        (Math.random() - 0.5) * 0.8,
-        h + (Math.random() - 0.3) * 0.6,
-        (Math.random() - 0.5) * 0.8
-      )
-      puff.castShadow = true
-      tree.add(puff)
-    }
-    this.addShadow(tree, 1.0)
-    return tree
+  /** Bush billboard: crossed quads with a pre-rendered bush sprite. */
+  private createBushBillboard(): THREE.Group {
+    const bush = new THREE.Group()
+    const variant = Math.floor(Math.random() * 4)
+    const sprite = new THREE.Mesh(this.bushGeoms[variant], this.bushMat)
+    sprite.castShadow = true
+    bush.add(sprite)
+    this.addShadow(bush, 0.8)
+    return bush
   }
-
-  /** Willow: short trunk + drooping cone strands */
-  private createWillowTree(): THREE.Group {
-    const tree = new THREE.Group()
-    const trunkGeom = new THREE.CylinderGeometry(0.15, 0.22, 1.8, 5)
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.9 })
-    const trunk = new THREE.Mesh(trunkGeom, trunkMat)
-    trunk.position.y = 0.9
-    trunk.castShadow = true
-    tree.add(trunk)
-
-    // Drooping foliage: inverted cone with wider base
-    const foliageGeom = new THREE.ConeGeometry(1.4, 2.2, 7)
-    const foliageMat = new THREE.MeshStandardMaterial({ color: 0x5a8a4a, roughness: 0.85, flatShading: true })
-    const foliage = new THREE.Mesh(foliageGeom, foliageMat)
-    foliage.position.y = 2.8
-    foliage.castShadow = true
-    tree.add(foliage)
-    this.addShadow(tree, 1.4)
-    return tree
-  }
-
-  /** Bare tree: trunk + branch cylinders, no leaves */
-  private createBareTree(): THREE.Group {
-    const tree = new THREE.Group()
-    const h = 1.8 + Math.random() * 1.2
-    const branchMat = new THREE.MeshStandardMaterial({ color: 0x4a3c30, roughness: 0.95 })
-
-    const trunkGeom = new THREE.CylinderGeometry(0.1, 0.18, h, 5)
-    const trunk = new THREE.Mesh(trunkGeom, branchMat)
-    trunk.position.y = h / 2
-    trunk.castShadow = true
-    tree.add(trunk)
-
-    // 3-5 branches radiating from the top
-    const branchCount = 3 + Math.floor(Math.random() * 3)
-    for (let i = 0; i < branchCount; i++) {
-      const len = 0.5 + Math.random() * 0.8
-      const geom = new THREE.CylinderGeometry(0.03, 0.05, len, 4)
-      const branch = new THREE.Mesh(geom, branchMat)
-      const angle = (i / branchCount) * Math.PI * 2 + Math.random() * 0.5
-      branch.position.set(
-        Math.cos(angle) * len * 0.4,
-        h * 0.8 + Math.random() * h * 0.2,
-        Math.sin(angle) * len * 0.4
-      )
-      branch.rotation.set(
-        (Math.random() - 0.5) * 0.8,
-        0,
-        (Math.random() - 0.5) * 0.8 + 0.4
-      )
-      tree.add(branch)
-    }
-    this.addShadow(tree, 0.6)
-    return tree
-  }
-
-  // ---- Other decorations ----
 
   private createRock(): THREE.Mesh {
     const size = 0.5 + Math.random() * 0.5
@@ -667,19 +701,6 @@ export class TerrainLOD {
     rock.castShadow = true
     this.addShadow(rock, size * 0.6)
     return rock
-  }
-
-  /** Low bush: squashed sphere */
-  private createBush(): THREE.Mesh {
-    const r = 0.3 + Math.random() * 0.4
-    const geom = new THREE.SphereGeometry(r, 5, 4)
-    const greenShade = 0x2a6a2a + Math.floor(Math.random() * 0x001508)
-    const mat = new THREE.MeshStandardMaterial({ color: greenShade, roughness: 0.9, flatShading: true })
-    const bush = new THREE.Mesh(geom, mat)
-    bush.scale.y = 0.6
-    bush.castShadow = true
-    this.addShadow(bush, r * 0.7)
-    return bush
   }
 
   /** Small flower patch: cluster of tiny colored spheres */
@@ -784,9 +805,12 @@ export class TerrainLOD {
       return { ...this.lerpColor(cols.sand, cols.groundDark, t), isGround: false }
     }
 
-    // Default ground
+    // Default ground: brighten toward white so the grass photo texture
+    // dominates; the biome hue only tints (field warm, forest cool…).
     const t = Math.max(0, Math.min(1, (height - params.baseHeight) / params.amplitude))
-    return { ...this.lerpColor(cols.groundDark, cols.ground, t), isGround: true }
+    const groundTint = this.lerpColor(cols.groundDark, cols.ground, t)
+    const tint = this.lerpColor(this.rgbToHexNum(groundTint), 0xffffff, 0.55)
+    return { ...tint, isGround: true }
   }
 
   private lerpColor(a: number, b: number, t: number): { r: number; g: number; b: number } {
@@ -808,5 +832,17 @@ export class TerrainLOD {
     this.material.dispose()
     this.shadowDisc.geom.dispose()
     this.shadowDisc.mat.dispose()
+    for (const g of this.grassGeoms) g.dispose()
+    this.grassMat.dispose()
+    for (const g of this.bushGeoms) g.dispose()
+    this.bushMat.dispose()
+    for (const g of this.treeGeomsNear) g.dispose()
+    for (const g of this.treeGeomsFar) g.dispose()
+    this.treeMatNear.dispose()
+    this.treeMatNearB.dispose()
+    this.treeMatFar.dispose()
+    this.treeMatFarB.dispose()
+    // Note: shared textures in ../textures are app-lifetime resources,
+    // disposed only on full shutdown via disposeSharedTextures().
   }
 }
