@@ -31,4 +31,13 @@ describe('trainSoundMix', () => {
     expect(trainSoundMix({ speedRatio: 1, acceleration: 0 }).railInterval)
       .toBeLessThan(trainSoundMix({ speedRatio: 0.2, acceleration: 0 }).railInterval)
   })
+
+  it('adds restrained pneumatic pulses only while decelerating', () => {
+    const coasting = trainSoundMix({ speedRatio: 0.8, acceleration: 0 })
+    const braking = trainSoundMix({ speedRatio: 0.8, acceleration: -3.5 })
+
+    expect(coasting.brakePulseGain).toBe(0)
+    expect(braking.brakePulseGain).toBeGreaterThan(0)
+    expect(braking.brakePulseInterval).toBeLessThan(coasting.brakePulseInterval)
+  })
 })

@@ -11,6 +11,8 @@ export interface TrainSoundMix {
   tractionHz: number
   railInterval: number
   railGain: number
+  brakePulseInterval: number
+  brakePulseGain: number
 }
 
 function clamp(value: number, min = 0, max = 1): number {
@@ -33,6 +35,8 @@ export function trainSoundMix(motion: TrainAudioMotion): TrainSoundMix {
     tractionHz: 46 + speed * 178 + pulling * 22,
     railInterval: 1 / (1.05 + speed * 4.15),
     railGain: speed * 0.16,
+    brakePulseInterval: 1.45 - braking * 0.55,
+    brakePulseGain: braking * (0.035 + speed * 0.1),
   }
 }
 
@@ -48,6 +52,7 @@ export class TrainAudio {
   private noiseBuffer: AudioBuffer | null = null
   private steadySources: AudioScheduledSourceNode[] = []
   private nextRailPulseAt = 0
+  private nextBrakePulseAt = 0
   private speedRatio = 0
   private running = false
 
@@ -129,11 +134,16 @@ export class TrainAudio {
 
     if (this.speedRatio < 0.06) {
       this.nextRailPulseAt = time
+      this.nextBrakePulseAt = time
       return
     }
     if (time >= this.nextRailPulseAt) {
       this.emitRailPulse(mix, time)
       this.nextRailPulseAt = time + mix.railInterval
+    }
+    if (mix.brakePulseGain > 0.004 && time >= this.nextBrakePulseAt) {
+      this.emitBrakePulse(mix, time)
+      this.nextBrakePulseAt = time + mix.brakePulseInterval
     }
   }
 
@@ -165,6 +175,28 @@ export class TrainAudio {
     source.connect(bandpass).connect(gain).connect(this.master)
     source.start(time)
     source.stop(time + 0.08)
+  }
+
+  /** A short filtered air release gives braking a physical cadence without
+   * masking the rolling bed. It only appears while measured deceleration is
+   * present, so coasting remains quiet. */
+  private emitBrakePulse(mix: TrainSoundMix, time: number) {
+    if (!this.ctx || !this.master || !this.noiseBuffer) return
+    const source = this.ctx.createBufferSource()
+    source.buffer = this.noiseBuffer
+    const highpass = this.ctx.createBiquadFilter()
+    highpass.type = 'highpass'
+    highpass.frequency.value = 650
+    const lowpass = this.ctx.createBiquadFilter()
+    lowpass.type = 'lowpass'
+    lowpass.frequency.value = 2100
+    const gain = this.ctx.createGain()
+    gain.gain.setValueAtTime(0.001, time)
+    gain.gain.linearRampToValueAtTime(Math.max(0.001, mix.brakePulseGain), time + 0.035)
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.34)
+    source.connect(highpass).connect(lowpass).connect(gain).connect(this.master)
+    source.start(time)
+    source.stop(time + 0.36)
   }
 
   /** A restrained two-note departure/arrival signal, independent of train motion. */
