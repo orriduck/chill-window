@@ -1107,6 +1107,8 @@ export class StationManager {
   readonly group = new THREE.Group()
   private current: Station | null = null
   private currentZ = 0
+  private queued: Station | null = null
+  private queuedZ = 0
   private hideTimer = 0
   private routePlan: RoutePlan
 
@@ -1127,10 +1129,34 @@ export class StationManager {
   /** Show a station at the given Z center. Replaces any existing station. */
   showStation(name: string, zCenter: number, kind?: StationVisualKind) {
     this.hideStation()
+    this.clearQueuedStation()
     this.current = new Station(name, zCenter, kind ?? stationVisualKindAt(zCenter, this.routePlan))
     this.currentZ = zCenter
     this.hideTimer = 0
     this.group.add(this.current.group)
+  }
+
+  /** Build the next station while it is still outside the side-window view.
+   * Keeping it as a distinct queued object avoids deleting the departing
+   * station merely to make room for the arriving one. */
+  queueStation(name: string, zCenter: number, kind?: StationVisualKind) {
+    this.clearQueuedStation()
+    this.queued = new Station(name, zCenter, kind ?? stationVisualKindAt(zCenter, this.routePlan))
+    this.queuedZ = zCenter
+    this.group.add(this.queued.group)
+  }
+
+  /** Promote a prebuilt station once the former stop has left the cabin view. */
+  activateQueuedStation(name: string, zCenter: number, kind?: StationVisualKind) {
+    if (this.queued && Math.abs(this.queuedZ - zCenter) < 0.1) {
+      this.hideStation()
+      this.current = this.queued
+      this.currentZ = this.queuedZ
+      this.queued = null
+      this.hideTimer = 0
+      return
+    }
+    this.showStation(name, zCenter, kind)
   }
 
   /** Remove the current station immediately. */
@@ -1143,12 +1169,21 @@ export class StationManager {
     this.hideTimer = 0
   }
 
+  private clearQueuedStation() {
+    if (!this.queued) return
+    this.group.remove(this.queued.group)
+    this.queued.dispose()
+    this.queued = null
+  }
+
   /**
    * Call every frame with the camera Z position.
    * Automatically hides the station once it has fully left the view,
    * after a short grace period so the transition is not jarring.
    */
   update(camZ: number, dt: number, ambientIntensity = 0.45) {
+    if (!this.current && !this.queued) return
+    this.queued?.updateLighting(ambientIntensity)
     if (!this.current) return
     this.current.updateLighting(ambientIntensity)
     const hideThreshold = this.currentZ + StationManager.PLATFORM_LENGTH / 2 + StationManager.HIDE_BUFFER
@@ -1164,5 +1199,6 @@ export class StationManager {
 
   dispose() {
     this.hideStation()
+    this.clearQueuedStation()
   }
 }
