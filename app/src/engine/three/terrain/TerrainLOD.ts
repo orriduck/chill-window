@@ -581,10 +581,11 @@ if ( terrainDebugView > 0.5 ) {
         const z = worldZ + ri * spacing + spacing / 2 + jz
         const biome = this.getBiomeAt(z)
         const riverStrength = biome.params.river ?? 0
+        const channel = waterChannelAt(z)
 
         if (Math.abs(x) < TRACK_FLAT_HALF + 5) continue
         if ((biome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
-        const channel = waterChannelAt(z)
+        if (channel.lakeStrength > 0.1 && Math.abs(x - farBankRoadCenterX(z)) < ROAD_VERGE + 1) continue
         if (riverStrength > 0.2 && Math.abs(x - channel.centerX) < channel.bankHalfWidth + 1.5) continue
         if (this.isRiverVillageClearing(x, z)) continue
 
@@ -715,6 +716,7 @@ if ( terrainDebugView > 0.5 ) {
 
       // Country road: packed dirt lane with darker wheel ruts, grass verge
       // blend on the edges. Asphalt when passing through town.
+      const channel = waterChannelAt(z)
       const roadD = Math.abs(x - roadCenterX(z))
       const roadStrength = params.road ?? 0
       if (roadStrength > 0.01 && roadD < ROAD_VERGE && dist >= 6) {
@@ -728,10 +730,21 @@ if ( terrainDebugView > 0.5 ) {
         color = { r: Math.min(1, mixed.r * speck), g: Math.min(1, mixed.g * speck), b: Math.min(1, mixed.b * speck), isGround: false }
       }
 
+      // The far-bank access road is not a disconnected decorative stripe:
+      // it only exists while the shared lakeshore channel is open.
+      const lakeRoadD = Math.abs(x - farBankRoadCenterX(z))
+      if (channel.lakeStrength > 0.01 && lakeRoadD < ROAD_VERGE && dist >= 6) {
+        const speck = 0.9 + hash01(x * 7.3, z * 7.3) * 0.2
+        let roadTone = ROAD_DIRT
+        if (Math.abs(lakeRoadD - 0.9) < 0.28) roadTone = ROAD_RUT
+        const edge = THREE.MathUtils.smoothstep((lakeRoadD - ROAD_HALF_WIDTH) / (ROAD_VERGE - ROAD_HALF_WIDTH), 0, 1)
+        const mixed = this.lerpColor(roadTone, this.rgbToHex(color), 1 - (1 - edge) * channel.lakeStrength)
+        color = { r: Math.min(1, mixed.r * speck), g: Math.min(1, mixed.g * speck), b: Math.min(1, mixed.b * speck), isGround: false }
+      }
+
       // River banks: sandy shore hugging the channel when the river is active
       const riverStrength = params.river ?? 0
       if (riverStrength > 0.05) {
-        const channel = waterChannelAt(z)
         const riverD = Math.abs(x - channel.centerX)
         if (riverD < channel.bankHalfWidth && riverD > channel.halfWidth * 0.7) {
           const t = THREE.MathUtils.smoothstep((riverD - channel.halfWidth) / (channel.bankHalfWidth - channel.halfWidth), 0, 1)
@@ -746,12 +759,12 @@ if ( terrainDebugView > 0.5 ) {
       const edgeNoise = (hash01(x * 0.23, z * 0.23) - 0.5) * 0.16
       const trackWeight = 1 - THREE.MathUtils.smoothstep(dist + edgeNoise, 5, 11)
       const roadWeight = roadStrength * (1 - THREE.MathUtils.smoothstep(roadD + edgeNoise, ROAD_HALF_WIDTH, ROAD_VERGE + 1.2))
-      const channel = waterChannelAt(z)
       const riverD = Math.abs(x - channel.centerX)
       const riverBankWeight = riverStrength > 0.05
         ? 1 - THREE.MathUtils.smoothstep(riverD + edgeNoise, channel.halfWidth * 0.7, channel.bankHalfWidth)
         : 0
-      const gravelWeight = Math.max(trackWeight, roadWeight, riverBankWeight)
+      const lakeRoadWeight = channel.lakeStrength * (1 - THREE.MathUtils.smoothstep(lakeRoadD + edgeNoise, ROAD_HALF_WIDTH, ROAD_VERGE + 1.2))
+      const gravelWeight = Math.max(trackWeight, roadWeight, lakeRoadWeight, riverBankWeight)
 
       const maxH = params.baseHeight + params.amplitude * 1.5
       const snowLine = maxH * 0.75
@@ -852,13 +865,14 @@ if ( terrainDebugView > 0.5 ) {
       const z = worldZ + random() * CHUNK_SIZE
       const localBiome = this.getBiomeAt(z)
       const localRiverStrength = localBiome.params.river ?? 0
+      const channel = waterChannelAt(z)
 
       // Keep the rail corridor clear of trees/rocks
       if (Math.abs(x) < TRACK_FLAT_HALF + 4) continue
       // Keep the country road clear
       if ((localBiome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
+      if (channel.lakeStrength > 0.1 && Math.abs(x - farBankRoadCenterX(z)) < ROAD_VERGE + 1) continue
       // Keep the river channel clear
-      const channel = waterChannelAt(z)
       if (localRiverStrength > 0.2 && Math.abs(x - channel.centerX) < channel.bankHalfWidth + 2) continue
       // Planned river access and house lots stay free of random vegetation.
       if (this.isRiverVillageClearing(x, z)) continue

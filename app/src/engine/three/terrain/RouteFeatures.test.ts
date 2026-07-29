@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createSeededRandom, hash01, seedFromGrid } from '../core/procedural'
+import { getBiomeConfig } from './Biome'
+import { trackElevationAt } from './RouteProfile'
+import { farBankRoadCenterX, RIVER_HALF_WIDTH, TerrainGen, waterChannelAt } from './TerrainGen'
 import {
   MOUNTAIN_TUNNEL_LENGTH,
   MOUNTAIN_TUNNEL_OFFSET,
@@ -59,6 +62,19 @@ describe('route features', () => {
     expect(lakeBasinStrengthAt(lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH)).toBe(0)
     expect(lakeBasinStrengthAt(lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH / 2)).toBeGreaterThan(0)
     expect(lakeBasinStrengthAt(mountainStart + 20)).toBe(0)
+
+    const lakeChannel = waterChannelAt(lakeCenter)
+    expect(lakeChannel.halfWidth).toBeGreaterThan(RIVER_HALF_WIDTH)
+    expect(waterChannelAt(villageZ).halfWidth).toBe(RIVER_HALF_WIDTH)
+    expect(farBankRoadCenterX(lakeCenter)).toBeGreaterThan(lakeChannel.centerX + lakeChannel.halfWidth)
+    const terrain = new TerrainGen()
+    expect(
+      terrain.getHeight(
+        farBankRoadCenterX(lakeCenter),
+        lakeCenter,
+        getBiomeConfig('river').heightParams,
+      ),
+    ).toBeCloseTo(trackElevationAt(lakeCenter) - 0.15, 5)
 
     expect(routeFeatureForSegment(mountainSegment).tunnel).toBe(true)
     expect(tunnelCenter).toBeGreaterThan(mountainStart)
