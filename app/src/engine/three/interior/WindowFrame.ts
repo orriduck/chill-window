@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 const FRAME_DISTANCE = 2
+const WINDOW_FORWARD_OFFSET = 0.5
 // Shift the whole cabin down in view so the upper compartment (luggage
 // rack, folded bunk) sits inside the visible band instead of hugging the
 // top edge, where the app UI covers it.
@@ -23,7 +24,6 @@ const WALL_H = 7
 export class WindowFrame {
   readonly group = new THREE.Group()
   private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
-  private tmpDir = new THREE.Vector3()
   private wobblers: { obj: THREE.Object3D; baseY: number; phase: number }[] = []
 
   constructor() {
@@ -517,14 +517,14 @@ export class WindowFrame {
     this.group.add(socket)
   }
 
-  /** Keep a real side-window plane beside the moving camera. */
+  /** Keep a real side-window plane beside the moving camera. It does not
+   * follow the look direction: turning the camera must reveal the same
+   * perspective skew in the frame and the exterior world. */
   update(camera: THREE.PerspectiveCamera, time = 0) {
-    camera.getWorldDirection(this.tmpDir)
-    const forwardX = Math.max(0.001, this.tmpDir.x)
     this.group.position.set(
       camera.position.x + FRAME_DISTANCE,
       camera.position.y + GROUP_Y_OFFSET,
-      camera.position.z + (this.tmpDir.z / forwardX) * FRAME_DISTANCE,
+      camera.position.z + WINDOW_FORWARD_OFFSET,
     )
     this.group.rotation.set(0, -Math.PI / 2, 0)
 
