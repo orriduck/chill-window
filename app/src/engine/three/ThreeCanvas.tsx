@@ -176,22 +176,23 @@ export default function ThreeCanvas({
         }),
         setWindowHud: (readout: WindowHudReadout) => windowFrame.setHudReadout(readout),
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
-        planStation: (_name: string, durationSeconds: number) => {
+        planStation: (name: string, durationSeconds: number) => {
           const anchor = nearestStationAnchor(camera.z, CRUISE_SPEED * durationSeconds, routePlan)
           scheduledStationStopZ = anchor.z - StationManager.APPROACH_STATION_LEAD
           scheduledStationCruiseSpeed = cruiseSpeedForScheduledStop(
             scheduledStationStopZ - camera.z,
             durationSeconds,
           )
+          stations.queueStation(name, anchor.z)
         },
         prepareStation: (name: string) => {
           preparedStationStopZ = scheduledStationStopZ ?? camera.z + TrainCamera.STATION_PREPARE_DISTANCE
-          stations.showStation(name, preparedStationStopZ + StationManager.APPROACH_STATION_LEAD)
+          stations.activateQueuedStation(name, preparedStationStopZ + StationManager.APPROACH_STATION_LEAD)
         },
         approachStation: (name: string) => {
           const stopZ = preparedStationStopZ ?? scheduledStationStopZ ?? camera.z + TrainCamera.STATION_STOP_DISTANCE
           if (preparedStationStopZ === null) {
-            stations.showStation(name, stopZ + StationManager.APPROACH_STATION_LEAD)
+            stations.activateQueuedStation(name, stopZ + StationManager.APPROACH_STATION_LEAD)
           }
           camera.beginStationApproach(stopZ)
           preparedStationStopZ = null
