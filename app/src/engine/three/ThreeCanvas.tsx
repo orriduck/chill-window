@@ -339,7 +339,7 @@ export default function ThreeCanvas({
       terrain.applyFrustumCulling(cam)
       trackSystem.update(camPos.z)
       lineside.update(camPos.z)
-      stations.update(camPos.z, simulationDt)
+      stations.update(camPos.z, simulationDt, ambient.intensity)
       water.update(camPos.z, terrain.riverStrength, elapsedTime)
       valleyBridges.update(camPos.z)
       mountainRoadworks.update(camPos.z)

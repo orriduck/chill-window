@@ -20,12 +20,24 @@ const LIGHT_COUNT = 7
 const SIGN_COUNT = 2
 
 /**
+ * Fade station lighting against the real exterior ambient budget. This keeps
+ * daytime fixtures quiet while allowing a warm, low-glare platform read at
+ * dusk, night, and inside a tunnel approach.
+ */
+export function stationNightLightLevel(ambientIntensity: number): number {
+  const darkness = THREE.MathUtils.clamp((0.42 - ambientIntensity) / 0.24, 0, 1)
+  return 0.12 + THREE.MathUtils.smoothstep(darkness, 0, 1) * 0.88
+}
+
+/**
  * A train station platform placed alongside the track.
  * Long enough that the train takes noticeable time to pass through.
  */
 export class Station {
   readonly group = new THREE.Group()
   private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
+  private nightLitMaterials: { material: THREE.MeshStandardMaterial; baseIntensity: number }[] = []
+  private platformGlowMaterial: THREE.MeshBasicMaterial | null = null
 
   constructor(name: string, zCenter: number) {
     this.group.position.set(0, trackElevationAt(zCenter), zCenter)
@@ -63,8 +75,11 @@ export class Station {
     const lightMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4, metalness: 0.6 })
     )
-    const lightBulbMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xffffdd, emissive: 0xffffdd, emissiveIntensity: 0.8, roughness: 0.2 })
+    const lightBulbMat = this.registerNightMaterial(
+      this.track(
+        new THREE.MeshStandardMaterial({ color: 0xffe1b0, emissive: 0xffc574, emissiveIntensity: 0, roughness: 0.2 })
+      ),
+      1.1,
     )
     const asphaltMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x4b4d4e, roughness: 0.95 })
@@ -75,17 +90,33 @@ export class Station {
     const facadeTrimMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x766b5c, roughness: 0.78 })
     )
-    const facadeGlassMat = this.track(
-      new THREE.MeshStandardMaterial({
-        color: 0x344a5c, roughness: 0.25, metalness: 0.35,
-        emissive: 0xffd68a, emissiveIntensity: 0.18,
+    const facadeGlassMat = this.registerNightMaterial(
+      this.track(
+        new THREE.MeshStandardMaterial({
+          color: 0x344a5c, roughness: 0.25, metalness: 0.35,
+          emissive: 0xffd08a, emissiveIntensity: 0,
+        })
+      ),
+      0.32,
+    )
+    const platformGlowMaterial = this.track(
+      new THREE.MeshBasicMaterial({
+        color: 0xffc77d,
+        map: this.makePlatformGlowTexture(),
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
       })
     )
+    this.platformGlowMaterial = platformGlowMaterial
+    const bulbGeometry = this.track(new THREE.SphereGeometry(0.12, 8, 6))
+    const roadBulbGeometry = this.track(new THREE.SphereGeometry(0.16, 10, 8))
+    const platformGlowGeometry = this.track(new THREE.PlaneGeometry(5.4, 8.2))
 
     this.buildPlatform(concreteMat, edgeMat)
     this.buildCanopy(roofMat, pillarMat)
     this.buildBenches(benchWoodMat, benchMetalMat)
-    this.buildLights(lightMat, lightBulbMat)
+    this.buildLights(lightMat, lightBulbMat, platformGlowMaterial, bulbGeometry, platformGlowGeometry)
     this.buildSigns(name, signMat, signTextMat)
     this.buildDistrict(
       name,
@@ -96,7 +127,9 @@ export class Station {
       facadeGlassMat,
       lightMat,
       lightBulbMat,
+      roadBulbGeometry,
     )
+    this.updateLighting(0.45)
   }
 
   /** Platform surface + safety edge line */
@@ -183,7 +216,13 @@ export class Station {
   }
 
   /** Platform light posts */
-  private buildLights(poleMat: THREE.Material, bulbMat: THREE.Material) {
+  private buildLights(
+    poleMat: THREE.Material,
+    bulbMat: THREE.Material,
+    glowMat: THREE.Material,
+    bulbGeometry: THREE.BufferGeometry,
+    glowGeometry: THREE.BufferGeometry,
+  ) {
     const spacing = PLATFORM_LENGTH / (LIGHT_COUNT + 1)
     for (let i = 0; i < LIGHT_COUNT; i++) {
       // Pole
@@ -205,7 +244,7 @@ export class Station {
       this.group.add(arm)
 
       const bulb = new THREE.Mesh(
-        new THREE.SphereGeometry(0.12, 8, 6), bulbMat
+        bulbGeometry, bulbMat
       )
       bulb.position.set(
         PLATFORM_X - PLATFORM_WIDTH / 2 + 0.8 - 0.7,
@@ -213,6 +252,13 @@ export class Station {
         -PLATFORM_LENGTH / 2 + (i + 1) * spacing
       )
       this.group.add(bulb)
+
+      // A translucent pool conveys a lit platform without seven costly point
+      // lights. It stays on the platform surface and is occluded by furniture.
+      const pool = new THREE.Mesh(glowGeometry, glowMat)
+      pool.rotation.x = -Math.PI / 2
+      pool.position.set(PLATFORM_X + 0.5, PLATFORM_HEIGHT + 0.018, bulb.position.z)
+      this.group.add(pool)
     }
   }
 
@@ -257,6 +303,7 @@ export class Station {
     glassMat: THREE.Material,
     lightMat: THREE.Material,
     bulbMat: THREE.Material,
+    roadBulbGeometry: THREE.BufferGeometry,
   ) {
     const pavingMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0xb9b1a4, roughness: 0.9 })
@@ -362,7 +409,7 @@ export class Station {
       const pole = new THREE.Mesh(this.box(0.13, 4.2, 0.13), lightMat)
       pole.position.set(roadX - 4.6, 2.1, z)
       this.group.add(pole)
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), bulbMat)
+      const bulb = new THREE.Mesh(roadBulbGeometry, bulbMat)
       bulb.position.set(roadX - 4.6, 4.2, z)
       this.group.add(bulb)
     }
@@ -487,6 +534,40 @@ export class Station {
     return texture
   }
 
+  /** Soft alpha pool used beneath the existing platform lamp fixtures. */
+  private makePlatformGlowTexture(): THREE.CanvasTexture {
+    const size = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const context = canvas.getContext('2d')!
+    const gradient = context.createRadialGradient(
+      size / 2, size / 2, size * 0.06,
+      size / 2, size / 2, size / 2,
+    )
+    gradient.addColorStop(0, 'rgba(255,255,255,0.42)')
+    gradient.addColorStop(0.48, 'rgba(255,255,255,0.14)')
+    gradient.addColorStop(1, 'rgba(255,255,255,0)')
+    context.fillStyle = gradient
+    context.fillRect(0, 0, size, size)
+    const texture = this.track(new THREE.CanvasTexture(canvas))
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+  }
+
+  updateLighting(ambientIntensity: number) {
+    const level = stationNightLightLevel(ambientIntensity)
+    for (const light of this.nightLitMaterials) {
+      light.material.emissiveIntensity = light.baseIntensity * level
+    }
+    if (this.platformGlowMaterial) this.platformGlowMaterial.opacity = 0.26 * level
+  }
+
+  private registerNightMaterial(material: THREE.MeshStandardMaterial, baseIntensity: number) {
+    this.nightLitMaterials.push({ material, baseIntensity })
+    return material
+  }
+
   private box(w: number, h: number, d: number): THREE.BoxGeometry {
     return this.track(new THREE.BoxGeometry(w, h, d))
   }
@@ -545,8 +626,9 @@ export class StationManager {
    * Automatically hides the station once it has fully left the view,
    * after a short grace period so the transition is not jarring.
    */
-  update(camZ: number, dt: number) {
+  update(camZ: number, dt: number, ambientIntensity = 0.45) {
     if (!this.current) return
+    this.current.updateLighting(ambientIntensity)
     const hideThreshold = this.currentZ + StationManager.PLATFORM_LENGTH / 2 + StationManager.HIDE_BUFFER
     if (camZ > hideThreshold) {
       this.hideTimer += dt
