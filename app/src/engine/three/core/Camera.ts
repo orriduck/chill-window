@@ -60,6 +60,7 @@ export class TrainCamera {
   private vibRoll = 0
   private stationStopZ: number | null = null
   private departingStation = false
+  private currentAcceleration = 0
   private viewYaw = 0
   private viewPitch = 0
   private targetViewYaw = 0
@@ -138,6 +139,7 @@ export class TrainCamera {
     let amp = Math.min(1, this.currentSpeed / CRUISE_SPEED) ** 2
 
     if (advance) {
+      const speedAtFrameStart = this.currentSpeed
       this.time += dt
 
       const currentZ = this.camera.position.z
@@ -170,6 +172,7 @@ export class TrainCamera {
       if (this.stationStopZ !== null && z >= this.stationStopZ) {
         this.currentSpeed = 0
       }
+      this.currentAcceleration = (this.currentSpeed - speedAtFrameStart) / Math.max(dt, 0.001)
 
       // --- Speed-scaled vibration ---
       // Normalize speed 0..1 and square the factor so low speeds stay calm.
@@ -192,6 +195,8 @@ export class TrainCamera {
       this.vibY += (rawY - this.vibY) * alpha
       this.vibX += (rawX - this.vibX) * alpha
       this.vibRoll += (rawRoll - this.vibRoll) * alpha
+    } else {
+      this.currentAcceleration = 0
     }
 
     const viewAlpha = 1 - Math.exp(-dt * 14)
@@ -226,6 +231,10 @@ export class TrainCamera {
   /** Current Z position (for chunk tracking). */
   get z(): number {
     return this.camera.position.z
+  }
+
+  get acceleration(): number {
+    return this.currentAcceleration
   }
 
   get grade(): number {

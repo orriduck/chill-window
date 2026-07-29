@@ -28,6 +28,8 @@ export interface TrainMotionTelemetry {
   speedKmh: number
   /** 0..1 ratio for systems such as the rolling audio mix. */
   speedRatio: number
+  /** Current physical acceleration, used by the synthesized traction/brake mix. */
+  acceleration: number
 }
 
 /** Methods exposed to the parent for controlling the 3D train. */
@@ -156,6 +158,7 @@ export default function ThreeCanvas({
         getMotion: () => ({
           speedKmh: paused ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
           speedRatio: paused ? 0 : Math.min(1, camera.currentSpeed / CRUISE_SPEED),
+          acceleration: paused ? 0 : camera.acceleration,
         }),
         setWindowHud: (readout: WindowHudReadout) => windowFrame.setHudReadout(readout),
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),

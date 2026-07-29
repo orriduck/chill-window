@@ -1,115 +1,219 @@
-// 程序生成的火车环境音：棕噪声底噪（过轨隆隆声）+ 节奏性"咣当"声
+export interface TrainAudioMotion {
+  speedRatio: number
+  /** Physical speed change in world units per second squared. */
+  acceleration: number
+}
+
+export interface TrainSoundMix {
+  rollingGain: number
+  tractionGain: number
+  brakeGain: number
+  tractionHz: number
+  railInterval: number
+  railGain: number
+}
+
+function clamp(value: number, min = 0, max = 1): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+/** A quiet electric commuter profile: traction rises while pulling away,
+ * rolling texture takes over at cruise, and pneumatic/friction noise appears
+ * only while the train is physically slowing down. */
+export function trainSoundMix(motion: TrainAudioMotion): TrainSoundMix {
+  const speed = clamp(motion.speedRatio)
+  const acceleration = clamp(motion.acceleration / 3.5, -1, 1)
+  const pulling = Math.max(0, acceleration)
+  const braking = Math.max(0, -acceleration)
+
+  return {
+    rollingGain: 0.015 + speed * 0.21,
+    tractionGain: pulling * (0.045 + speed * 0.2),
+    brakeGain: braking * (0.025 + speed * 0.17),
+    tractionHz: 46 + speed * 178 + pulling * 22,
+    railInterval: 1 / (1.05 + speed * 4.15),
+    railGain: speed * 0.16,
+  }
+}
+
+/** Procedural in-cabin soundscape for an electric commuter train. */
 export class TrainAudio {
-  private ctx: AudioContext | null = null;
-  private master: GainNode | null = null;
-  private rumbleGain: GainNode | null = null;
-  private clackTimer: number | null = null;
-  private clackAcc = 0;
-  private speed = 0;
-  private running = false;
+  private ctx: AudioContext | null = null
+  private master: GainNode | null = null
+  private rollingGain: GainNode | null = null
+  private tractionGain: GainNode | null = null
+  private brakeGain: GainNode | null = null
+  private tractionOscillator: OscillatorNode | null = null
+  private tractionHarmonic: OscillatorNode | null = null
+  private noiseBuffer: AudioBuffer | null = null
+  private steadySources: AudioScheduledSourceNode[] = []
+  private nextRailPulseAt = 0
+  private speedRatio = 0
+  private running = false
 
   start() {
-    if (this.running) return;
-    this.ctx = new AudioContext();
-    this.master = this.ctx.createGain();
-    this.master.gain.value = 0;
-    this.master.connect(this.ctx.destination);
+    if (this.running) return
 
-    // 棕噪声循环
-    const len = this.ctx.sampleRate * 4;
-    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    let last = 0;
-    for (let i = 0; i < len; i++) {
-      const white = Math.random() * 2 - 1;
-      last = (last + 0.02 * white) / 1.02;
-      data[i] = last * 3.2;
+    const ctx = new AudioContext()
+    const master = ctx.createGain()
+    master.gain.value = 0
+    master.connect(ctx.destination)
+
+    this.ctx = ctx
+    this.master = master
+    this.noiseBuffer = this.createNoiseBuffer(ctx)
+
+    const rollingGain = ctx.createGain()
+    const tractionGain = ctx.createGain()
+    const brakeGain = ctx.createGain()
+    rollingGain.gain.value = 0
+    tractionGain.gain.value = 0
+    brakeGain.gain.value = 0
+    rollingGain.connect(master)
+    tractionGain.connect(master)
+    brakeGain.connect(master)
+    this.rollingGain = rollingGain
+    this.tractionGain = tractionGain
+    this.brakeGain = brakeGain
+
+    const noise = ctx.createBufferSource()
+    noise.buffer = this.noiseBuffer
+    noise.loop = true
+    const rollingFilter = ctx.createBiquadFilter()
+    rollingFilter.type = 'lowpass'
+    rollingFilter.frequency.value = 220
+    const brakeHighpass = ctx.createBiquadFilter()
+    brakeHighpass.type = 'highpass'
+    brakeHighpass.frequency.value = 360
+    const brakeLowpass = ctx.createBiquadFilter()
+    brakeLowpass.type = 'lowpass'
+    brakeLowpass.frequency.value = 1450
+    noise.connect(rollingFilter).connect(rollingGain)
+    noise.connect(brakeHighpass).connect(brakeLowpass).connect(brakeGain)
+    noise.start()
+    this.steadySources.push(noise)
+
+    const tractionOscillator = ctx.createOscillator()
+    tractionOscillator.type = 'sine'
+    tractionOscillator.frequency.value = 46
+    tractionOscillator.connect(tractionGain)
+    tractionOscillator.start()
+    const tractionHarmonic = ctx.createOscillator()
+    tractionHarmonic.type = 'triangle'
+    tractionHarmonic.detune.value = 6
+    tractionHarmonic.frequency.value = 92
+    const harmonicGain = ctx.createGain()
+    harmonicGain.gain.value = 0.34
+    tractionHarmonic.connect(harmonicGain).connect(tractionGain)
+    tractionHarmonic.start()
+    this.tractionOscillator = tractionOscillator
+    this.tractionHarmonic = tractionHarmonic
+    this.steadySources.push(tractionOscillator, tractionHarmonic)
+
+    master.gain.linearRampToValueAtTime(0.46, ctx.currentTime + 1.1)
+    this.running = true
+    void ctx.resume()
+  }
+
+  setMotion(motion: TrainAudioMotion) {
+    if (!this.ctx || !this.master || !this.running) return
+
+    const mix = trainSoundMix(motion)
+    const time = this.ctx.currentTime
+    this.speedRatio = clamp(motion.speedRatio)
+    this.rollingGain?.gain.setTargetAtTime(mix.rollingGain, time, 0.28)
+    this.tractionGain?.gain.setTargetAtTime(mix.tractionGain, time, 0.16)
+    this.brakeGain?.gain.setTargetAtTime(mix.brakeGain, time, 0.12)
+    this.tractionOscillator?.frequency.setTargetAtTime(mix.tractionHz, time, 0.18)
+    this.tractionHarmonic?.frequency.setTargetAtTime(mix.tractionHz * 2.02, time, 0.18)
+
+    if (this.speedRatio < 0.06) {
+      this.nextRailPulseAt = time
+      return
     }
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    src.loop = true;
-    const lp = this.ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 240;
-    this.rumbleGain = this.ctx.createGain();
-    this.rumbleGain.gain.value = 0;
-    src.connect(lp).connect(this.rumbleGain).connect(this.master);
-    src.start();
-
-    this.master.gain.linearRampToValueAtTime(0.5, this.ctx.currentTime + 2);
-    this.clackTimer = window.setInterval(() => this.tickClack(), 60);
-    this.running = true;
-  }
-
-  setSpeed(s: number) {
-    this.speed = s;
-    if (this.rumbleGain && this.ctx) {
-      this.rumbleGain.gain.setTargetAtTime(s * 0.6, this.ctx.currentTime, 0.4);
+    if (time >= this.nextRailPulseAt) {
+      this.emitRailPulse(mix, time)
+      this.nextRailPulseAt = time + mix.railInterval
     }
   }
 
-  private tickClack() {
-    if (!this.ctx || this.speed < 0.06) return;
-    // 速度越快，咣当越密
-    this.clackAcc += this.speed * 0.06 * 2.2;
-    if (this.clackAcc >= 1) {
-      this.clackAcc = 0;
-      this.clack();
-      window.setTimeout(() => this.clack(), 130); // "咣-当"双响
+  private createNoiseBuffer(ctx: AudioContext): AudioBuffer {
+    const length = ctx.sampleRate * 3
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    let brown = 0
+    for (let i = 0; i < length; i++) {
+      const white = Math.random() * 2 - 1
+      brown = (brown + white * 0.035) / 1.035
+      data[i] = brown * 0.82 + white * 0.18
     }
+    return buffer
   }
 
-  private clack() {
-    if (!this.ctx || !this.master) return;
-    const t = this.ctx.currentTime;
-    const dur = 0.05;
-    const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * dur, this.ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    const bp = this.ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = 700 + Math.random() * 300;
-    bp.Q.value = 2;
-    const g = this.ctx.createGain();
-    g.gain.value = 0.35 * this.speed;
-    src.connect(bp).connect(g).connect(this.master);
-    src.start(t);
+  private emitRailPulse(mix: TrainSoundMix, time: number) {
+    if (!this.ctx || !this.master || !this.noiseBuffer) return
+    const source = this.ctx.createBufferSource()
+    source.buffer = this.noiseBuffer
+    const bandpass = this.ctx.createBiquadFilter()
+    bandpass.type = 'bandpass'
+    bandpass.frequency.value = 420 + this.speedRatio * 280
+    bandpass.Q.value = 1.5
+    const gain = this.ctx.createGain()
+    gain.gain.setValueAtTime(0.001, time)
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.001, mix.railGain), time + 0.008)
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.07)
+    source.connect(bandpass).connect(gain).connect(this.master)
+    source.start(time)
+    source.stop(time + 0.08)
   }
 
-  // 进站提示音"叮-咚"
+  /** A restrained two-note departure/arrival signal, independent of train motion. */
   chime() {
-    if (!this.ctx || !this.master) return;
-    const notes = [880, 660];
-    notes.forEach((f, i) => {
-      const osc = this.ctx!.createOscillator();
-      const g = this.ctx!.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = f;
-      const t = this.ctx!.currentTime + i * 0.35;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.18, t + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
-      osc.connect(g).connect(this.master!);
-      osc.start(t);
-      osc.stop(t + 1);
-    });
+    if (!this.ctx || !this.master) return
+    const notes = [880, 660]
+    notes.forEach((frequency, index) => {
+      const oscillator = this.ctx!.createOscillator()
+      const gain = this.ctx!.createGain()
+      oscillator.type = 'sine'
+      oscillator.frequency.value = frequency
+      const time = this.ctx!.currentTime + index * 0.35
+      gain.gain.setValueAtTime(0, time)
+      gain.gain.linearRampToValueAtTime(0.16, time + 0.03)
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.9)
+      oscillator.connect(gain).connect(this.master!)
+      oscillator.start(time)
+      oscillator.stop(time + 1)
+    })
   }
 
   stop() {
-    if (!this.running || !this.ctx || !this.master) return;
-    this.master.gain.setTargetAtTime(0, this.ctx.currentTime, 0.4);
-    if (this.clackTimer) window.clearInterval(this.clackTimer);
-    const ctx = this.ctx;
-    window.setTimeout(() => ctx.close(), 1500);
-    this.running = false;
-    this.ctx = null;
-    this.master = null;
-    this.rumbleGain = null;
+    if (!this.running || !this.ctx || !this.master) return
+    const ctx = this.ctx
+    const sources = this.steadySources
+    this.master.gain.setTargetAtTime(0, ctx.currentTime, 0.24)
+    window.setTimeout(() => {
+      for (const source of sources) {
+        try {
+          source.stop()
+        } catch {
+          // A source may already have been stopped by the browser.
+        }
+      }
+      void ctx.close()
+    }, 900)
+    this.running = false
+    this.ctx = null
+    this.master = null
+    this.rollingGain = null
+    this.tractionGain = null
+    this.brakeGain = null
+    this.tractionOscillator = null
+    this.tractionHarmonic = null
+    this.noiseBuffer = null
+    this.steadySources = []
   }
 
   get isRunning() {
-    return this.running;
+    return this.running
   }
 }
