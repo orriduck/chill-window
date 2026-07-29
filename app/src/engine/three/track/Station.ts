@@ -201,7 +201,11 @@ export class Station {
       new THREE.MeshStandardMaterial({ color: 0x4b4d4e, roughness: 0.95 })
     )
     const facadeMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xc9baa0, roughness: 0.88 })
+      new THREE.MeshStandardMaterial({
+        color: 0xc9baa0,
+        map: this.makeFacadeTexture(),
+        roughness: 0.88,
+      })
     )
     const facadeTrimMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x766b5c, roughness: 0.78 })
@@ -977,6 +981,51 @@ export class Station {
       context.fillText(name, canvas.width / 2, canvas.height / 2 + 2)
     }
     const texture = this.track(new THREE.CanvasTexture(canvas))
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+  }
+
+  /** Fine plaster courses and repairs give the hall and nearby buildings a
+   * tactile wall surface without adding a new image asset or heavy geometry. */
+  private makeFacadeTexture(): THREE.CanvasTexture {
+    const size = 192
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const context = canvas.getContext('2d')!
+    context.fillStyle = '#d7c9b0'
+    context.fillRect(0, 0, size, size)
+
+    context.strokeStyle = 'rgba(96, 82, 64, 0.2)'
+    context.lineWidth = 1
+    for (let y = 18; y < size; y += 24) {
+      context.beginPath()
+      context.moveTo(0, y)
+      context.lineTo(size, y)
+      context.stroke()
+    }
+    for (let row = 0; row < 8; row++) {
+      const offset = row % 2 === 0 ? 10 : 34
+      for (let x = offset; x < size; x += 48) {
+        context.beginPath()
+        context.moveTo(x, row * 24)
+        context.lineTo(x, (row + 1) * 24)
+        context.stroke()
+      }
+    }
+
+    for (let i = 0; i < 560; i++) {
+      const x = (i * 43.17) % size
+      const y = (i * 79.61) % size
+      const shade = 112 + (i * 29) % 58
+      context.fillStyle = `rgba(${shade}, ${shade - 10}, ${shade - 24}, 0.055)`
+      context.fillRect(x, y, 1.1, 1.1)
+    }
+
+    const texture = this.track(new THREE.CanvasTexture(canvas))
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(2.2, 3.4)
     texture.colorSpace = THREE.SRGBColorSpace
     return texture
   }
