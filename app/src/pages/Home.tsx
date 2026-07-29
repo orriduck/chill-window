@@ -360,7 +360,7 @@ export default function Home() {
               <div className="mb-6">
                 <div className="mb-1.5 flex justify-between text-sm">
                   <span className="text-white/70">Focus duration</span>
-                  <span className="font-mono text-amber-300">{focusMin} min</span>
+                  <span className="tabular-nums text-amber-300">{focusMin} min</span>
                 </div>
                 <input type="range" min={10} max={120} step={5} value={focusMin}
                   onChange={(e) => { const v = +e.target.value; setFocusMin(v); setStops(suggestStops(v)); }}
@@ -373,7 +373,7 @@ export default function Home() {
               <div className="mb-6">
                 <div className="mb-1.5 flex justify-between text-sm">
                   <span className="text-white/70">Pomodoro rounds</span>
-                  <span className="font-mono text-amber-300">{rounds} rounds</span>
+                  <span className="tabular-nums text-amber-300">{rounds} rounds</span>
                 </div>
                 <input type="range" min={1} max={8} value={rounds} onChange={(e) => setRounds(+e.target.value)}
                   className="w-full accent-amber-400" />
@@ -401,7 +401,7 @@ export default function Home() {
                   <div>
                     <div className="mb-1 flex justify-between text-xs">
                       <span className="text-white/50">Stops en route</span>
-                      <span className="font-mono text-amber-300/70">{stops} stop{stops === 1 ? '' : 's'}</span>
+                      <span className="tabular-nums text-amber-300/70">{stops} stop{stops === 1 ? '' : 's'}</span>
                     </div>
                     <input type="range" min={0} max={5} value={stops} onChange={(e) => setStops(+e.target.value)}
                       className="w-full accent-amber-400/60" />
