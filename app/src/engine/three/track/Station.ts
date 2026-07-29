@@ -28,6 +28,11 @@ const DISTRICT_ROAD_HALF_WIDTH = DISTRICT_ROAD_WIDTH / 2
 const DISTRICT_FORECOURT_GAP = 0.35
 const DISTRICT_HALL_FRONT_GAP = 1
 const STATION_HALL_WIDTH = 10.5
+const STATION_HALL_HEIGHT = 4.6
+const STATION_HALL_LENGTH = 20
+const STATION_FACADE_X = -STATION_HALL_WIDTH / 2
+const STATION_ENTRANCE_WIDTH = 4.6
+const STATION_WINDOW_CENTERS = [-7.25, -4.1, 4.1, 7.25] as const
 
 export type StationDistrictLayout = {
   roadMinX: number
@@ -37,6 +42,16 @@ export type StationDistrictLayout = {
   hallCenterX: number
   taxiBayX: number
   shelterX: number
+}
+
+export type StationHallFacadeLayout = {
+  frontX: number
+  porticoX: number
+  stepX: number
+  eaveY: number
+  ridgeY: number
+  entranceWidth: number
+  windowCenters: readonly number[]
 }
 
 /**
@@ -59,6 +74,21 @@ export function stationDistrictLayout(roadX: number): StationDistrictLayout {
     hallCenterX: hallMinX + STATION_HALL_WIDTH / 2,
     taxiBayX: forecourtMinX + 2.25,
     shelterX: forecourtMaxX - 1.15,
+  }
+}
+
+/** The public face of the hall is constrained as architecture, not a set of
+ * props: entrance and steps sit in front of the facade, with windows clear of
+ * the central circulation bay and the roof ending above the wall. */
+export function stationHallFacadeLayout(): StationHallFacadeLayout {
+  return {
+    frontX: STATION_FACADE_X,
+    porticoX: STATION_FACADE_X - 0.72,
+    stepX: STATION_FACADE_X - 1.1,
+    eaveY: STATION_HALL_HEIGHT + 0.12,
+    ridgeY: STATION_HALL_HEIGHT + 1.78,
+    entranceWidth: STATION_ENTRANCE_WIDTH,
+    windowCenters: STATION_WINDOW_CENTERS,
   }
 }
 
@@ -369,6 +399,15 @@ export class Station {
     const shrubMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x53664a, roughness: 0.94 })
     )
+    const facadeInsetMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x313c42, roughness: 0.82, metalness: 0.08 })
+    )
+    const facadeMetalMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x4d5960, roughness: 0.38, metalness: 0.7 })
+    )
+    const clockFaceMat = this.track(
+      new THREE.MeshBasicMaterial({ color: 0xe9e5d7 })
+    )
 
     const road = new THREE.Mesh(this.box(DISTRICT_ROAD_WIDTH, 0.08, PLATFORM_LENGTH + 96), asphaltMat)
     road.position.set(roadX, 0.05, 0)
@@ -405,39 +444,57 @@ export class Station {
       this.group.add(crossing)
     }
 
+    const facadeLayout = stationHallFacadeLayout()
     const hall = new THREE.Group()
-    const hallBody = new THREE.Mesh(this.box(STATION_HALL_WIDTH, 4.6, 20), facadeMat)
-    hallBody.position.y = 2.3
+    const hallPlinth = new THREE.Mesh(this.box(STATION_HALL_WIDTH + 0.35, 0.5, STATION_HALL_LENGTH + 0.45), trimMat)
+    hallPlinth.position.y = 0.25
+    hallPlinth.castShadow = true
+    hall.add(hallPlinth)
+
+    const hallBody = new THREE.Mesh(this.box(STATION_HALL_WIDTH, STATION_HALL_HEIGHT, STATION_HALL_LENGTH), facadeMat)
+    hallBody.position.y = STATION_HALL_HEIGHT / 2
     hallBody.castShadow = true
     hall.add(hallBody)
 
     for (const side of [-1, 1]) {
-      const roof = new THREE.Mesh(this.box(5.9, 0.2, 20.7), roofMat)
-      roof.position.set(side * 2.7, 5.05, 0)
-      roof.rotation.z = -side * 0.42
+      const roof = new THREE.Mesh(this.box(5.82, 0.2, STATION_HALL_LENGTH + 0.7), roofMat)
+      roof.position.set(side * 2.72, 5.46, 0)
+      roof.rotation.z = -side * 0.3
       roof.castShadow = true
       hall.add(roof)
     }
 
-    const entranceCanopy = new THREE.Mesh(this.box(0.9, 0.14, 11), trimMat)
-    entranceCanopy.position.set(-5.45, 3.45, 0)
-    hall.add(entranceCanopy)
-
-    const door = new THREE.Mesh(this.box(0.09, 2.25, 2.5), glassMat)
-    door.position.set(-5.3, 1.15, 0)
-    hall.add(door)
-
-    for (const z of [-6.2, -3.3, 3.3, 6.2]) {
-      const window = new THREE.Mesh(this.box(0.08, 1.55, 1.9), glassMat)
-      window.position.set(-5.31, 2.15, z)
-      hall.add(window)
+    const ridge = new THREE.Mesh(this.box(0.28, 0.16, STATION_HALL_LENGTH + 0.9), facadeMetalMat)
+    ridge.position.set(0, facadeLayout.ridgeY, 0)
+    hall.add(ridge)
+    for (const side of [-1, 1]) {
+      const eave = new THREE.Mesh(this.box(0.34, 0.18, STATION_HALL_LENGTH + 0.9), facadeMetalMat)
+      eave.position.set(side * (STATION_HALL_WIDTH / 2 + 0.04), facadeLayout.eaveY, 0)
+      hall.add(eave)
+    }
+    for (const z of [-8.8, 8.8]) {
+      const downpipe = new THREE.Mesh(this.box(0.12, 4.15, 0.12), facadeMetalMat)
+      downpipe.position.set(facadeLayout.frontX - 0.15, 2.12, z)
+      hall.add(downpipe)
     }
 
+    const fascia = new THREE.Mesh(this.box(0.15, 0.12, STATION_HALL_LENGTH + 0.24), trimMat)
+    fascia.position.set(facadeLayout.frontX - 0.09, 3.55, 0)
+    hall.add(fascia)
+    for (const z of facadeLayout.windowCenters) {
+      this.addHallWindow(hall, facadeLayout, z, trimMat, facadeInsetMat, glassMat)
+    }
+    this.addHallEntrance(hall, facadeLayout, trimMat, facadeInsetMat, facadeMetalMat, glassMat)
+    this.addHallClock(hall, facadeLayout, facadeMetalMat, clockFaceMat)
+
+    const signBacking = new THREE.Mesh(this.box(0.13, 1.04, 5.25), facadeInsetMat)
+    signBacking.position.set(facadeLayout.frontX - 0.08, 4.18, 0)
+    hall.add(signBacking)
     const sign = new THREE.Mesh(
       this.track(new THREE.PlaneGeometry(6.4, 0.86)),
       this.track(new THREE.MeshBasicMaterial({ map: this.makeStationNameTexture(name) }))
     )
-    sign.position.set(-5.36, 4.25, 0)
+    sign.position.set(facadeLayout.frontX - 0.155, 4.18, 0)
     sign.rotation.y = -Math.PI / 2
     hall.add(sign)
 
@@ -493,6 +550,120 @@ export class Station {
       bulb.position.set(layout.roadMinX - 0.75, 4.2, z)
       this.group.add(bulb)
     }
+  }
+
+  /** A deep reveal, sill and mullions give each bay an actual construction
+   * depth instead of reading as a glowing rectangle pasted onto the hall. */
+  private addHallWindow(
+    hall: THREE.Group,
+    layout: StationHallFacadeLayout,
+    z: number,
+    trimMat: THREE.Material,
+    insetMat: THREE.Material,
+    glassMat: THREE.Material,
+  ) {
+    const reveal = new THREE.Mesh(this.box(0.14, 2.12, 2.38), insetMat)
+    reveal.position.set(layout.frontX - 0.045, 2.35, z)
+    hall.add(reveal)
+
+    const pane = new THREE.Mesh(this.box(0.04, 1.72, 1.98), glassMat)
+    pane.position.set(layout.frontX - 0.13, 2.38, z)
+    hall.add(pane)
+
+    for (const y of [1.48, 3.27]) {
+      const rail = new THREE.Mesh(this.box(0.16, 0.1, 2.3), trimMat)
+      rail.position.set(layout.frontX - 0.16, y, z)
+      hall.add(rail)
+    }
+    for (const offset of [-1.1, 0, 1.1]) {
+      const mullion = new THREE.Mesh(this.box(0.16, 1.9, 0.09), trimMat)
+      mullion.position.set(layout.frontX - 0.16, 2.38, z + offset)
+      hall.add(mullion)
+    }
+    const sill = new THREE.Mesh(this.box(0.34, 0.12, 2.55), trimMat)
+    sill.position.set(layout.frontX - 0.23, 1.44, z)
+    hall.add(sill)
+  }
+
+  /** A shallow public portico gives the hall a legible entrance from both the
+   * forecourt and passenger view without encroaching on the access road. */
+  private addHallEntrance(
+    hall: THREE.Group,
+    layout: StationHallFacadeLayout,
+    trimMat: THREE.Material,
+    insetMat: THREE.Material,
+    metalMat: THREE.Material,
+    glassMat: THREE.Material,
+  ) {
+    const entryRecess = new THREE.Mesh(this.box(0.2, 3.05, layout.entranceWidth), insetMat)
+    entryRecess.position.set(layout.frontX - 0.06, 1.58, 0)
+    hall.add(entryRecess)
+
+    const canopy = new THREE.Mesh(this.box(1.3, 0.2, layout.entranceWidth + 0.72), trimMat)
+    canopy.position.set(layout.porticoX, 3.35, 0)
+    canopy.castShadow = true
+    hall.add(canopy)
+    const canopyLip = new THREE.Mesh(this.box(1.36, 0.08, layout.entranceWidth + 0.88), metalMat)
+    canopyLip.position.set(layout.porticoX - 0.04, 3.22, 0)
+    hall.add(canopyLip)
+
+    for (const z of [-layout.entranceWidth / 2, layout.entranceWidth / 2]) {
+      const column = new THREE.Mesh(this.box(0.22, 3.15, 0.22), trimMat)
+      column.position.set(layout.porticoX - 0.42, 1.58, z)
+      column.castShadow = true
+      hall.add(column)
+      const footing = new THREE.Mesh(this.box(0.38, 0.18, 0.38), metalMat)
+      footing.position.set(layout.porticoX - 0.42, 0.09, z)
+      hall.add(footing)
+    }
+
+    for (const z of [-0.57, 0.57]) {
+      const door = new THREE.Mesh(this.box(0.05, 2.25, 1.02), glassMat)
+      door.position.set(layout.frontX - 0.17, 1.32, z)
+      hall.add(door)
+      const vertical = new THREE.Mesh(this.box(0.16, 2.42, 0.08), metalMat)
+      vertical.position.set(layout.frontX - 0.2, 1.32, z + (z < 0 ? -0.52 : 0.52))
+      hall.add(vertical)
+    }
+    const centerMullion = new THREE.Mesh(this.box(0.16, 2.42, 0.08), metalMat)
+    centerMullion.position.set(layout.frontX - 0.2, 1.32, 0)
+    hall.add(centerMullion)
+    const transom = new THREE.Mesh(this.box(0.05, 0.42, 2.14), glassMat)
+    transom.position.set(layout.frontX - 0.17, 2.68, 0)
+    hall.add(transom)
+    const threshold = new THREE.Mesh(this.box(0.44, 0.09, 2.5), metalMat)
+    threshold.position.set(layout.frontX - 0.24, 0.08, 0)
+    hall.add(threshold)
+
+    for (let step = 0; step < 3; step++) {
+      const tread = new THREE.Mesh(this.box(0.55 + step * 0.24, 0.12, layout.entranceWidth + 0.58 + step * 0.24), trimMat)
+      tread.position.set(layout.stepX + 0.24 - step * 0.24, 0.3 - step * 0.12, 0)
+      tread.castShadow = true
+      hall.add(tread)
+    }
+  }
+
+  private addHallClock(
+    hall: THREE.Group,
+    layout: StationHallFacadeLayout,
+    metalMat: THREE.Material,
+    faceMat: THREE.Material,
+  ) {
+    const clockZ = 8.35
+    const housing = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.46, 0.46, 0.13, 16)), metalMat)
+    housing.rotation.z = Math.PI / 2
+    housing.position.set(layout.frontX - 0.16, 4.12, clockZ)
+    hall.add(housing)
+    const face = new THREE.Mesh(this.track(new THREE.CircleGeometry(0.34, 16)), faceMat)
+    face.rotation.y = -Math.PI / 2
+    face.position.set(layout.frontX - 0.24, 4.12, clockZ)
+    hall.add(face)
+    const minuteHand = new THREE.Mesh(this.box(0.025, 0.19, 0.035), metalMat)
+    minuteHand.position.set(layout.frontX - 0.26, 4.2, clockZ)
+    hall.add(minuteHand)
+    const hourHand = new THREE.Mesh(this.box(0.025, 0.035, 0.14), metalMat)
+    hourHand.position.set(layout.frontX - 0.26, 4.12, clockZ - 0.06)
+    hall.add(hourHand)
   }
 
   /** Parked cars give the forecourt an arrival function without crowding the platform. */
