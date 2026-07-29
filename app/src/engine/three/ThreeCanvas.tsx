@@ -17,6 +17,7 @@ import { StationManager } from './track/Station'
 import { TunnelManager } from './track/Tunnel'
 import { ValleyBridgeManager } from './track/ValleyBridge'
 import { MountainRoadworkManager } from './track/MountainRoadworks'
+import { LevelCrossingManager } from './track/LevelCrossing'
 import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
 import {
@@ -136,6 +137,7 @@ export default function ThreeCanvas({
     const tunnels = new TunnelManager(routePlan)
     const valleyBridges = new ValleyBridgeManager(routePlan)
     const mountainRoadworks = new MountainRoadworkManager((x, z) => terrain.sampleHeight(x, z), routePlan)
+    const levelCrossings = new LevelCrossingManager(routePlan)
     const perfMonitor = new PerfMonitor(renderer.renderer)
     const debugMode = new DebugMode()
     let preparedStationStopZ: number | null = null
@@ -156,6 +158,7 @@ export default function ThreeCanvas({
     exteriorGroup.add(tunnels.group)
     exteriorGroup.add(valleyBridges.group)
     exteriorGroup.add(mountainRoadworks.group)
+    exteriorGroup.add(levelCrossings.group)
     exteriorGroup.add(water.mesh)
     exteriorGroup.add(fields.group)
 
@@ -384,6 +387,7 @@ export default function ThreeCanvas({
       water.update(camPos.z, terrain.riverStrength, elapsedTime)
       valleyBridges.update(camPos.z)
       mountainRoadworks.update(camPos.z)
+      levelCrossings.update(camPos.z)
       fields.update(camPos.z, (z) => terrain.isBiomeAt(z, 'field'))
       windowFrame.update(
         cam,
@@ -484,6 +488,7 @@ export default function ThreeCanvas({
       stations.dispose()
       tunnels.dispose()
       mountainRoadworks.dispose()
+      levelCrossings.dispose()
       perfMonitor.dispose()
       renderer.dispose()
       scene.dispose()

@@ -13,6 +13,7 @@ import {
   RIVER_LAKE_OFFSET,
   RIVER_BRIDGE_OFFSET,
   RIVER_VILLAGE_OFFSET,
+  RURAL_LEVEL_CROSSING_OFFSET,
   createRoutePlan,
   lakeBasinStrengthAt,
   nearestStationAnchor,
@@ -83,12 +84,19 @@ describe('route features', () => {
     expect(routeBeatIssues({ ...regional, station: 'none' })).toContain('station engineering requires a station kind')
     expect(routeBeatIssues({ ...regional, roadRelation: 'valley-access' })).toContain('valley access roads require a valley bridge')
     expect(routeBeatIssues({ ...regional, roadRelation: 'grade-separated' })).toContain('grade-separated roads require urban-through engineering')
+    const ruralHalt = routeBeatForSegment(1)
+    expect(routeBeatIssues({ ...ruralHalt, roadRelation: 'parallel' })).toContain('rural halts require station access')
   })
 
   it('keeps bridge, village, lake and tunnel anchors inside their authored beats', () => {
     const valleyAnchors = routeAnchorsForSegment(5)
     expect(valleyAnchors.map((anchor) => anchor.kind)).toEqual(['road-bridge', 'river-village', 'lakeshore'])
     expect(routeAnchorsForSegment(6).map((anchor) => anchor.kind)).toEqual(['tunnel'])
+    expect(routeAnchorsForSegment(1)).toEqual([{
+      kind: 'level-crossing',
+      z: ROUTE_SEGMENT_LENGTH + RURAL_LEVEL_CROSSING_OFFSET,
+      halfLength: 20,
+    }])
 
     for (let index = 1; index < valleyAnchors.length; index++) {
       const previous = valleyAnchors[index - 1]
