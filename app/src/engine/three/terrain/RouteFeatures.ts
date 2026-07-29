@@ -14,6 +14,10 @@ export const MOUNTAIN_TUNNEL_OFFSET = ROUTE_SEGMENT_LENGTH * 0.72
 /** Fixed infrastructure anchors inside every river segment. */
 export const RIVER_BRIDGE_OFFSET = 420
 export const RIVER_VILLAGE_OFFSET = 700
+/** A broad lakeshore opens after the bridge and village, before the climb. */
+export const RIVER_LAKE_OFFSET = 950
+export const RIVER_LAKE_HALF_LENGTH = 120
+export const RIVER_LAKE_FADE_LENGTH = 70
 
 export interface RouteFeature {
   biome: BiomeType
@@ -65,4 +69,22 @@ export function sampleRouteFeature(z: number): RouteFeatureSample {
     segmentStart,
     blend,
   }
+}
+
+/**
+ * 0..1 width factor for the planned lakeshore basin inside a river segment.
+ * The plateau keeps the side-window view open long enough to read as a lake,
+ * while the eased edges let the terrain and water ribbon meet continuously.
+ */
+export function lakeBasinStrengthAt(z: number): number {
+  const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
+  if (routeFeatureForSegment(segmentIndex).biome !== 'river') return 0
+
+  const center = segmentIndex * ROUTE_SEGMENT_LENGTH + RIVER_LAKE_OFFSET
+  const distance = Math.abs(z - center)
+  if (distance <= RIVER_LAKE_HALF_LENGTH) return 1
+  if (distance >= RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH) return 0
+
+  const t = (distance - RIVER_LAKE_HALF_LENGTH) / RIVER_LAKE_FADE_LENGTH
+  return 1 - t * t * (3 - 2 * t)
 }
