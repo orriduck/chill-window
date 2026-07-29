@@ -16,10 +16,24 @@ const FRAME_D = 0.08
 const WALL_W = 12
 const WALL_H = 7
 const RAIN_DROP_COUNT = 96
+const RAIN_GLASS_TOP = OPENING_H / 2 - 0.05
 
 /** A stopped train leaves water to creep; speed creates a shorter, faster streak. */
 export function rainDropFallSpeed(speedRatio: number): number {
   return 0.14 + THREE.MathUtils.clamp(speedRatio, 0, 1) * 0.75
+}
+
+/** Deterministic helper for tests: droplets may never spawn above the glass. */
+export function rainDropInitialY(randomValue: number): number {
+  return (THREE.MathUtils.clamp(randomValue, 0, 1) * 2 - 1) * RAIN_GLASS_TOP
+}
+
+/** Interior reflections stay restrained in daylight and become readable only
+ * as the exterior gets darker. The input is the actual ambient-light level,
+ * so tunnel enclosure follows the same physical cue without a second mode. */
+export function glassReflectionOpacity(ambientIntensity: number): number {
+  const daylight = THREE.MathUtils.clamp(ambientIntensity / 0.45, 0, 1)
+  return 0.028 + (1 - daylight) * 0.11
 }
 
 /**
@@ -35,6 +49,7 @@ export class WindowFrame {
   private rainDropPositions: Float32Array | null = null
   private rainDropGeometry: THREE.BufferGeometry | null = null
   private rainDropMaterial: THREE.PointsMaterial | null = null
+  private glassReflectionMaterials: { material: THREE.MeshBasicMaterial; weight: number }[] = []
   private rainOpacity = 0
   private lastUpdateTime = 0
 
@@ -453,6 +468,8 @@ export class WindowFrame {
     glass.renderOrder = 10
     this.group.add(glass)
 
+    this.buildGlassReflections()
+
     // Smudges: soft radial-gradient patches (no hard disc edge) that catch
     // the light very faintly
     const smudgeMat = this.track(
@@ -473,7 +490,7 @@ export class WindowFrame {
       const patch = new THREE.Mesh(this.track(new THREE.CircleGeometry(0.5, 20)), smudgeMat)
       patch.position.set(sx, sy, 0.002)
       patch.scale.set(sw, sh, 1)
-      patch.renderOrder = 11
+      patch.renderOrder = 13
       this.group.add(patch)
     }
 
@@ -497,7 +514,7 @@ export class WindowFrame {
       })
     )
     const dust = new THREE.Points(dustGeom, dustMat)
-    dust.renderOrder = 11
+    dust.renderOrder = 13
     this.group.add(dust)
 
     // Rain belongs to the glass plane, not to the exterior precipitation
@@ -516,12 +533,44 @@ export class WindowFrame {
       sizeAttenuation: false,
     }))
     const rain = new THREE.Points(rainGeom, rainMat)
-    rain.renderOrder = 12
+    rain.renderOrder = 14
     rain.visible = false
     this.rainDrops = rain
     this.rainDropGeometry = rainGeom
     this.rainDropMaterial = rainMat
     this.group.add(rain)
+  }
+
+  /**
+   * The outside world does not need a costly reflection render target for a
+   * believable sleeper window. A cool sky glint and the carriage's warm
+   * reading-light shapes are enough at passenger viewing distance, provided
+   * they are weaker than the actual landscape and rain layer.
+   */
+  private buildGlassReflections() {
+    const addReflection = (
+      texture: THREE.Texture,
+      color: number,
+      weight: number,
+      z: number,
+      order: number,
+    ) => {
+      const material = this.track(new THREE.MeshBasicMaterial({
+        color,
+        map: texture,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      }))
+      const reflection = new THREE.Mesh(this.track(new THREE.PlaneGeometry(OPENING_W, OPENING_H)), material)
+      reflection.position.z = z
+      reflection.renderOrder = order
+      this.group.add(reflection)
+      this.glassReflectionMaterials.push({ material, weight })
+    }
+
+    addReflection(this.makeCoolGlassReflectionTexture(), 0xbfe9f7, 0.58, 0.004, 11)
+    addReflection(this.makeWarmGlassReflectionTexture(), 0xffd7b0, 1, 0.006, 12)
   }
 
   private addSillObjects(accent: THREE.Material) {
@@ -561,6 +610,7 @@ export class WindowFrame {
     raining = false,
     speedRatio = 0,
     shelter = 0,
+    ambientIntensity = 0.45,
   ) {
     this.group.position.set(
       camera.position.x + FRAME_DISTANCE,
@@ -576,7 +626,15 @@ export class WindowFrame {
 
     const dt = Math.min(0.1, Math.max(0, time - this.lastUpdateTime))
     this.lastUpdateTime = time
+    this.updateGlassReflections(ambientIntensity)
     this.updateRainDrops(dt, raining, speedRatio, shelter)
+  }
+
+  private updateGlassReflections(ambientIntensity: number) {
+    const opacity = glassReflectionOpacity(ambientIntensity)
+    for (const reflection of this.glassReflectionMaterials) {
+      reflection.material.opacity = opacity * reflection.weight
+    }
   }
 
   private updateRainDrops(dt: number, raining: boolean, speedRatio: number, shelter: number) {
@@ -600,10 +658,14 @@ export class WindowFrame {
   private resetRainDrop(index: number, initial: boolean) {
     if (!this.rainDropPositions) return
     const base = index * 3
+    // Keep foreground droplets inside the glazed aperture. Starting them
+    // above the opening let a few points flash across the top frame before
+    // their first fall update, which reads as weather inside the carriage.
+    const top = RAIN_GLASS_TOP
     this.rainDropPositions[base] = (Math.random() - 0.5) * (OPENING_W - 0.12)
     this.rainDropPositions[base + 1] = initial
-      ? (Math.random() - 0.5) * OPENING_H
-      : OPENING_H / 2 + Math.random() * 0.28
+      ? rainDropInitialY(Math.random())
+      : top
     this.rainDropPositions[base + 2] = 0.012
   }
 
@@ -702,6 +764,53 @@ export class WindowFrame {
     const tex = new THREE.CanvasTexture(canvas)
     tex.colorSpace = THREE.SRGBColorSpace
     return this.track(tex)
+  }
+
+  /** A thin, diffuse horizon glint; transparent pixels preserve the view. */
+  private makeCoolGlassReflectionTexture(): THREE.Texture {
+    const width = 384
+    const height = 320
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')!
+    const sheen = ctx.createLinearGradient(0, height * 0.08, width, height * 0.42)
+    sheen.addColorStop(0, 'rgba(255,255,255,0)')
+    sheen.addColorStop(0.3, 'rgba(220,245,255,0.42)')
+    sheen.addColorStop(0.55, 'rgba(198,232,248,0.14)')
+    sheen.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.save()
+    ctx.translate(width * 0.05, -height * 0.02)
+    ctx.rotate(-0.12)
+    ctx.fillStyle = sheen
+    ctx.fillRect(-width * 0.15, height * 0.18, width * 1.3, height * 0.12)
+    ctx.restore()
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return this.track(texture)
+  }
+
+  /** Soft warm shapes mirror the nearby berth lamp and ceiling cove. */
+  private makeWarmGlassReflectionTexture(): THREE.Texture {
+    const width = 384
+    const height = 320
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')!
+    const addGlow = (x: number, y: number, radius: number, alpha: number) => {
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, radius)
+      glow.addColorStop(0, `rgba(255,239,207,${alpha})`)
+      glow.addColorStop(0.45, `rgba(255,202,145,${alpha * 0.32})`)
+      glow.addColorStop(1, 'rgba(255,220,185,0)')
+      ctx.fillStyle = glow
+      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+    }
+    addGlow(width * 0.79, height * 0.25, height * 0.31, 0.7)
+    addGlow(width * 0.24, height * 0.69, height * 0.2, 0.28)
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return this.track(texture)
   }
 
   private box(w: number, h: number, d: number): THREE.BoxGeometry {

@@ -346,6 +346,7 @@ export default function ThreeCanvas({
         weather.current === WeatherType.RAIN,
         Math.min(1, camera.currentSpeed / CRUISE_SPEED),
         tunnelD,
+        ambient.intensity,
       )
 
       // Push fog back in top-down mode so terrain is visible from above
