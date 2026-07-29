@@ -9,6 +9,7 @@ import groundGrassUrl from './assets/grass_summer_01.d4364fbb.jpg'
 import groundRockUrl from './assets/rock_06.e37dd9a2.jpg'
 import groundRockBumpUrl from './assets/rock_06_bump.4570639b.jpg'
 import ballastGravelUrl from './assets/gravel_01.490410e9.jpg'
+import riverSandUrl from './assets/sand_01.b8a432e9.jpg'
 
 /**
  * Shared textures, loaded once. Sprite atlases stay whole — per-variant UV
@@ -30,6 +31,7 @@ function load(url: string, srgb = true, onLoad?: () => void): THREE.Texture {
 export const groundGrassTex = load(groundGrassUrl)
 export const groundRockTex = load(groundRockUrl)
 export const groundRockBumpTex = load(groundRockBumpUrl, false)
+export const riverSandTex = load(riverSandUrl)
 let resolveBallastGravelReady!: () => void
 /** Resolves only after the shared gravel image is available to clone safely. */
 export const ballastGravelReady = new Promise<void>((resolve) => {
@@ -72,6 +74,7 @@ export function disposeSharedTextures(): void {
     groundGrassTex,
     groundRockTex,
     groundRockBumpTex,
+    riverSandTex,
     ballastGravelTex,
     grassSpriteTex,
     bushSpriteTex,

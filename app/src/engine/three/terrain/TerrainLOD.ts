@@ -20,6 +20,7 @@ import { isTownRoadBridgeFootprint } from './TownRoadBridge'
 import { createSeededRandom, hash01, seedFromGrid, type RandomSource } from '../core/procedural'
 import {
   ballastGravelTex, groundGrassTex, groundRockBumpTex, groundRockTex,
+  riverSandTex,
   grassSpriteTex, bushSpriteTex,
   treeNearTex, treeNearBTex, treeFarTex, treeFarBTex,
   applyAtlasUV,
@@ -148,6 +149,9 @@ export class TerrainLOD {
     groundRockBumpTex.wrapS = THREE.RepeatWrapping
     groundRockBumpTex.wrapT = THREE.RepeatWrapping
     groundRockBumpTex.repeat.set(CHUNK_SIZE / 10, CHUNK_SIZE / 10)
+    riverSandTex.wrapS = THREE.RepeatWrapping
+    riverSandTex.wrapT = THREE.RepeatWrapping
+    riverSandTex.repeat.set(CHUNK_SIZE / 10, CHUNK_SIZE / 10)
     this.material = new THREE.MeshStandardMaterial({
       vertexColors: true,
       map: groundGrassTex,
@@ -161,6 +165,7 @@ export class TerrainLOD {
       this.terrainShader = shader as unknown as TerrainShaderDebug
       shader.uniforms.terrainGravelMap = { value: ballastGravelTex }
       shader.uniforms.terrainRockMap = { value: groundRockTex }
+      shader.uniforms.terrainSandMap = { value: riverSandTex }
       shader.uniforms.terrainDebugView = { value: this.terrainDebugView }
 
       shader.vertexShader = shader.vertexShader
@@ -168,12 +173,15 @@ export class TerrainLOD {
           '#include <common>',
           `#include <common>
 attribute vec3 terrainBlend;
-varying vec3 vTerrainBlend;`,
+attribute float terrainSand;
+varying vec3 vTerrainBlend;
+varying float vTerrainSand;`,
         )
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
-vTerrainBlend = terrainBlend;`,
+vTerrainBlend = terrainBlend;
+vTerrainSand = terrainSand;`,
         )
 
       shader.fragmentShader = shader.fragmentShader
@@ -182,27 +190,33 @@ vTerrainBlend = terrainBlend;`,
           `#include <common>
 uniform sampler2D terrainGravelMap;
 uniform sampler2D terrainRockMap;
+uniform sampler2D terrainSandMap;
 uniform float terrainDebugView;
-varying vec3 vTerrainBlend;`,
+varying vec3 vTerrainBlend;
+varying float vTerrainSand;`,
         )
         .replace(
           '#include <map_fragment>',
           `#ifdef USE_MAP
 vec3 weights = max( vTerrainBlend, vec3( 0.0 ) );
-weights /= max( dot( weights, vec3( 1.0 ) ), 0.0001 );
+float sandWeight = max( vTerrainSand, 0.0 );
+float totalWeight = max( dot( weights, vec3( 1.0 ) ) + sandWeight, 0.0001 );
+weights /= totalWeight;
+sandWeight /= totalWeight;
 vec3 grassMacro = texture2D( map, vMapUv ).rgb;
 vec3 grassDetail = texture2D( map, vMapUv * 3.7 + vec2( 0.17, 0.43 ) ).rgb;
 vec3 grassSurface = min( vec3( 1.0 ), mix( grassMacro, grassDetail, 0.35 ) * 1.12 );
 vec3 gravelSurface = texture2D( terrainGravelMap, vMapUv * 1.35 ).rgb;
 vec3 rockSurface = texture2D( terrainRockMap, vMapUv * 0.42 ).rgb;
-diffuseColor.rgb *= grassSurface * weights.x + gravelSurface * weights.y + rockSurface * weights.z;
+vec3 sandSurface = texture2D( terrainSandMap, vMapUv * 1.9 + vec2( 0.31, 0.09 ) ).rgb;
+diffuseColor.rgb *= grassSurface * weights.x + gravelSurface * weights.y + rockSurface * weights.z + sandSurface * sandWeight;
 if ( terrainDebugView > 0.5 ) {
-  diffuseColor.rgb = weights;
+  diffuseColor.rgb = vec3( weights.y, sandWeight, weights.z );
 }
 #endif`,
         )
     }
-    this.material.customProgramCacheKey = () => 'terrain-surface-splat-v1'
+    this.material.customProgramCacheKey = () => 'terrain-surface-splat-v2'
 
     // Grass sprites: single quads, one geometry per atlas variant (UV-baked)
     this.grassMat = new THREE.MeshStandardMaterial({
@@ -688,6 +702,7 @@ if ( terrainDebugView > 0.5 ) {
     const positions = geometry.attributes.position.array as Float32Array
     const colors = new Float32Array(positions.length)
     const terrainBlends = new Float32Array(positions.length)
+    const terrainSand = new Float32Array(positions.length / 3)
     const centerX = worldX + CHUNK_SIZE / 2
     const centerZ = worldZ + CHUNK_SIZE / 2
 
@@ -776,25 +791,30 @@ if ( terrainDebugView > 0.5 ) {
         ? 1 - THREE.MathUtils.smoothstep(riverD + edgeNoise, channel.halfWidth * 0.7, channel.bankHalfWidth)
         : 0
       const lakeRoadWeight = channel.lakeStrength * (1 - THREE.MathUtils.smoothstep(lakeRoadD + edgeNoise, ROAD_HALF_WIDTH, ROAD_VERGE + 1.2))
-      const gravelWeight = Math.max(trackWeight, roadWeight, lakeRoadWeight, riverBankWeight)
+      const engineeredGravelWeight = Math.max(trackWeight, roadWeight, lakeRoadWeight)
+      // Keep the shoreline's natural grains distinct from rail ballast and
+      // road aggregate while preserving the shared river profile.
+      const sandWeight = riverBankWeight * (1 - engineeredGravelWeight)
 
       const maxH = params.baseHeight + params.amplitude * 1.5
       const snowLine = maxH * 0.75
       const slopeRockWeight = THREE.MathUtils.smoothstep(slope + edgeNoise * 2, 1.2, 3.2)
       const snowRockWeight = THREE.MathUtils.smoothstep(h, snowLine, snowLine + Math.max(maxH * 0.2, 0.1))
-      const rockWeight = Math.max(slopeRockWeight, snowRockWeight) * (1 - gravelWeight)
-      const grassWeight = Math.max(0, 1 - gravelWeight - rockWeight)
+      const rockWeight = Math.max(slopeRockWeight, snowRockWeight) * (1 - engineeredGravelWeight - sandWeight)
+      const grassWeight = Math.max(0, 1 - engineeredGravelWeight - sandWeight - rockWeight)
 
       colors[i] = color.r
       colors[i + 1] = color.g
       colors[i + 2] = color.b
       terrainBlends[i] = grassWeight
-      terrainBlends[i + 1] = gravelWeight
+      terrainBlends[i + 1] = engineeredGravelWeight
       terrainBlends[i + 2] = rockWeight
+      terrainSand[i / 3] = sandWeight
     }
 
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
     geometry.setAttribute('terrainBlend', new THREE.BufferAttribute(terrainBlends, 3))
+    geometry.setAttribute('terrainSand', new THREE.BufferAttribute(terrainSand, 1))
     geometry.computeVertexNormals()
 
     const sampleChunkSurface = this.createChunkSurfaceSampler(worldX, worldZ, positions, resolution)
