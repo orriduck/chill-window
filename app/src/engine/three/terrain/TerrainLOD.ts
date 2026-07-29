@@ -23,6 +23,7 @@ import {
   treeNearTex, treeNearBTex, treeFarTex, treeFarBTex,
   applyAtlasUV,
 } from '../textures'
+import { treeStyleForBiome, type TreeStyle } from './Vegetation'
 
 interface Chunk {
   mesh: THREE.Mesh
@@ -122,6 +123,9 @@ export class TerrainLOD {
   private treeMatNearB!: THREE.MeshStandardMaterial
   private treeMatFar!: THREE.MeshStandardMaterial
   private treeMatFarB!: THREE.MeshStandardMaterial
+  private bareTreeTrunkGeom!: THREE.CylinderGeometry
+  private bareTreeBranchGeom!: THREE.CylinderGeometry
+  private bareTreeMat!: THREE.MeshStandardMaterial
 
   constructor(scene: THREE.Object3D, biome: BiomeType = 'field') {
     this.parent = scene
@@ -241,6 +245,11 @@ if ( terrainDebugView > 0.5 ) {
       this.treeGeomsNear.push(this.makeCrossedSprite(2.4, 4.8, v % 4, 0, 4, 1))
       this.treeGeomsFar.push(this.makeCrossedSprite(2.4, 4.8, v % 4, 0, 4, 1))
     }
+    this.bareTreeTrunkGeom = new THREE.CylinderGeometry(0.12, 0.18, 3.4, 6)
+    this.bareTreeBranchGeom = new THREE.CylinderGeometry(0.045, 0.085, 1.55, 5)
+    this.bareTreeMat = new THREE.MeshStandardMaterial({
+      color: 0x4b3a2e, roughness: 0.95, flatShading: true,
+    })
   }
 
   /** Two quads crossed at 90°, merged into one geometry, UV-windowed into an
@@ -909,7 +918,11 @@ if ( terrainDebugView > 0.5 ) {
       const roll = random()
       let decor: THREE.Object3D
       if (roll < 0.54) {
-        decor = this.createTreeBillboard(densityScale, random)
+        decor = this.createTreeBillboard(
+          densityScale,
+          random,
+          treeStyleForBiome(localBiome.type, random()),
+        )
       } else if (roll < 0.68) {
         decor = this.createRock(random)
       } else if (roll < 0.84) {
@@ -922,7 +935,7 @@ if ( terrainDebugView > 0.5 ) {
       decor.position.set(x, height - 0.12, z) // sink slightly — roots grip the slope
       decor.rotation.y = random() * Math.PI * 2
       const s = 0.8 + random() * 0.7
-      decor.scale.setScalar(s)
+      decor.scale.multiplyScalar(s)
       decorations.push(decor)
     }
 
@@ -977,21 +990,61 @@ if ( terrainDebugView > 0.5 ) {
 
   // ---- Vegetation billboards ----
 
-  /** Tree billboard: crossed quads textured with a pre-rendered tree sprite.
-   *  Near chunks use the detailed sheet, far chunks the silhouette sheet. */
-  private createTreeBillboard(densityScale: number, random: RandomSource): THREE.Group {
+  /** Tree silhouettes are tied to route ecology, not selected as anonymous atlas cells. */
+  private createTreeBillboard(
+    densityScale: number,
+    random: RandomSource,
+    style: TreeStyle,
+  ): THREE.Group {
+    if (style === 'bare') return this.createBareTree()
+
     const tree = new THREE.Group()
     const near = densityScale >= 0.5
-    const variant = Math.floor(random() * 8)
+    const pine = style === 'pine'
+    const variant = Math.floor(random() * 4)
     const geom = near ? this.treeGeomsNear[variant] : this.treeGeomsFar[variant]
     const mat = near
-      ? (variant < 4 ? this.treeMatNear : this.treeMatNearB)
-      : (variant < 4 ? this.treeMatFar : this.treeMatFarB)
+      ? (pine ? this.treeMatNearB : this.treeMatNear)
+      : (pine ? this.treeMatFarB : this.treeMatFar)
     const sprite = new THREE.Mesh(geom, mat)
     sprite.userData.sharedTerrainResource = true
     sprite.castShadow = near // far sprites skip the alpha-tested shadow pass
     tree.add(sprite)
-    this.addShadow(tree, 1.2)
+    if (style === 'pine') {
+      tree.scale.set(0.82, 1.34, 0.82)
+    } else if (style === 'willow') {
+      tree.scale.set(1.34, 0.86, 1.34)
+    } else if (style === 'cluster') {
+      tree.scale.set(1.62, 1.12, 1.48)
+    }
+    this.addShadow(tree, style === 'cluster' ? 1.65 : 1.2)
+    tree.userData.treeStyle = style
+    return tree
+  }
+
+  /** Sparse shared-geometry branches make dead trees legible at a distance. */
+  private createBareTree(): THREE.Group {
+    const tree = new THREE.Group()
+    const trunk = new THREE.Mesh(this.bareTreeTrunkGeom, this.bareTreeMat)
+    trunk.position.y = 1.7
+    trunk.castShadow = true
+    trunk.userData.sharedTerrainResource = true
+    tree.add(trunk)
+
+    for (const [x, y, z, tilt] of [
+      [0.18, 2.45, 0.02, -0.82],
+      [-0.15, 2.85, -0.04, 0.72],
+      [0.04, 3.13, 0.08, -0.18],
+    ]) {
+      const branch = new THREE.Mesh(this.bareTreeBranchGeom, this.bareTreeMat)
+      branch.position.set(x, y, z)
+      branch.rotation.z = tilt
+      branch.castShadow = true
+      branch.userData.sharedTerrainResource = true
+      tree.add(branch)
+    }
+    this.addShadow(tree, 0.9)
+    tree.userData.treeStyle = 'bare'
     return tree
   }
 
@@ -1157,6 +1210,9 @@ if ( terrainDebugView > 0.5 ) {
     this.treeMatNearB.dispose()
     this.treeMatFar.dispose()
     this.treeMatFarB.dispose()
+    this.bareTreeTrunkGeom.dispose()
+    this.bareTreeBranchGeom.dispose()
+    this.bareTreeMat.dispose()
     // Note: shared textures in ../textures are app-lifetime resources,
     // disposed only on full shutdown via disposeSharedTextures().
   }
