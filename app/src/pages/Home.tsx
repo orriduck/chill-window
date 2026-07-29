@@ -488,7 +488,7 @@ export default function Home() {
           title="你已在途中下车"
           lines={[
             `本次专注了 ${Math.floor(focusDone / 60)} 分 ${Math.round(focusDone % 60)} 秒`,
-            `列车仍在前行，期待你再次启程。`,
+            '列车已在临时停车站停靠，准备下一趟行程。',
           ]}
           onAgain={backToSetup}
         />
