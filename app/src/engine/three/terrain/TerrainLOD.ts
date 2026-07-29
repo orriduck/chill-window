@@ -30,6 +30,7 @@ import {
   applyAtlasUV,
 } from '../textures'
 import { treeSpriteCell, treeSpriteVariantCount, treeStyleForBiome, type TreeStyle } from './Vegetation'
+import { grassSpacingForLod } from './VegetationWind'
 import { CHUNK_SIZE, isDecorationInsideChunk } from './DecorationPlacement'
 
 interface Chunk {
@@ -640,8 +641,10 @@ gl_Position = projectionMatrix * mvPosition;`,
     densityScale: number,
     sampleSurfaceHeight: SurfaceHeightSampler,
   ): THREE.InstancedMesh[] {
-    // Dense coverage: single-quad sprites are cheap enough for high density
-    const spacing = densityScale >= 1 ? 2.3 : densityScale >= 0.5 ? 3.6 : 6.0
+    // The first LOD is the passenger's readable foreground: 1.55m spacing is
+    // roughly 2.2x the former coverage while the middle/far rings retain their
+    // conservative streaming budget.
+    const spacing = grassSpacingForLod(densityScale)
     const cols = Math.floor(CHUNK_SIZE / spacing)
     const rows = Math.floor(CHUNK_SIZE / spacing)
     if (cols === 0 || rows === 0) return []
