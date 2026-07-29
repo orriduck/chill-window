@@ -8,6 +8,8 @@ export interface HeightParams {
   persistence: number
   /** 0..1 — strength of the meandering river channel carve. */
   river?: number
+  /** 0..1 — strength of the parallel road surface and vegetation clearing. */
+  road?: number
 }
 
 export interface BiomeColors {

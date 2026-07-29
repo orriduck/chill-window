@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { createSeededRandom, seedFromGrid } from '../core/procedural'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
+import { ROUTE_SEGMENT_LENGTH, routeFeatureForSegment } from '../terrain/RouteFeatures'
 
 // Tunnel geometry
 const TUNNEL_LENGTH = 280
@@ -12,11 +13,7 @@ const PORTAL_DEPTH = 1.4
 const ARCH_R = 4.3
 const ARCH_SPRING = 2.6 // height where the arch curve starts
 
-// Scheduling mirrors TerrainLOD's fixed world sequence:
-// field, forest, town, river, mountain — 1500 units each.
-const SEGMENT = 1500
-const MOUNTAIN_INDEX = 4
-const TUNNEL_OFFSET = 1080 // centre of the mountain segment
+const TUNNEL_OFFSET = ROUTE_SEGMENT_LENGTH * 0.72 // centre of a mountain segment
 const BUILD_AHEAD = 900 // build when the camera gets this close
 const DISPOSE_BEHIND = 600 // dispose once this far past the exit
 
@@ -179,10 +176,10 @@ export class TunnelManager {
 
   /** Centre Z of the next scheduled tunnel at or after the camera. */
   private nextTunnelCenter(camZ: number): number {
-    const n0 = Math.floor((camZ - TUNNEL_OFFSET) / SEGMENT)
+    const n0 = Math.floor((camZ - TUNNEL_OFFSET) / ROUTE_SEGMENT_LENGTH)
     for (let n = n0; n < n0 + 12; n++) {
-      if (((n % 5) + 5) % 5 === MOUNTAIN_INDEX) {
-        const center = n * SEGMENT + TUNNEL_OFFSET
+      if (routeFeatureForSegment(n).tunnel) {
+        const center = n * ROUTE_SEGMENT_LENGTH + TUNNEL_OFFSET
         if (center + TUNNEL_LENGTH / 2 > camZ - 50) return center
       }
     }

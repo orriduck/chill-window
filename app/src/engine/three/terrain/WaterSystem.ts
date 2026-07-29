@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { riverCenterX, RIVER_HALF_WIDTH, WATER_LEVEL } from './TerrainGen'
+import { trackElevationAt } from './RouteProfile'
 
 const RIBBON_LENGTH = 700 // water follows the camera over this Z window
 const RIBBON_BEHIND = 140 // how far behind the camera the ribbon extends
@@ -61,10 +62,6 @@ export class WaterSystem {
     this.mesh.visible = true
     this.material.opacity = 0.82 * fade
 
-    // Water level follows the deepening channel so it never floats above
-    // the half-carved bed during biome transitions
-    const waterY = -0.75 - (Math.abs(WATER_LEVEL) - 0.75) * strength
-
     const pos = this.geometry.attributes.position.array as Float32Array
     const zStart = camZ - RIBBON_BEHIND
     for (let v = 0; v < this.localX.length; v++) {
@@ -72,6 +69,10 @@ export class WaterSystem {
       const worldZ = zStart + this.rowT[v] * RIBBON_LENGTH
       const cx = riverCenterX(worldZ)
       pos[v * 3] = cx + localX
+      // The river is a valley companion to the railway. Following the same
+      // gentle longitudinal profile keeps the water, carved bank and raised
+      // rail corridor together when the route climbs or descends.
+      const waterY = trackElevationAt(worldZ) - 0.75 - (Math.abs(WATER_LEVEL) - 0.75) * strength
       pos[v * 3 + 1] = waterY + Math.sin(time * 1.2 + worldZ * 0.35 + localX * 0.6) * 0.05
       pos[v * 3 + 2] = worldZ
     }
