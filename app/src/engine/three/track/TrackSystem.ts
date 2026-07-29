@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { ballastGravelTex } from '../textures'
+import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 
 const RAIL_GAUGE = 1.5
 const SEGMENT = 400 // track length that follows the camera (uniform, no seam)
@@ -118,7 +119,8 @@ export class TrackSystem {
 
   /** Follow the camera along Z; sleepers re-align to the world lattice. */
   update(camZ: number) {
-    this.group.position.z = camZ
+    this.group.position.set(0, trackElevationAt(camZ), camZ)
+    this.group.rotation.x = -Math.atan(trackGradeAt(camZ))
     this.sleepers.position.z = -(camZ % SLEEPER_SPACING)
     // The geometry follows the train for precision, but the texture remains
     // in world space so the crushed stone visibly passes beneath the window.

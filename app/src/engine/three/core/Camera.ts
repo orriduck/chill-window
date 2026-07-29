@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 
 const CRUISE_SPEED = 15 // units/sec, matches original
 const ACCEL_RATE = 3.5 // speed units/sec² — gentle departure
@@ -46,6 +47,7 @@ export class TrainCamera {
   private targetViewYaw = 0
   private targetViewPitch = 0
   private lookTarget = new THREE.Vector3()
+  private viewDirection = new THREE.Vector3()
 
   constructor() {
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.1, 2000)
@@ -174,11 +176,16 @@ export class TrainCamera {
     const yaw = BASE_VIEW_YAW + this.viewYaw
     const pitch = BASE_VIEW_PITCH + this.viewPitch
     const cosPitch = Math.cos(pitch)
-    this.camera.position.set(this.vibX * vibration, CAMERA_Y + this.vibY * vibration, z)
+    this.camera.position.set(
+      this.vibX * vibration,
+      trackElevationAt(z) + CAMERA_Y + this.vibY * vibration,
+      z,
+    )
+    const targetZ = this.camera.position.z + Math.cos(yaw) * cosPitch * LOOK_DISTANCE
     this.lookTarget.set(
       this.camera.position.x + Math.sin(yaw) * cosPitch * LOOK_DISTANCE,
-      this.camera.position.y + Math.sin(pitch) * LOOK_DISTANCE,
-      this.camera.position.z + Math.cos(yaw) * cosPitch * LOOK_DISTANCE,
+      trackElevationAt(targetZ) + CAMERA_Y + Math.sin(pitch) * LOOK_DISTANCE,
+      targetZ,
     )
     this.camera.lookAt(this.lookTarget)
     this.camera.rotateZ(this.vibRoll * vibration)
@@ -191,5 +198,18 @@ export class TrainCamera {
   /** Current Z position (for chunk tracking). */
   get z(): number {
     return this.camera.position.z
+  }
+
+  get grade(): number {
+    return trackGradeAt(this.camera.position.z)
+  }
+
+  get elevation(): number {
+    return trackElevationAt(this.camera.position.z)
+  }
+
+  get pitch(): number {
+    this.camera.getWorldDirection(this.viewDirection)
+    return Math.asin(this.viewDirection.y)
   }
 }

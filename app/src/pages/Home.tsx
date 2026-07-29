@@ -29,6 +29,7 @@ interface HudState {
   nextStation: string;
   speed: number;
   distance: number;
+  grade: number;
 }
 
 export default function Home() {
@@ -61,7 +62,7 @@ export default function Home() {
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
 
   const [hud, setHud] = useState<HudState>({
-    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speed: 0, distance: 0,
+    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speed: 0, distance: 0, grade: 0,
   });
 
   // 初始化 / 切换时段时重建引擎：列车停靠在始发站等待发车
@@ -145,6 +146,7 @@ export default function Home() {
           nextStation: p && segIdxRef.current < p.segments.length ? p.segments[segIdxRef.current].name : '',
           speed: eng.speed,
           distance: distanceRef.current,
+          grade: trainControlRef.current?.getGrade() ?? 0,
         });
       }
     };
@@ -249,6 +251,8 @@ export default function Home() {
 
   const riding = hud.phase === 'ride' || hud.phase === 'dwell';
   const focusDone = plan ? plan.totalFocusSec - hud.focusLeft : 0;
+  const gradePercent = Math.abs(hud.grade * 100);
+  const gradeLabel = gradePercent < 0.05 ? '平坡' : hud.grade > 0 ? '上坡' : '下坡';
 
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
@@ -404,7 +408,7 @@ export default function Home() {
             </div>
             <div className="mt-6 flex justify-between text-[11px] tracking-wider text-white/60">
               <span>第 {Math.min(hud.segIdx + 1, hud.segCount)} / {hud.segCount} 区间</span>
-              <span>{Math.round(hud.speed * 120)} km/h · 已行驶 {hud.distance.toFixed(1)} km</span>
+              <span>{Math.round(hud.speed * 120)} km/h · {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km</span>
             </div>
           </div>
         </>

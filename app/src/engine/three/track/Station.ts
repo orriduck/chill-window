@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 
 // Platform dimensions — long enough to feel like a real station
 const PLATFORM_LENGTH = 180
@@ -26,7 +27,8 @@ export class Station {
   private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
 
   constructor(name: string, zCenter: number) {
-    this.group.position.z = zCenter
+    this.group.position.set(0, trackElevationAt(zCenter), zCenter)
+    this.group.rotation.x = -Math.atan(trackGradeAt(zCenter))
 
     const concreteMat = this.track(
       new THREE.MeshStandardMaterial({

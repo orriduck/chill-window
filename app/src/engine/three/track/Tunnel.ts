@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { createSeededRandom, seedFromGrid } from '../core/procedural'
+import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 
 // Tunnel geometry
 const TUNNEL_LENGTH = 280
@@ -32,7 +33,8 @@ class Tunnel {
 
   constructor(zCenter: number) {
     const random = createSeededRandom(seedFromGrid(0, Math.floor(zCenter), 51))
-    this.group.position.z = zCenter
+    this.group.position.set(0, trackElevationAt(zCenter), zCenter)
+    this.group.rotation.x = -Math.atan(trackGradeAt(zCenter))
 
     // ---- Earthen mound: half-cylinder shell covering the tube ----
     const moundGeom = this.track(
