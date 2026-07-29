@@ -8,6 +8,7 @@ import {
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
 import { CabinOverlay } from '@/components/CabinOverlay';
 import ThreeCanvas, { type TrainControl, type WeatherPreset } from '@/engine/three/ThreeCanvas';
+import type { WindowHudControlAnchor } from '@/engine/three/interior/WindowFrame';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
 
@@ -42,6 +43,7 @@ interface HudState {
   routeLabel: string;
   nextRouteLabel: string;
   approaching: boolean;
+  hudAnchor: WindowHudControlAnchor | null;
 }
 
 export default function Home() {
@@ -80,7 +82,7 @@ export default function Home() {
   useEffect(() => () => departureSchedulerRef.current?.cancel(), []);
 
   const [hud, setHud] = useState<HudState>({
-    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: 'Open fields', nextRouteLabel: 'Woodland', approaching: false,
+    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: 'Open fields', nextRouteLabel: 'Woodland', approaching: false, hudAnchor: null,
   });
 
   // 主循环
@@ -167,6 +169,7 @@ export default function Home() {
           routeLabel: routeContext.currentLabel,
           nextRouteLabel: routeContext.nextLabel,
           approaching: arrivingRef.current,
+          hudAnchor: typeof trainControl?.getWindowHudAnchor === 'function' ? trainControl.getWindowHudAnchor() : null,
         });
       }
     };
@@ -436,7 +439,17 @@ export default function Home() {
       {/* ================= 行驶 HUD ================= */}
       {riding && (
         <>
-          <div className="journey-controls absolute z-20 flex">
+          <div
+            className="journey-controls absolute z-20 flex"
+            style={hud.hudAnchor ? {
+              left: `${hud.hudAnchor.x * 100}%`,
+              top: `${hud.hudAnchor.y * 100}%`,
+              right: 'auto',
+              bottom: 'auto',
+              transform: `translate(-100%, calc(-100% - 0.35rem)) rotate(${hud.hudAnchor.angle}rad)`,
+              transformOrigin: 'bottom right',
+            } : undefined}
+          >
             <button onClick={togglePause} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}>
               {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </button>

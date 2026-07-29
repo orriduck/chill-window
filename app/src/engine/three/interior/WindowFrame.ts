@@ -31,6 +31,12 @@ export interface WindowHudReadout {
   currentSegment: number
 }
 
+export interface WindowHudControlAnchor {
+  x: number
+  y: number
+  angle: number
+}
+
 export type WindowHudSurfaceLayout = {
   rail: { x: number; y: number; z: number; width: number; height: number }
 }
@@ -169,6 +175,24 @@ export class WindowFrame {
     if (this.journeyHudPlane) this.journeyHudPlane.visible = readout.visible
     if (!readout.visible) return
     this.drawWindowHud()
+  }
+
+  /** Project the real journey-rail corner so DOM controls can attach to the
+   * physical HUD instead of approximating its position with viewport CSS. */
+  getHudControlAnchor(camera: THREE.Camera): WindowHudControlAnchor | null {
+    if (!this.journeyHudPlane?.visible) return null
+    const layout = windowHudSurfaceLayout().rail
+    const rightTop = new THREE.Vector3(layout.x + layout.width / 2, layout.y + layout.height / 2, layout.z + 0.01)
+    const leftTop = new THREE.Vector3(layout.x - layout.width / 2, layout.y + layout.height / 2, layout.z + 0.01)
+    this.group.localToWorld(rightTop)
+    this.group.localToWorld(leftTop)
+    rightTop.project(camera)
+    leftTop.project(camera)
+    if (rightTop.z < -1 || rightTop.z > 1) return null
+    const x = (rightTop.x + 1) / 2
+    const y = (1 - rightTop.y) / 2
+    const angle = Math.atan2(-(rightTop.y - leftTop.y), rightTop.x - leftTop.x)
+    return { x, y, angle }
   }
 
   /** Interior uses its own post-exterior render pass, so normal depth testing
@@ -714,6 +738,7 @@ export class WindowFrame {
     this.journeyHudTexture = rail.texture
     this.journeyHudPlane = rail.plane
     this.drawWindowHud()
+    void document.fonts?.load('700 42px Manrope').then(() => this.drawWindowHud())
   }
 
   private createHudSurface(
@@ -767,10 +792,10 @@ export class WindowFrame {
     context.textBaseline = 'middle'
     context.textAlign = 'left'
     context.fillStyle = '#f4f7f5'
-    context.font = '700 42px ui-monospace, SFMono-Regular, Menlo, monospace'
+    context.font = '700 42px Manrope, ui-sans-serif, system-ui, sans-serif'
     context.fillText(this.windowHud.time, left, 42)
     context.fillStyle = 'rgba(220, 231, 232, 0.82)'
-    context.font = '500 20px system-ui, sans-serif'
+    context.font = '500 20px Manrope, ui-sans-serif, system-ui, sans-serif'
     context.fillText(this.windowHud.journey, left + 174, 42)
 
     context.strokeStyle = 'rgba(234, 241, 239, 0.52)'
@@ -798,14 +823,14 @@ export class WindowFrame {
       context.fill()
       context.stroke()
       context.fillStyle = 'rgba(233, 241, 240, 0.82)'
-      context.font = '500 16px system-ui, sans-serif'
+      context.font = '500 16px Manrope, ui-sans-serif, system-ui, sans-serif'
       context.textAlign = 'center'
       context.textBaseline = 'top'
       context.fillText(this.windowHud.stationNames[index], x, railY + 14)
     }
 
     context.textBaseline = 'middle'
-    context.font = '500 18px system-ui, sans-serif'
+    context.font = '500 18px Manrope, ui-sans-serif, system-ui, sans-serif'
     context.textAlign = 'right'
     context.fillStyle = 'rgba(235, 242, 241, 0.8)'
     const motion = this.windowHud.motionLabel.split('•').slice(0, 2).join(' • ').trim()
