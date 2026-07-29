@@ -2,6 +2,31 @@ import type { BiomeType } from './Biome'
 
 export const TREE_STYLES = ['round', 'pine', 'willow', 'bare', 'cluster'] as const
 export type TreeStyle = (typeof TREE_STYLES)[number]
+export type TreeSpriteDistance = 'near' | 'far'
+
+const TREE_ATLAS = {
+  near: { columns: 4, rows: 2 },
+  far: { columns: 2, rows: 2 },
+} as const
+
+export function treeSpriteVariantCount(distance: TreeSpriteDistance): number {
+  const atlas = TREE_ATLAS[distance]
+  return atlas.columns * atlas.rows
+}
+
+/** Resolve an atlas cell without allowing the vertically stacked source trees
+ * to be sampled by the same billboard. */
+export function treeSpriteCell(distance: TreeSpriteDistance, variant: number) {
+  const atlas = TREE_ATLAS[distance]
+  const count = treeSpriteVariantCount(distance)
+  const safeVariant = Math.min(Math.max(Math.floor(variant), 0), count - 1)
+  return {
+    col: safeVariant % atlas.columns,
+    row: Math.floor(safeVariant / atlas.columns),
+    columns: atlas.columns,
+    rows: atlas.rows,
+  }
+}
 
 function unit(value: number): number {
   return Math.min(Math.max(value, 0), 1)
