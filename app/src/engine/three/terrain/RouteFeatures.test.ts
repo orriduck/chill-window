@@ -26,15 +26,17 @@ import {
   sampleRouteFeature,
 } from './RouteFeatures'
 
-const ROUTE_PERIOD = 5
+const ROUTE_PERIOD = 7
 
 describe('route features', () => {
-  it('keeps the default route programme compatible with the existing scenery sequence', () => {
+  it('keeps the default route programme geographically ordered and station-complete', () => {
     expect(DEFAULT_ROUTE_PLAN.beats.map((beat) => beat.id)).toEqual([
-      'open-country', 'woodland', 'regional-town', 'river-valley', 'mountain-pass',
+      'open-country', 'rural-halt', 'woodland', 'regional-town', 'urban-edge', 'river-valley', 'mountain-pass',
     ])
     expect(routeBeatForSegment(0).station).toBe('none')
-    expect(routeBeatForSegment(2).station).toBe('regional')
+    expect(routeBeatForSegment(1).station).toBe('rural-halt')
+    expect(routeBeatForSegment(3).station).toBe('regional')
+    expect(routeBeatForSegment(4).station).toBe('urban-through')
   })
 
   it('auto-curates a deterministic, coherent route programme from a seed', () => {
@@ -49,18 +51,18 @@ describe('route features', () => {
   })
 
   it('rejects impossible railway geography before a route can render it', () => {
-    const mountain = routeBeatForSegment(4)
+    const mountain = routeBeatForSegment(6)
     expect(routeBeatIssues({ ...mountain, landform: 'rolling' })).toContain('tunnels require mountain landform')
 
-    const regional = routeBeatForSegment(2)
+    const regional = routeBeatForSegment(3)
     expect(routeBeatIssues({ ...regional, station: 'none' })).toContain('station engineering requires a station kind')
     expect(routeBeatIssues({ ...regional, roadRelation: 'valley-access' })).toContain('valley access roads require a valley bridge')
   })
 
   it('keeps bridge, village, lake and tunnel anchors inside their authored beats', () => {
-    const valleyAnchors = routeAnchorsForSegment(3)
+    const valleyAnchors = routeAnchorsForSegment(5)
     expect(valleyAnchors.map((anchor) => anchor.kind)).toEqual(['road-bridge', 'river-village', 'lakeshore'])
-    expect(routeAnchorsForSegment(4).map((anchor) => anchor.kind)).toEqual(['tunnel'])
+    expect(routeAnchorsForSegment(6).map((anchor) => anchor.kind)).toEqual(['tunnel'])
 
     for (let index = 1; index < valleyAnchors.length; index++) {
       const previous = valleyAnchors[index - 1]
@@ -77,7 +79,7 @@ describe('route features', () => {
   })
 
   it('keeps the transition boundary anchored to the same world coordinates', () => {
-    const mountainSegment = 4
+    const mountainSegment = 6
     const start = mountainSegment * ROUTE_SEGMENT_LENGTH
     const blendStart = start + ROUTE_SEGMENT_LENGTH - ROUTE_BLEND_LENGTH
 
@@ -93,8 +95,8 @@ describe('route features', () => {
   })
 
   it('keeps river and mountain engineering inside their matching route segments', () => {
-    const riverSegment = 3
-    const mountainSegment = 4
+    const riverSegment = 5
+    const mountainSegment = 6
     const riverStart = riverSegment * ROUTE_SEGMENT_LENGTH
     const mountainStart = mountainSegment * ROUTE_SEGMENT_LENGTH
     const bridgeZ = riverStart + RIVER_BRIDGE_OFFSET
@@ -134,7 +136,7 @@ describe('route features', () => {
   })
 
   it('keeps lakeshore labels stable across each eased basin edge', () => {
-    const lakeCenter = 3 * ROUTE_SEGMENT_LENGTH + RIVER_LAKE_OFFSET
+    const lakeCenter = 5 * ROUTE_SEGMENT_LENGTH + RIVER_LAKE_OFFSET
     const entry = lakeCenter - RIVER_LAKE_HALF_LENGTH - RIVER_LAKE_FADE_LENGTH
     const exit = lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH
 
@@ -146,11 +148,13 @@ describe('route features', () => {
 
   it('names every planned biome in the passenger context', () => {
     expect(routeContextAt(0)).toMatchObject({ currentLabel: 'Open fields' })
-    expect(routeContextAt(ROUTE_SEGMENT_LENGTH)).toMatchObject({ currentLabel: 'Woodland' })
-    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 2)).toMatchObject({ currentLabel: 'Town' })
-    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 3)).toMatchObject({ currentLabel: 'River valley' })
-    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 3 + RIVER_LAKE_OFFSET)).toMatchObject({ currentLabel: 'Lakeshore' })
-    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 4)).toMatchObject({ currentLabel: 'Highlands' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH)).toMatchObject({ currentLabel: 'Open fields' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 2)).toMatchObject({ currentLabel: 'Woodland' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 3)).toMatchObject({ currentLabel: 'Town' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 4)).toMatchObject({ currentLabel: 'Town' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 5)).toMatchObject({ currentLabel: 'River valley' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 5 + RIVER_LAKE_OFFSET)).toMatchObject({ currentLabel: 'Lakeshore' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 6)).toMatchObject({ currentLabel: 'Highlands' })
   })
 })
 
