@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { hash01 } from '../core/procedural'
 import { roadCenterX, ROAD_VERGE } from '../terrain/TerrainGen'
+import { applyAtlasUV, grassSpriteTex } from '../textures'
 
 // Catenary poles
 const POLE_X = 8 // beside the track, inside the flattened corridor
@@ -14,6 +15,8 @@ const GRASS_COUNT = 1400
 const GRASS_WINDOW = 400
 const GRASS_X_MIN = 6.5
 const GRASS_X_MAX = 70
+const GRASS_ATLAS_CELLS = [[0, 0], [0, 1]] as const
+type GrassAtlasVariant = 0 | 1
 
 // White wildflower specks scattered along the verge
 const FLOWER_COUNT = 240
@@ -49,8 +52,8 @@ export class LinesideProps {
   private poleArms: THREE.InstancedMesh
   private poleZ: number[] = []
 
-  private grass: THREE.InstancedMesh
-  private grassData: { x: number; z: number; s: number; rot: number }[] = []
+  private grass: THREE.InstancedMesh[] = []
+  private grassData: { x: number; z: number; s: number; rot: number; variant: GrassAtlasVariant }[] = []
   private colorScratch = new THREE.Color()
 
   private flowers: THREE.InstancedMesh
@@ -104,26 +107,38 @@ export class LinesideProps {
     wire.name = 'contactWire'
     this.group.add(wire)
 
-    // ---- Grass tufts: two crossed alpha-tested quads with a hand-drawn
-    // blade texture — reads as grass, not miniature pine trees ----
-    const grassGeom = this.track(this.makeCrossedQuadGeometry())
+    // ---- Grass tufts: crossed bitmap clumps from the shared vegetation
+    // atlas, keeping the near verge consistent with the terrain foliage. ----
     const grassMat = this.track(
       new THREE.MeshStandardMaterial({
-        map: this.makeGrassTexture(),
-        alphaTest: 0.4,
+        map: grassSpriteTex,
+        alphaTest: 0.45,
         side: THREE.DoubleSide,
         roughness: 0.9,
       })
     )
-    this.grass = new THREE.InstancedMesh(grassGeom, grassMat, GRASS_COUNT)
-    this.grass.frustumCulled = false
+    for (const [col, row] of GRASS_ATLAS_CELLS) {
+      const grassGeom = this.track(this.makeCrossedQuadGeometry())
+      applyAtlasUV(grassGeom, col, row, 2, 2)
+      const grass = new THREE.InstancedMesh(grassGeom, grassMat, GRASS_COUNT / GRASS_ATLAS_CELLS.length)
+      grass.frustumCulled = false
+      this.grass.push(grass)
+    }
     for (let i = 0; i < GRASS_COUNT; i++) {
-      this.grassData.push({ x: 0, z: 0, s: 1, rot: 0 })
+      this.grassData.push({
+        x: 0,
+        z: 0,
+        s: 1,
+        rot: 0,
+        variant: (i % GRASS_ATLAS_CELLS.length) as GrassAtlasVariant,
+      })
       this.resetGrass(i, -POLE_BEHIND + hash01(i, 0, 1) * GRASS_WINDOW)
     }
-    this.grass.instanceMatrix.needsUpdate = true
-    if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true
-    this.group.add(this.grass)
+    for (const grass of this.grass) {
+      grass.instanceMatrix.needsUpdate = true
+      if (grass.instanceColor) grass.instanceColor.needsUpdate = true
+    }
+    this.group.add(...this.grass)
 
     // ---- White wildflower specks ----
     const flowerGeom = this.track(new THREE.SphereGeometry(0.085, 5, 4))
@@ -233,8 +248,10 @@ export class LinesideProps {
       }
     }
     if (grassChanged) {
-      this.grass.instanceMatrix.needsUpdate = true
-      if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true
+      for (const grass of this.grass) {
+        grass.instanceMatrix.needsUpdate = true
+        if (grass.instanceColor) grass.instanceColor.needsUpdate = true
+      }
     }
 
     let flowersChanged = false
@@ -296,7 +313,7 @@ export class LinesideProps {
     this.dummy.rotation.set(0, g.rot, 0)
     this.dummy.scale.setScalar(g.s)
     this.dummy.updateMatrix()
-    this.grass.setMatrixAt(i, this.dummy.matrix)
+    this.grass[g.variant].setMatrixAt(this.grassIndex(i), this.dummy.matrix)
   }
 
   private resetFlower(i: number, z: number) {
@@ -368,36 +385,6 @@ export class LinesideProps {
     return geom
   }
 
-  /** Hand-drawn grass blades on a transparent canvas, tinted per-instance. */
-  private makeGrassTexture(): THREE.Texture {
-    const size = 64
-    const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
-    const ctx = canvas.getContext('2d')!
-    ctx.clearRect(0, 0, size, size)
-    // Fan of tapering blades, pale near-white so instanceColor drives the tint
-    const blades = 7
-    for (let i = 0; i < blades; i++) {
-      const baseX = size * (0.2 + (i / (blades - 1)) * 0.6)
-      const lean = (i / (blades - 1) - 0.5) * 26 + (Math.random() - 0.5) * 10
-      const tipX = baseX + lean
-      const tipY = 2 + Math.random() * 12
-      const w = 2.5 + Math.random() * 2
-      const shade = 200 + Math.floor(Math.random() * 55) // near-white, texture multiplies tint
-      ctx.fillStyle = `rgb(${shade - 30},${shade},${shade - 60})`
-      ctx.beginPath()
-      ctx.moveTo(baseX - w, size)
-      ctx.quadraticCurveTo(baseX - w * 0.4 + lean * 0.4, size * 0.5, tipX, tipY)
-      ctx.quadraticCurveTo(baseX + w * 0.4 + lean * 0.4, size * 0.5, baseX + w, size)
-      ctx.closePath()
-      ctx.fill()
-    }
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.colorSpace = THREE.SRGBColorSpace
-    return this.track(tex)
-  }
-
   /** Random x in [min, max] that keeps clear of the country road.
    *  Bias toward the near edge so the verge reads dense from the window. */
   private sampleClearX(min: number, max: number, z: number, key: number): number {
@@ -408,14 +395,19 @@ export class LinesideProps {
     return min + hash01(key, z, 9) * (max - min)
   }
 
-  /** Vary grass tint so the verge does not read as a uniform carpet. */
+  /** Keep the bitmap's native greens, varying only the natural light level. */
   private setGrassColor(i: number, z: number) {
     this.colorScratch.setHSL(
-      0.25 + hash01(i, z, 41) * 0.09,
-      0.5,
-      0.3 + hash01(i, z, 42) * 0.16,
+      0.2 + hash01(i, z, 41) * 0.06,
+      0.16 + hash01(i, z, 43) * 0.1,
+      0.76 + hash01(i, z, 42) * 0.14,
     )
-    this.grass.setColorAt(i, this.colorScratch)
+    const grass = this.grass[this.grassData[i].variant]
+    grass.setColorAt(this.grassIndex(i), this.colorScratch)
+  }
+
+  private grassIndex(i: number): number {
+    return Math.floor(i / GRASS_ATLAS_CELLS.length)
   }
 
   private box(w: number, h: number, d: number): THREE.BoxGeometry {
@@ -432,7 +424,7 @@ export class LinesideProps {
     this.disposables = []
     this.poles.dispose()
     this.poleArms.dispose()
-    this.grass.dispose()
+    for (const grass of this.grass) grass.dispose()
     this.flowers.dispose()
     this.fencePosts.dispose()
     this.fenceRailsLow.dispose()
