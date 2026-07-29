@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clampWindowHudProgress,
   glassReflectionOpacity,
-  projectedWindowEdgeAngleDeg,
   rainDropFallSpeed,
   rainDropInitialY,
+  windowHudSurfaceLayout,
 } from './WindowFrame'
 
 describe('rainDropFallSpeed', () => {
@@ -39,17 +40,19 @@ describe('glassReflectionOpacity', () => {
   })
 })
 
-describe('projectedWindowEdgeAngleDeg', () => {
-  it('converts NDC y-up coordinates to a clockwise DOM slope', () => {
-    expect(projectedWindowEdgeAngleDeg({ x: -0.8, y: 0.1 }, { x: 0.8, y: -0.1 })).toBeCloseTo(7.13, 1)
+describe('window HUD surfaces', () => {
+  it('keeps both physical rails within the glazed opening', () => {
+    const layout = windowHudSurfaceLayout()
+
+    expect(layout.bottom.y - layout.bottom.height / 2).toBeGreaterThan(-1.45)
+    expect(layout.bottom.y + layout.bottom.height / 2).toBeLessThan(1.45)
+    expect(layout.top.y - layout.top.height / 2).toBeGreaterThan(-1.45)
+    expect(layout.top.y + layout.top.height / 2).toBeLessThan(1.45)
   })
 
-  it('keeps a level window rail level and clamps extreme perspective', () => {
-    expect(projectedWindowEdgeAngleDeg({ x: -0.8, y: 0.1 }, { x: 0.8, y: 0.1 })).toBeCloseTo(0)
-    expect(projectedWindowEdgeAngleDeg({ x: -0.8, y: 0.9 }, { x: 0.8, y: -0.9 })).toBe(12)
-  })
-
-  it('falls back to level when projection reverses the edge', () => {
-    expect(projectedWindowEdgeAngleDeg({ x: 0.2, y: 0 }, { x: 0.1, y: 0.2 })).toBe(0)
+  it('clamps physical progress to the drawable rail', () => {
+    expect(clampWindowHudProgress(-0.2)).toBe(0)
+    expect(clampWindowHudProgress(0.36)).toBeCloseTo(0.36)
+    expect(clampWindowHudProgress(1.2)).toBe(1)
   })
 })
