@@ -270,14 +270,22 @@ export default function Home() {
     setIsPaused(nextPaused);
   }, []);
 
-  const toggleFullscreen = useCallback(() => {
+  const toggleFullscreen = useCallback(async () => {
     if (!document.fullscreenElement) {
-      wrapRef.current?.requestFullscreen?.();
-      setIsFullscreen(true);
+      try {
+        await wrapRef.current?.requestFullscreen?.();
+      } catch {
+        // iOS Safari and embedded browsers may reject this request. Keep the
+        // icon truthful instead of pretending that the page entered fullscreen.
+      }
     } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
+      try {
+        await document.exitFullscreen?.();
+      } catch {
+        // The fullscreenchange listener still owns the confirmed UI state.
+      }
     }
+    setIsFullscreen(!!document.fullscreenElement);
   }, []);
 
   useEffect(() => {
