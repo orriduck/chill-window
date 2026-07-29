@@ -23,6 +23,45 @@ const LIGHT_COUNT = 7
 // toward departure so both states read without overfilling the platform.
 const PLATFORM_SIGN_OFFSETS = [-16, 22]
 
+const DISTRICT_ROAD_WIDTH = 7.2
+const DISTRICT_ROAD_HALF_WIDTH = DISTRICT_ROAD_WIDTH / 2
+const DISTRICT_FORECOURT_GAP = 0.35
+const DISTRICT_HALL_FRONT_GAP = 1
+const STATION_HALL_WIDTH = 10.5
+
+export type StationDistrictLayout = {
+  roadMinX: number
+  roadMaxX: number
+  forecourtCenterX: number
+  forecourtWidth: number
+  hallCenterX: number
+  taxiBayX: number
+  shelterX: number
+}
+
+/**
+ * Keep the station's access layers physically adjacent instead of overlapping:
+ * rail platform, pedestrian forecourt/taxi bay, parallel road, then the hall.
+ */
+export function stationDistrictLayout(roadX: number): StationDistrictLayout {
+  const platformOuterX = PLATFORM_X + PLATFORM_WIDTH / 2
+  const forecourtMinX = platformOuterX + 0.6
+  const roadMinX = roadX - DISTRICT_ROAD_HALF_WIDTH
+  const forecourtMaxX = roadMinX - DISTRICT_FORECOURT_GAP
+  const forecourtWidth = forecourtMaxX - forecourtMinX
+  const hallMinX = roadX + DISTRICT_ROAD_HALF_WIDTH + DISTRICT_HALL_FRONT_GAP
+
+  return {
+    roadMinX,
+    roadMaxX: roadX + DISTRICT_ROAD_HALF_WIDTH,
+    forecourtCenterX: (forecourtMinX + forecourtMaxX) / 2,
+    forecourtWidth,
+    hallCenterX: hallMinX + STATION_HALL_WIDTH / 2,
+    taxiBayX: forecourtMinX + 2.25,
+    shelterX: forecourtMaxX - 1.15,
+  }
+}
+
 /**
  * Fade station lighting against the real exterior ambient budget. This keeps
  * daytime fixtures quiet while allowing a warm, low-glare platform read at
@@ -311,6 +350,7 @@ export class Station {
     bulbMat: THREE.Material,
     roadBulbGeometry: THREE.BufferGeometry,
   ) {
+    const layout = stationDistrictLayout(roadX)
     const pavingMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0xb9b1a4, roughness: 0.9 })
     )
@@ -320,22 +360,44 @@ export class Station {
     const roofMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x555b61, roughness: 0.76, metalness: 0.16 })
     )
+    const markingMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xe7dfc9, roughness: 0.74 })
+    )
+    const planterMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x6a6255, roughness: 0.86 })
+    )
+    const shrubMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x53664a, roughness: 0.94 })
+    )
 
-    const road = new THREE.Mesh(this.box(7.2, 0.08, PLATFORM_LENGTH + 96), asphaltMat)
+    const road = new THREE.Mesh(this.box(DISTRICT_ROAD_WIDTH, 0.08, PLATFORM_LENGTH + 96), asphaltMat)
     road.position.set(roadX, 0.05, 0)
     road.receiveShadow = true
     this.group.add(road)
 
     for (const side of [-1, 1]) {
       const curb = new THREE.Mesh(this.box(0.22, 0.16, PLATFORM_LENGTH + 96), curbMat)
-      curb.position.set(roadX + side * 3.7, 0.1, 0)
+      curb.position.set(roadX + side * (DISTRICT_ROAD_HALF_WIDTH + 0.1), 0.1, 0)
       this.group.add(curb)
     }
 
-    const forecourt = new THREE.Mesh(this.box(17, 0.09, 38), pavingMat)
-    forecourt.position.set(roadX + 0.5, 0.07, 0)
+    const forecourt = new THREE.Mesh(this.box(layout.forecourtWidth, 0.09, 44), pavingMat)
+    forecourt.position.set(layout.forecourtCenterX, 0.07, 0)
     forecourt.receiveShadow = true
     this.group.add(forecourt)
+
+    // The central dashes and crosswalk make the parallel road read as a real
+    // access route while the taxi bay stays on the platform side of its curb.
+    for (let z = -124; z <= 124; z += 16) {
+      const dash = new THREE.Mesh(this.box(0.12, 0.018, 5.6), markingMat)
+      dash.position.set(roadX, 0.101, z)
+      this.group.add(dash)
+    }
+    for (const xOffset of [-2.45, -1.15, 0.15, 1.45]) {
+      const stripe = new THREE.Mesh(this.box(0.82, 0.022, 5.1), markingMat)
+      stripe.position.set(roadX + xOffset, 0.105, -13)
+      this.group.add(stripe)
+    }
 
     for (const z of [-112, 112]) {
       const crossing = new THREE.Mesh(this.box(13, 0.1, 5.6), pavingMat)
@@ -344,7 +406,7 @@ export class Station {
     }
 
     const hall = new THREE.Group()
-    const hallBody = new THREE.Mesh(this.box(10.5, 4.6, 20), facadeMat)
+    const hallBody = new THREE.Mesh(this.box(STATION_HALL_WIDTH, 4.6, 20), facadeMat)
     hallBody.position.y = 2.3
     hallBody.castShadow = true
     hall.add(hallBody)
@@ -379,13 +441,15 @@ export class Station {
     sign.rotation.y = -Math.PI / 2
     hall.add(sign)
 
-    hall.position.set(roadX + 8, 0, 0)
+    hall.position.set(layout.hallCenterX, 0, 0)
     this.group.add(hall)
 
-    this.addStreetBuilding(roadX + 16, -78, 8.5, 12, 4.1, facadeMat, roofMat, glassMat)
-    this.addStreetBuilding(roadX + 16, 74, 7.2, 10, 3.5, trimMat, roofMat, glassMat)
-    this.addStreetBuilding(roadX + 10, 126, 9.5, 13, 4.5, facadeMat, roofMat, glassMat)
-    this.addStreetBuilding(roadX + 11, -128, 8, 11, 3.8, trimMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 17, -34, 7.6, 11, 3.7, trimMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 18, 34, 8.2, 12, 4.1, facadeMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 18, -82, 8.5, 12, 4.1, facadeMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 18, 78, 7.2, 10, 3.5, trimMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 14, 128, 9.5, 13, 4.5, facadeMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 15, -130, 8, 11, 3.8, trimMat, roofMat, glassMat)
 
     const shelter = new THREE.Group()
     const shelterRoof = new THREE.Mesh(this.box(3.5, 0.16, 6.2), roofMat)
@@ -399,24 +463,34 @@ export class Station {
       post.position.set(-1.55, 1.45, z)
       shelter.add(post)
     }
-    shelter.position.set(roadX - 3.9, 0.02, 20)
+    shelter.position.set(layout.shelterX, 0.02, 18)
     this.group.add(shelter)
 
-    const bayMat = this.track(new THREE.MeshStandardMaterial({ color: 0xdad6ce, roughness: 0.72 }))
-    for (const z of [-13, 0, 13]) {
-      const divider = new THREE.Mesh(this.box(0.08, 0.015, 8.2), bayMat)
-      divider.position.set(roadX - 5.1, 0.14, z)
+    for (const z of [-16, -8, 0, 8, 16]) {
+      const divider = new THREE.Mesh(this.box(layout.forecourtWidth - 0.5, 0.018, 0.12), markingMat)
+      divider.position.set(layout.forecourtCenterX, 0.14, z)
       this.group.add(divider)
     }
-    this.addParkedCar(roadX - 5.5, -6.5, 0x536f82, glassMat)
-    this.addParkedCar(roadX - 5.5, 6.5, 0x83907d, glassMat)
+    this.addParkedCar(layout.taxiBayX, -6.5, 0x536f82, glassMat)
+    this.addParkedCar(layout.taxiBayX, 6.5, 0x83907d, glassMat)
+
+    for (const z of [-15, 15]) {
+      const planter = new THREE.Mesh(this.box(1.05, 0.48, 2.4), planterMat)
+      planter.position.set(layout.forecourtCenterX + 0.25, 0.24, z)
+      planter.castShadow = true
+      this.group.add(planter)
+      const shrub = new THREE.Mesh(this.track(new THREE.DodecahedronGeometry(0.56, 0)), shrubMat)
+      shrub.position.set(layout.forecourtCenterX + 0.25, 0.94, z)
+      shrub.castShadow = true
+      this.group.add(shrub)
+    }
 
     for (const z of [-190, -142, -94, -46, 46, 94, 142, 190]) {
       const pole = new THREE.Mesh(this.box(0.13, 4.2, 0.13), lightMat)
-      pole.position.set(roadX - 4.6, 2.1, z)
+      pole.position.set(layout.roadMinX - 0.75, 2.1, z)
       this.group.add(pole)
       const bulb = new THREE.Mesh(roadBulbGeometry, bulbMat)
-      bulb.position.set(roadX - 4.6, 4.2, z)
+      bulb.position.set(layout.roadMinX - 0.75, 4.2, z)
       this.group.add(bulb)
     }
   }
