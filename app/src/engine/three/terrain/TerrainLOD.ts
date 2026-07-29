@@ -16,6 +16,7 @@ import {
   sampleRouteFeature,
 } from './RouteFeatures'
 import { createRiverVillage, createTownCluster, isTownPlannedFootprint } from './TownGenerator'
+import { isTownRoadBridgeFootprint } from './TownRoadBridge'
 import { createSeededRandom, hash01, seedFromGrid, type RandomSource } from '../core/procedural'
 import {
   ballastGravelTex, groundGrassTex, groundRockBumpTex, groundRockTex,
@@ -595,6 +596,7 @@ if ( terrainDebugView > 0.5 ) {
         if (Math.abs(x) < TRACK_FLAT_HALF + 5) continue
         if ((biome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
         if (this.isTownPlannedFootprint(x, z)) continue
+        if (this.isTownRoadBridgeFootprint(x, z)) continue
         if (channel.lakeStrength > 0.1 && Math.abs(x - farBankRoadCenterX(z)) < ROAD_VERGE + 1) continue
         if (riverStrength > 0.2 && Math.abs(x - channel.centerX) < channel.bankHalfWidth + 1.5) continue
         if (this.isRiverVillageClearing(x, z)) continue
@@ -882,6 +884,7 @@ if ( terrainDebugView > 0.5 ) {
       // Keep the country road clear
       if ((localBiome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
       if (this.isTownPlannedFootprint(x, z)) continue
+      if (this.isTownRoadBridgeFootprint(x, z)) continue
       if (channel.lakeStrength > 0.1 && Math.abs(x - farBankRoadCenterX(z)) < ROAD_VERGE + 1) continue
       // Keep the river channel clear
       if (localRiverStrength > 0.2 && Math.abs(x - channel.centerX) < channel.bankHalfWidth + 2) continue
@@ -969,6 +972,13 @@ if ( terrainDebugView > 0.5 ) {
     if (routeFeatureForSegment(segmentIndex).biome !== 'town') return false
     const site = this.townSiteForSegment(segmentIndex)
     return isTownPlannedFootprint(x, z, site.x, site.z)
+  }
+
+  private isTownRoadBridgeFootprint(x: number, z: number): boolean {
+    const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
+    if (routeFeatureForSegment(segmentIndex).biome !== 'town') return false
+    const site = this.townSiteForSegment(segmentIndex)
+    return isTownRoadBridgeFootprint(x, z, site.x, site.z)
   }
 
   /** One far-bank hamlet is positioned after the fixed road bridge in each

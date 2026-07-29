@@ -6,6 +6,7 @@ import {
   riverCenterX,
   riverWaterElevationAt,
 } from './TerrainGen'
+import { createTownRoadBridge } from './TownRoadBridge'
 
 /** European-style building factories + town cluster generator.
  *  All textures are canvas-generated; no external assets.
@@ -382,6 +383,11 @@ export function createTownCluster(
     lane.receiveShadow = true
     town.add(lane)
   }
+
+  // The bridge starts just before the town block. Its descending town-side
+  // ramp merges back into this main street instead of appearing as a free
+  // floating overpass beside the railway.
+  town.add(createTownRoadBridge(cx, cz, sampleHeight))
 
   // Street lamps along the main street
   const lampMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.5, metalness: 0.6 })
