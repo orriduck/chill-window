@@ -99,7 +99,10 @@ export default function Home() {
       const motion = typeof trainControl?.getMotion === 'function' ? trainControl.getMotion() : undefined;
       const speedKmh = motion?.speedKmh ?? 0;
       if (plan && (phase === 'ride' || phase === 'dwell')) {
-        audioRef.current?.setSpeed(motion?.speedRatio ?? 0);
+        audioRef.current?.setMotion({
+          speedRatio: motion?.speedRatio ?? 0,
+          acceleration: motion?.acceleration ?? 0,
+        });
 
         if (!paused && phase === 'ride') {
           distanceRef.current += speedKmh * dt / 3600;
@@ -253,10 +256,13 @@ export default function Home() {
     pausedRef.current = nextPaused;
     trainControlRef.current?.setPaused(nextPaused);
     if (nextPaused) {
-      audioRef.current?.setSpeed(0);
+      audioRef.current?.setMotion({ speedRatio: 0, acceleration: 0 });
     } else {
       const motion = trainControlRef.current?.getMotion();
-      audioRef.current?.setSpeed(motion?.speedRatio ?? 0);
+      audioRef.current?.setMotion({
+        speedRatio: motion?.speedRatio ?? 0,
+        acceleration: motion?.acceleration ?? 0,
+      });
     }
     setIsPaused(nextPaused);
   }, []);
