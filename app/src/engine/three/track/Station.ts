@@ -40,6 +40,12 @@ const STATION_HALL_LENGTH = 20
 const STATION_FACADE_X = -STATION_HALL_WIDTH / 2
 const STATION_ENTRANCE_WIDTH = 4.6
 const STATION_WINDOW_CENTERS = [-7.25, -4.1, 4.1, 7.25] as const
+const URBAN_PASSING_TRACK_CENTERS = [-4.4, -7.5] as const
+const URBAN_TURNOUT_LEAD = 36
+
+export function urbanPassingTrackCenters(): readonly number[] {
+  return URBAN_PASSING_TRACK_CENTERS
+}
 
 export type StationVisualKind = Exclude<StationKind, 'none'>
 
@@ -643,8 +649,7 @@ export class Station {
   private buildUrbanPassingTracks(railMat: THREE.Material, sleeperMat: THREE.Material) {
     const railLength = PLATFORM_LENGTH + 96
     const sleeperGeometry = this.track(new THREE.BoxGeometry(0.2, 0.12, 1.8))
-    for (let track = 0; track < this.profile.passingTracks; track++) {
-      const centerX = -4.4 - track * 3.1
+    for (const centerX of URBAN_PASSING_TRACK_CENTERS.slice(0, this.profile.passingTracks)) {
       for (const railOffset of [-0.67, 0.67]) {
         const rail = new THREE.Mesh(this.box(0.08, 0.1, railLength), railMat)
         rail.position.set(centerX + railOffset, 0.1, 0)
@@ -653,6 +658,45 @@ export class Station {
       for (let z = -railLength / 2; z <= railLength / 2; z += 2.8) {
         const sleeper = new THREE.Mesh(sleeperGeometry, sleeperMat)
         sleeper.position.set(centerX, 0.02, z)
+        this.group.add(sleeper)
+      }
+      this.buildUrbanTurnouts(centerX, railLength, railMat, sleeperMat)
+    }
+  }
+
+  /** Connect every through line back to the main pair at both station ends.
+   * This is deliberately compact but preserves the visible railway grammar:
+   * diverging rail, reoriented sleepers, then a parallel passing track. */
+  private buildUrbanTurnouts(
+    passingCenterX: number,
+    railLength: number,
+    railMat: THREE.Material,
+    sleeperMat: THREE.Material,
+  ) {
+    for (const direction of [-1, 1]) {
+      const startZ = direction * (railLength / 2 - URBAN_TURNOUT_LEAD)
+      const endZ = direction * (railLength / 2 + 2)
+      for (const side of [-1, 1]) {
+        const startX = side * 0.67
+        const endX = passingCenterX + side * 0.67
+        const dx = endX - startX
+        const dz = endZ - startZ
+        const length = Math.hypot(dx, dz)
+        const rail = new THREE.Mesh(this.box(0.08, 0.1, length), railMat)
+        rail.position.set((startX + endX) / 2, 0.1, (startZ + endZ) / 2)
+        rail.rotation.y = Math.atan2(dx, dz)
+        rail.castShadow = true
+        this.group.add(rail)
+      }
+
+      const sleepers = 12
+      for (let index = 1; index < sleepers; index++) {
+        const t = index / sleepers
+        const x = THREE.MathUtils.lerp(-0.67, passingCenterX, t)
+        const z = THREE.MathUtils.lerp(startZ, endZ, t)
+        const sleeper = new THREE.Mesh(this.box(2.35, 0.12, 0.28), sleeperMat)
+        sleeper.position.set(x, 0.02, z)
+        sleeper.rotation.y = Math.atan2(passingCenterX + 0.67, endZ - startZ)
         this.group.add(sleeper)
       }
     }

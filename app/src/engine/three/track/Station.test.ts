@@ -4,6 +4,7 @@ import {
   stationHallFacadeLayout,
   stationNightLightLevel,
   stationVisualKindAt,
+  urbanPassingTrackCenters,
 } from './Station'
 import { createRoutePlan } from '../terrain/RouteFeatures'
 
@@ -50,5 +51,13 @@ describe('station route typology', () => {
     expect(stationVisualKindAt(0)).toBe('rural-halt')
     expect(stationVisualKindAt(3 * 1500)).toBe('regional')
     expect(stationVisualKindAt(2 * 1500, createRoutePlan(3))).toBe('urban-through')
+  })
+})
+
+describe('urban station track capacity', () => {
+  it('keeps each visible through line on a distinct turnout alignment', () => {
+    const centers = urbanPassingTrackCenters()
+    expect(centers).toEqual([-4.4, -7.5])
+    expect(Math.abs(centers[0] - centers[1])).toBeGreaterThan(3)
   })
 })
