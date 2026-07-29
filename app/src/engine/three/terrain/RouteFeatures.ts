@@ -22,6 +22,8 @@ export const RIVER_VILLAGE_OFFSET = 700
 export const RIVER_LAKE_OFFSET = 1090
 export const RIVER_LAKE_HALF_LENGTH = 120
 export const RIVER_LAKE_FADE_LENGTH = 70
+/** Rural station access reaches the rail through one signed crossing. */
+export const RURAL_LEVEL_CROSSING_OFFSET = ROUTE_SEGMENT_LENGTH * 0.34
 export const MIN_ROUTE_ANCHOR_SPACING = 90
 
 export type RouteLandform = 'rolling' | 'woodland' | 'settlement' | 'valley' | 'mountain'
@@ -29,7 +31,7 @@ export type RailwayEngineering = 'open' | 'halt' | 'regional-station' | 'urban-t
 export type RoadRelation = 'none' | 'parallel' | 'station-access' | 'valley-access' | 'grade-separated'
 export type SettlementFabric = 'none' | 'farmsteads' | 'village' | 'regional-town' | 'urban-edge'
 export type StationKind = 'none' | 'rural-halt' | 'regional' | 'urban-through'
-export type RouteAnchorKind = 'road-bridge' | 'river-village' | 'lakeshore' | 'tunnel'
+export type RouteAnchorKind = 'level-crossing' | 'road-bridge' | 'river-village' | 'lakeshore' | 'tunnel'
 
 export interface RouteFeature {
   biome: BiomeType
@@ -200,6 +202,10 @@ export function routeAnchorsForSegment(
     return [{ kind: 'tunnel', z: segmentStart + MOUNTAIN_TUNNEL_OFFSET, halfLength: MOUNTAIN_TUNNEL_LENGTH / 2 }]
   }
 
+  if (beat.engineering === 'halt') {
+    return [{ kind: 'level-crossing', z: segmentStart + RURAL_LEVEL_CROSSING_OFFSET, halfLength: 20 }]
+  }
+
   return []
 }
 
@@ -258,6 +264,7 @@ export function routeBeatIssues(beat: RouteBeat): string[] {
   if (beat.station === 'regional' && beat.settlement !== 'regional-town') issues.push('regional stations require regional-town fabric')
   if (beat.station === 'urban-through' && beat.settlement !== 'urban-edge') issues.push('urban through stations require urban-edge fabric')
   if (beat.roadRelation === 'station-access' && beat.station === 'none') issues.push('station access roads require a station')
+  if (beat.engineering === 'halt' && beat.roadRelation !== 'station-access') issues.push('rural halts require station access')
   if (beat.roadRelation === 'valley-access' && !valleyEngineering) issues.push('valley access roads require a valley bridge')
   if (beat.roadRelation === 'grade-separated' && beat.engineering !== 'urban-through') issues.push('grade-separated roads require urban-through engineering')
 
