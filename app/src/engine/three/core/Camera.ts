@@ -3,6 +3,8 @@ import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 
 export const CRUISE_SPEED = 15 // units/sec, matches original
 export const CRUISE_SPEED_KMH = 120
+const MIN_SCHEDULED_CRUISE_SPEED = CRUISE_SPEED * 0.65
+const MAX_SCHEDULED_CRUISE_SPEED = CRUISE_SPEED * 1.25
 const ACCEL_RATE = 3.5 // speed units/sec² — gentle departure
 const DECEL_RATE = 4.5 // slightly faster braking
 const STATION_BRAKE_DECEL = 0.94
@@ -35,6 +37,14 @@ export function compactViewportFactor(aspect: number): number {
 
 export function cameraFovForAspect(aspect: number): number {
   return THREE.MathUtils.lerp(DESKTOP_FOV, COMPACT_FOV, compactViewportFactor(aspect))
+}
+
+/** Convert an authored station distance into a restrained intercity cruise
+ * target. The clamp keeps long focus intervals from making the train feel
+ * like a metro crawl or an arcade fast-forward. */
+export function cruiseSpeedForScheduledStop(distance: number, durationSeconds: number): number {
+  const average = distance / Math.max(durationSeconds, 1)
+  return THREE.MathUtils.clamp(average, MIN_SCHEDULED_CRUISE_SPEED, MAX_SCHEDULED_CRUISE_SPEED)
 }
 
 /**

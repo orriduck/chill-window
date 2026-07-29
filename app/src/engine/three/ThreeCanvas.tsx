@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { TimeOfDay as TimeOfDayPreset } from '../time'
 import { Scene3D } from './core/Scene3D'
-import { CRUISE_SPEED, CRUISE_SPEED_KMH, TrainCamera } from './core/Camera'
+import { CRUISE_SPEED, CRUISE_SPEED_KMH, cruiseSpeedForScheduledStop, TrainCamera } from './core/Camera'
 import { WebGLRenderer } from './core/Renderer'
 import { TerrainLOD } from './terrain/TerrainLOD'
 import { WaterSystem } from './terrain/WaterSystem'
@@ -21,6 +21,7 @@ import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
 import {
   createRoutePlan,
+  nearestStationAnchor,
   routeContextAt,
   sampleRouteFeature,
   type RouteContext,
@@ -55,6 +56,8 @@ export interface TrainControl {
   setWindowHud: (readout: WindowHudReadout) => void
   /** Show a station ahead of the camera. */
   showStation: (name: string, zCenter: number) => void
+  /** Select the authored route station that this focus segment will reach. */
+  planStation: (name: string, durationSeconds: number) => void
   /** Build the next station outside the view before its arrival sequence starts. */
   prepareStation: (name: string) => void
   /** Create a station ahead and brake to its planned stop position. */
@@ -124,6 +127,8 @@ export default function ThreeCanvas({
     const perfMonitor = new PerfMonitor(renderer.renderer)
     const debugMode = new DebugMode()
     let preparedStationStopZ: number | null = null
+    let scheduledStationStopZ: number | null = null
+    let scheduledStationCruiseSpeed: number | null = null
     let debugStationStopZ: number | null = null
     let debugStationStopTarget: number | null = null
     let debugStationBrakeAt = 0
@@ -171,19 +176,27 @@ export default function ThreeCanvas({
         }),
         setWindowHud: (readout: WindowHudReadout) => windowFrame.setHudReadout(readout),
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
+        planStation: (_name: string, durationSeconds: number) => {
+          const anchor = nearestStationAnchor(camera.z, CRUISE_SPEED * durationSeconds, routePlan)
+          scheduledStationStopZ = anchor.z - StationManager.APPROACH_STATION_LEAD
+          scheduledStationCruiseSpeed = cruiseSpeedForScheduledStop(
+            scheduledStationStopZ - camera.z,
+            durationSeconds,
+          )
+        },
         prepareStation: (name: string) => {
-          preparedStationStopZ = camera.z + TrainCamera.STATION_PREPARE_DISTANCE
+          preparedStationStopZ = scheduledStationStopZ ?? camera.z + TrainCamera.STATION_PREPARE_DISTANCE
           stations.showStation(name, preparedStationStopZ + StationManager.APPROACH_STATION_LEAD)
         },
         approachStation: (name: string) => {
-          const stopZ = preparedStationStopZ ?? camera.z + TrainCamera.STATION_STOP_DISTANCE
+          const stopZ = preparedStationStopZ ?? scheduledStationStopZ ?? camera.z + TrainCamera.STATION_STOP_DISTANCE
           if (preparedStationStopZ === null) {
             stations.showStation(name, stopZ + StationManager.APPROACH_STATION_LEAD)
           }
           camera.beginStationApproach(stopZ)
           preparedStationStopZ = null
         },
-        departStation: () => camera.departStation(),
+        departStation: () => camera.departStation(scheduledStationCruiseSpeed ?? CRUISE_SPEED),
         resetView: () => camera.resetView(),
         hideStation: () => stations.hideStation(),
       }

@@ -15,6 +15,7 @@ import {
   RIVER_VILLAGE_OFFSET,
   createRoutePlan,
   lakeBasinStrengthAt,
+  nearestStationAnchor,
   ROUTE_BLEND_LENGTH,
   ROUTE_SEGMENT_LENGTH,
   routeAnchorsForSegment,
@@ -24,6 +25,7 @@ import {
   routeFeatureForSegment,
   routePlanIssues,
   sampleRouteFeature,
+  stationAnchorForSegment,
 } from './RouteFeatures'
 
 const ROUTE_PERIOD = 7
@@ -61,6 +63,16 @@ describe('route features', () => {
     expect(lakeBasinStrengthAt(riverLake, urbanRoute)).toBe(1)
     expect(waterChannelAt(riverLake, urbanRoute).halfWidth).toBeGreaterThan(RIVER_HALF_WIDTH)
     expect(waterChannelAt(riverLake).halfWidth).toBe(RIVER_HALF_WIDTH)
+  })
+
+  it('selects a real authored station near a focus interval target', () => {
+    const anchor = nearestStationAnchor(0, 9_000)
+    expect(anchor).toEqual({ z: 4 * ROUTE_SEGMENT_LENGTH + ROUTE_SEGMENT_LENGTH / 2, kind: 'urban-through' })
+    expect(stationAnchorForSegment(5)).toBeNull()
+    expect(stationAnchorForSegment(3)).toEqual({
+      z: 3 * ROUTE_SEGMENT_LENGTH + ROUTE_SEGMENT_LENGTH / 2,
+      kind: 'regional',
+    })
   })
 
   it('rejects impossible railway geography before a route can render it', () => {
