@@ -39,6 +39,8 @@ interface HudState {
   speedKmh: number;
   distance: number;
   grade: number;
+  routeLabel: string;
+  nextRouteLabel: string;
 }
 
 export default function Home() {
@@ -73,7 +75,7 @@ export default function Home() {
   const [isPaused, setIsPaused] = useState(false);
 
   const [hud, setHud] = useState<HudState>({
-    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0,
+    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: '田野', nextRouteLabel: '林地',
   });
 
   // 主循环
@@ -139,6 +141,9 @@ export default function Home() {
       if (hudTimerRef.current > 0.2) {
         hudTimerRef.current = 0;
         const p = planRef.current;
+        const routeContext = typeof trainControl?.getRouteContext === 'function'
+          ? trainControl.getRouteContext()
+          : { currentLabel: '田野', nextLabel: '林地' };
         setHud({
           phase: phaseRef.current,
           focusLeft: p ? Math.max(0, p.totalFocusSec - focusDoneRef.current) : 0,
@@ -149,6 +154,8 @@ export default function Home() {
           speedKmh: paused ? 0 : speedKmh,
           distance: distanceRef.current,
           grade: typeof trainControl?.getGrade === 'function' ? trainControl.getGrade() : 0,
+          routeLabel: routeContext.currentLabel,
+          nextRouteLabel: routeContext.nextLabel,
         });
       }
     };
@@ -437,9 +444,10 @@ export default function Home() {
                 );
               })}
             </div>
-            <div className="mt-6 flex justify-between text-[11px] tracking-wider text-white/60">
+            <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[11px] tracking-wider text-white/60">
               <span>第 {Math.min(hud.segIdx + 1, hud.segCount)} / {hud.segCount} 区间</span>
-              <span>{Math.round(hud.speedKmh)} km/h · {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km</span>
+              <span className="min-w-0 text-center text-white/70">{hud.routeLabel} · 前方 {hud.nextRouteLabel}</span>
+              <span className="whitespace-nowrap">{Math.round(hud.speedKmh)} km/h · {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km</span>
             </div>
           </div>
         </>

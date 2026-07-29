@@ -19,6 +19,7 @@ import { ValleyBridgeManager } from './track/ValleyBridge'
 import { MountainRoadworkManager } from './track/MountainRoadworks'
 import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
+import { routeContextAt, type RouteContext } from './terrain/RouteFeatures'
 
 const MAX_DT = 0.1 // clamp delta time to avoid spiral of death on lag
 export type WeatherPreset = WeatherType | 'auto'
@@ -39,6 +40,8 @@ export interface TrainControl {
   getZ: () => number
   /** Current rail grade as a fraction, e.g. 0.006 means 0.6%. */
   getGrade: () => number
+  /** Current and upcoming terrain context at the physical camera position. */
+  getRouteContext: () => RouteContext
   /** Current camera motion, used by the HUD and audio as the single source of truth. */
   getMotion: () => TrainMotionTelemetry
   /** Show a station ahead of the camera. */
@@ -147,6 +150,7 @@ export default function ThreeCanvas({
         setPaused: (nextPaused: boolean) => { paused = nextPaused },
         getZ: () => camera.z,
         getGrade: () => camera.grade,
+        getRouteContext: () => routeContextAt(camera.z),
         getMotion: () => ({
           speedKmh: paused ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
           speedRatio: paused ? 0 : Math.min(1, camera.currentSpeed / CRUISE_SPEED),
