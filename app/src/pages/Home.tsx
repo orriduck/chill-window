@@ -8,7 +8,7 @@ import {
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
 import { CabinOverlay } from '@/components/CabinOverlay';
 import ThreeCanvas, { type TrainControl, type WeatherPreset } from '@/engine/three/ThreeCanvas';
-import type { WindowHudControlAnchor } from '@/engine/three/interior/WindowFrame';
+import type { WindowHudControlAnchor, WindowHudControlHitArea } from '@/engine/three/interior/WindowFrame';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
 
@@ -44,6 +44,7 @@ interface HudState {
   nextRouteLabel: string;
   approaching: boolean;
   hudAnchor: WindowHudControlAnchor | null;
+  hudControlHitAreas: WindowHudControlHitArea[];
 }
 
 export default function Home() {
@@ -82,7 +83,7 @@ export default function Home() {
   useEffect(() => () => departureSchedulerRef.current?.cancel(), []);
 
   const [hud, setHud] = useState<HudState>({
-    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: 'Open fields', nextRouteLabel: 'Woodland', approaching: false, hudAnchor: null,
+    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: 'Open fields', nextRouteLabel: 'Woodland', approaching: false, hudAnchor: null, hudControlHitAreas: [],
   });
 
   // 主循环
@@ -170,6 +171,9 @@ export default function Home() {
           nextRouteLabel: routeContext.nextLabel,
           approaching: arrivingRef.current,
           hudAnchor: typeof trainControl?.getWindowHudAnchor === 'function' ? trainControl.getWindowHudAnchor() : null,
+          hudControlHitAreas: typeof trainControl?.getWindowHudControlHitAreas === 'function'
+            ? trainControl.getWindowHudControlHitAreas()
+            : [],
         });
       }
     };
@@ -271,6 +275,10 @@ export default function Home() {
       });
     }
     setIsPaused(nextPaused);
+  }, []);
+
+  const resetView = useCallback(() => {
+    trainControlRef.current?.resetView();
   }, []);
 
   const toggleFullscreen = useCallback(async () => {
@@ -442,35 +450,17 @@ export default function Home() {
       {/* ================= 行驶 HUD ================= */}
       {riding && (
         <>
-          <div
-            className="journey-controls absolute z-20 flex"
-            style={hud.hudAnchor ? {
-              left: `${hud.hudAnchor.x * 100}%`,
-              top: `${hud.hudAnchor.y * 100}%`,
-              right: 'auto',
-              bottom: 'auto',
-              transform: `translate(-100%, 0) rotate(${hud.hudAnchor.angle}rad)`,
-              transformOrigin: 'top right',
-            } : undefined}
-          >
-            <button onClick={togglePause} className="journey-control rounded-full" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}>
-              {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            </button>
-            <button onClick={() => {
-              const control = trainControlRef.current;
-              if (typeof control?.resetView === 'function') control.resetView();
-            }} className="journey-control rounded-full" title="Reset view" aria-label="Reset view">
-              <RotateCcw className="h-4 w-4" />
-            </button>
-            <button onClick={toggleSound} className="journey-control rounded-full" title={sound ? 'Mute sound' : 'Enable sound'} aria-label={sound ? 'Mute sound' : 'Enable sound'}>
-              {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            </button>
-            <button onClick={toggleFullscreen} className="journey-control rounded-full" title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
-              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-            </button>
-            <button onClick={() => setConfirmAbort(true)} className="journey-control rounded-full" title="End journey" aria-label="End journey">
-              <Flag className="h-4 w-4" />
-            </button>
+          <div className="journey-controls pointer-events-none absolute inset-0 z-20">
+            {hud.hudControlHitAreas[0] && <button onClick={togglePause} className="journey-control rounded-full" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}
+              style={{ left: `${hud.hudControlHitAreas[0].x * 100}%`, top: `${hud.hudControlHitAreas[0].y * 100}%`, width: `${hud.hudControlHitAreas[0].width * 100}%`, height: `${hud.hudControlHitAreas[0].height * 100}%` }}>{isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}</button>}
+            {hud.hudControlHitAreas[1] && <button onClick={resetView} className="journey-control rounded-full" title="Reset view" aria-label="Reset view"
+              style={{ left: `${hud.hudControlHitAreas[1].x * 100}%`, top: `${hud.hudControlHitAreas[1].y * 100}%`, width: `${hud.hudControlHitAreas[1].width * 100}%`, height: `${hud.hudControlHitAreas[1].height * 100}%` }}><RotateCcw className="h-4 w-4" /></button>}
+            {hud.hudControlHitAreas[2] && <button onClick={toggleSound} className="journey-control rounded-full" title={sound ? 'Mute sound' : 'Enable sound'} aria-label={sound ? 'Mute sound' : 'Enable sound'}
+              style={{ left: `${hud.hudControlHitAreas[2].x * 100}%`, top: `${hud.hudControlHitAreas[2].y * 100}%`, width: `${hud.hudControlHitAreas[2].width * 100}%`, height: `${hud.hudControlHitAreas[2].height * 100}%` }}>{sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>}
+            {hud.hudControlHitAreas[3] && <button onClick={toggleFullscreen} className="journey-control rounded-full" title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              style={{ left: `${hud.hudControlHitAreas[3].x * 100}%`, top: `${hud.hudControlHitAreas[3].y * 100}%`, width: `${hud.hudControlHitAreas[3].width * 100}%`, height: `${hud.hudControlHitAreas[3].height * 100}%` }}>{isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}</button>}
+            {hud.hudControlHitAreas[4] && <button onClick={() => setConfirmAbort(true)} className="journey-control rounded-full" title="End journey" aria-label="End journey"
+              style={{ left: `${hud.hudControlHitAreas[4].x * 100}%`, top: `${hud.hudControlHitAreas[4].y * 100}%`, width: `${hud.hudControlHitAreas[4].width * 100}%`, height: `${hud.hudControlHitAreas[4].height * 100}%` }}><Flag className="h-4 w-4" /></button>}
           </div>
 
           {/* 经停休息卡片 */}
