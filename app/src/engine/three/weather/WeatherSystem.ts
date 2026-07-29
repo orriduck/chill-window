@@ -24,10 +24,14 @@ const MAX_SWITCH_SECONDS = 75 * 60
 // render over interior panels after the opaque scene pass.
 const WINDOW_EXTERIOR_NEAR = 4
 
-// Reused fog-tint colors — avoids per-frame allocation in applyToEnvironment()
+// Reused weather tints — avoids per-frame allocation in applyToEnvironment().
 const FOGGY_FOG_COLOR = new THREE.Color(0x9aa4ad)
 const RAIN_FOG_COLOR = new THREE.Color(0x5a6570)
 const SNOW_FOG_COLOR = new THREE.Color(0xe8eef2)
+const CLOUDY_HORIZON_COLOR = new THREE.Color(0x98a2a8)
+const CLOUDY_ZENITH_COLOR = new THREE.Color(0x667583)
+const RAIN_HORIZON_COLOR = new THREE.Color(0x74808a)
+const RAIN_ZENITH_COLOR = new THREE.Color(0x475867)
 
 /** Weather that can plausibly be chosen by the automatic departure mode.
  * Snow needs higher ground in this compact route model; manual snow remains
@@ -97,18 +101,9 @@ function createPrecipitationTexture(kind: PrecipitationKind): THREE.CanvasTextur
   return texture
 }
 
-interface Cloud {
-  mesh: THREE.Mesh
-  speed: number
-}
-
 export class WeatherSystem {
   readonly group = new THREE.Group()
   current: WeatherType = WeatherType.CLEAR
-
-  private clouds: Cloud[] = []
-  private cloudGeo = new THREE.IcosahedronGeometry(1, 0)
-  private cloudMat: THREE.MeshStandardMaterial | null = null
 
   // Pooled precipitation particles
   private points: THREE.Points
@@ -172,7 +167,6 @@ export class WeatherSystem {
     if (type === this.current) return
     this.current = type
     this.switchTimer = this.randomSwitchDelay()
-    this.rebuildClouds()
     this.configureParticles()
   }
 
@@ -195,7 +189,6 @@ export class WeatherSystem {
   }
 
   update(dt: number, camera: THREE.PerspectiveCamera, biome: BiomeType) {
-    const cameraPos = camera.position
     this.time += dt
     const routeWeather = weatherForRoute(this.current, this.override, biome)
     if (routeWeather !== this.current) {
@@ -211,14 +204,12 @@ export class WeatherSystem {
     }
 
     this.group.position.set(0, 0, 0)
-    this.updateClouds(dt, cameraPos)
     this.updateParticles(dt, camera)
     this.updateSplashes(dt)
   }
 
-  /** Fade precipitation at a covered location such as a tunnel. Cloud state
-   * can keep updating normally, while particles never cross the carriage view
-   * through a solid tunnel wall. */
+  /** Fade precipitation at a covered location such as a tunnel, so particles
+   * never cross the carriage view through a solid tunnel wall. */
   setShelter(enclosure: number) {
     this.shelter = THREE.MathUtils.clamp(enclosure, 0, 1)
     const outdoors = 1 - this.shelter
@@ -235,6 +226,8 @@ export class WeatherSystem {
         state.sunIntensity = 0
         state.dirIntensity *= 0.5
         state.fogColor.lerp(FOGGY_FOG_COLOR, 0.5)
+        state.horizonColor.lerp(FOGGY_FOG_COLOR, 0.42)
+        state.zenithColor.lerp(CLOUDY_ZENITH_COLOR, 0.5)
         break
       case WeatherType.RAIN:
         state.fogNear *= 0.6
@@ -243,6 +236,8 @@ export class WeatherSystem {
         state.ambientIntensity *= 0.85
         state.sunIntensity *= 0.3
         state.fogColor.lerp(RAIN_FOG_COLOR, 0.4)
+        state.horizonColor.lerp(RAIN_HORIZON_COLOR, 0.5)
+        state.zenithColor.lerp(RAIN_ZENITH_COLOR, 0.58)
         break
       case WeatherType.SNOW:
         state.fogNear *= 0.7
@@ -253,62 +248,11 @@ export class WeatherSystem {
       case WeatherType.CLOUDY:
         state.dirIntensity *= 0.7
         state.sunIntensity *= 0.5
+        state.horizonColor.lerp(CLOUDY_HORIZON_COLOR, 0.48)
+        state.zenithColor.lerp(CLOUDY_ZENITH_COLOR, 0.52)
         break
       case WeatherType.CLEAR:
         break
-    }
-  }
-
-  // ---- Clouds ----
-
-  private rebuildClouds() {
-    for (const cloud of this.clouds) {
-      this.group.remove(cloud.mesh)
-    }
-    this.cloudMat?.dispose()
-    this.cloudMat = null
-    this.clouds = []
-
-    const count =
-      this.current === WeatherType.CLOUDY
-        ? 40
-        : this.current === WeatherType.RAIN || this.current === WeatherType.SNOW
-          ? 25
-          : 0
-    if (count === 0) return
-
-    const dark = this.current === WeatherType.RAIN
-    this.cloudMat = new THREE.MeshStandardMaterial({
-      color: dark ? 0x8a929a : 0xffffff,
-      transparent: true,
-      opacity: dark ? 0.75 : 0.65,
-      roughness: 1,
-      flatShading: true,
-    })
-
-    for (let i = 0; i < count; i++) {
-      const mesh = new THREE.Mesh(this.cloudGeo, this.cloudMat)
-      const scale = 6 + Math.random() * 14
-      mesh.scale.set(scale * (1.4 + Math.random()), scale * 0.5, scale)
-      mesh.position.set(
-        (Math.random() - 0.5) * 600,
-        60 + Math.random() * 60,
-        (Math.random() - 0.5) * 600
-      )
-      mesh.rotation.y = Math.random() * Math.PI * 2
-      this.clouds.push({ mesh, speed: 1 + Math.random() * 2 })
-      this.group.add(mesh)
-    }
-  }
-
-  private updateClouds(dt: number, cameraPos: THREE.Vector3) {
-    for (const cloud of this.clouds) {
-      cloud.mesh.position.x += cloud.speed * dt
-      // Wrap clouds around the camera
-      if (cloud.mesh.position.x - cameraPos.x > 320) cloud.mesh.position.x -= 640
-      if (cameraPos.x - cloud.mesh.position.x > 320) cloud.mesh.position.x += 640
-      if (cloud.mesh.position.z - cameraPos.z > 320) cloud.mesh.position.z -= 640
-      if (cameraPos.z - cloud.mesh.position.z > 320) cloud.mesh.position.z += 640
     }
   }
 
@@ -423,8 +367,6 @@ export class WeatherSystem {
   }
 
   dispose() {
-    this.cloudGeo.dispose()
-    this.cloudMat?.dispose()
     this.points.geometry.dispose()
     this.pointMat.dispose()
     this.snowParticleTexture.dispose()
