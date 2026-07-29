@@ -117,6 +117,19 @@ export class TerrainGen {
         // meets it continuously, so a widened lake cannot expose dry ridges.
         height -= bankCarve * RIVER_DEPTH * river * railGuard * roadGuard
       }
+
+      // The far-bank service road continues the bridge/village access along
+      // the open lakeshore. It is slightly above the water and fades back to
+      // natural terrain with the same basin strength that shapes the shore.
+      if (channel.lakeStrength > 0.01) {
+        const farRoadD = Math.abs(x - farBankRoadCenterX(z))
+        if (farRoadD < ROAD_VERGE) {
+          const edgeT = Math.min(Math.max((farRoadD - ROAD_HALF_WIDTH) / (ROAD_VERGE - ROAD_HALF_WIDTH), 0), 1)
+          const roadWeight = (1 - smoothstep(edgeT)) * channel.lakeStrength
+          const roadElevation = trackElevationAt(z) - 0.15
+          height = height * (1 - roadWeight) + roadElevation * roadWeight
+        }
+      }
     }
 
     return height
