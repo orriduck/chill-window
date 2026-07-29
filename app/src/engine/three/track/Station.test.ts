@@ -5,6 +5,7 @@ import {
   stationNightLightLevel,
   stationVisualKindAt,
   urbanPassingTrackCenters,
+  urbanTurnoutAlignmentAngle,
 } from './Station'
 import { createRoutePlan } from '../terrain/RouteFeatures'
 
@@ -59,5 +60,7 @@ describe('urban station track capacity', () => {
     const centers = urbanPassingTrackCenters()
     expect(centers).toEqual([-4.4, -7.5])
     expect(Math.abs(centers[0] - centers[1])).toBeGreaterThan(3)
+    expect(urbanTurnoutAlignmentAngle(centers[0], 38)).toBeLessThan(0)
+    expect(urbanTurnoutAlignmentAngle(centers[0], 38)).toBeCloseTo(Math.atan2(-4.4, 38))
   })
 })

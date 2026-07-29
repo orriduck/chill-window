@@ -47,6 +47,12 @@ export function urbanPassingTrackCenters(): readonly number[] {
   return URBAN_PASSING_TRACK_CENTERS
 }
 
+/** Heading of the centreline through an urban turnout. Both rails and their
+ * sleepers use this shared geometry so the diverging track reads as one unit. */
+export function urbanTurnoutAlignmentAngle(passingCenterX: number, longitudinalDistance: number): number {
+  return Math.atan2(passingCenterX, longitudinalDistance)
+}
+
 export type StationVisualKind = Exclude<StationKind, 'none'>
 
 type StationProfile = {
@@ -696,7 +702,7 @@ export class Station {
         const z = THREE.MathUtils.lerp(startZ, endZ, t)
         const sleeper = new THREE.Mesh(this.box(2.35, 0.12, 0.28), sleeperMat)
         sleeper.position.set(x, 0.02, z)
-        sleeper.rotation.y = Math.atan2(passingCenterX + 0.67, endZ - startZ)
+        sleeper.rotation.y = urbanTurnoutAlignmentAngle(passingCenterX, endZ - startZ)
         this.group.add(sleeper)
       }
     }
