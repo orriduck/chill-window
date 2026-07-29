@@ -12,3 +12,7 @@ export function grassSpacingForLod(densityScale: number): number {
   if (densityScale >= 0.5) return 3.6
   return 6
 }
+
+export function grassClumpsPerSquareMetre(spacing: number): number {
+  return 1 / Math.max(spacing, 0.001) ** 2
+}

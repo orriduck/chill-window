@@ -70,6 +70,9 @@ const MEADOW_OLIVE = 0x3d6631
 const ROAD_DIRT = 0x9a8258
 const ROAD_RUT = 0x7a6642
 const ROAD_ASPHALT = 0x4e4a44
+const WINDOW_GRASS_BAND_START = 18
+const WINDOW_GRASS_BAND_END = 72
+const WINDOW_GRASS_SPACING = 0.72
 
 interface BiomeSample {
   type: BiomeType
@@ -645,10 +648,6 @@ gl_Position = projectionMatrix * mvPosition;`,
     // roughly 2.2x the former coverage while the middle/far rings retain their
     // conservative streaming budget.
     const spacing = grassSpacingForLod(densityScale)
-    const cols = Math.floor(CHUNK_SIZE / spacing)
-    const rows = Math.floor(CHUNK_SIZE / spacing)
-    if (cols === 0 || rows === 0) return []
-
     // Collect matrix elements into flat arrays per variant (no Matrix4 allocs)
     const variantData: number[][] = [[], [], [], []]
     const dummy = new THREE.Object3D()
@@ -656,12 +655,15 @@ gl_Position = projectionMatrix * mvPosition;`,
     // only bother for near chunks where steep-bank grass is visible
     const checkSlope = densityScale >= 1
 
-    for (let ci = 0; ci < cols; ci++) {
+    const appendLayer = (layerSpacing: number, startX: number, endX: number, seedOffset: number) => {
+      const cols = Math.floor((endX - startX) / layerSpacing)
+      const rows = Math.floor(CHUNK_SIZE / layerSpacing)
+      for (let ci = 0; ci < cols; ci++) {
       for (let ri = 0; ri < rows; ri++) {
-        const jx = (hash01(ci * 997 + ri * 3, worldZ * 0.001) - 0.5) * spacing * 0.6
-        const jz = (hash01(ci * 13 + ri * 733, worldX * 0.001) - 0.5) * spacing * 0.6
-        const x = worldX + ci * spacing + spacing / 2 + jx
-        const z = worldZ + ri * spacing + spacing / 2 + jz
+        const jx = (hash01(ci * 997 + ri * 3 + seedOffset, worldZ * 0.001) - 0.5) * layerSpacing * 0.6
+        const jz = (hash01(ci * 13 + ri * 733 + seedOffset, worldX * 0.001) - 0.5) * layerSpacing * 0.6
+        const x = worldX + startX + ci * layerSpacing + layerSpacing / 2 + jx
+        const z = worldZ + ri * layerSpacing + layerSpacing / 2 + jz
         const biome = this.getBiomeAt(z)
         const riverStrength = biome.params.river ?? 0
         const channel = waterChannelAt(z, this.routePlan)
@@ -680,9 +682,9 @@ gl_Position = projectionMatrix * mvPosition;`,
         const h = sampleSurfaceHeight(x, z)
         if (checkSlope && this.terrainGen.getSlope(x, z, biome.params) > 1.3) continue
 
-        const rot = hash01(ci * 31 + ri * 17, worldZ) * Math.PI * 2
-        const scale = 0.85 + hash01(ci * 7 + ri * 11, worldX) * 1.15
-        const variant = Math.floor(hash01(ci * 5 + ri * 41, worldX + worldZ) * 4)
+        const rot = hash01(ci * 31 + ri * 17 + seedOffset, worldZ) * Math.PI * 2
+        const scale = 0.85 + hash01(ci * 7 + ri * 11 + seedOffset, worldX) * 1.15
+        const variant = Math.floor(hash01(ci * 5 + ri * 41 + seedOffset, worldX + worldZ) * 4)
 
         dummy.position.set(x, h + 0.03, z)
         dummy.rotation.set(0, rot, 0)
@@ -692,6 +694,15 @@ gl_Position = projectionMatrix * mvPosition;`,
         const arr = variantData[variant]
         for (let k = 0; k < 16; k++) arr.push(e[k])
       }
+    }
+    }
+
+    if (densityScale >= 1) {
+      appendLayer(spacing, 0, WINDOW_GRASS_BAND_START, 0)
+      appendLayer(WINDOW_GRASS_SPACING, WINDOW_GRASS_BAND_START, WINDOW_GRASS_BAND_END, 100_003)
+      appendLayer(spacing, WINDOW_GRASS_BAND_END, CHUNK_SIZE, 200_003)
+    } else {
+      appendLayer(spacing, 0, CHUNK_SIZE, 0)
     }
 
     const meshes: THREE.InstancedMesh[] = []
