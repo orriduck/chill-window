@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cameraFovForAspect, compactViewportFactor } from './Camera'
+import { cameraFovForAspect, compactViewportFactor, CRUISE_SPEED, cruiseSpeedForScheduledStop } from './Camera'
 
 describe('compact viewport camera', () => {
   it('keeps the authored field of view on desktop proportions', () => {
@@ -15,5 +15,13 @@ describe('compact viewport camera', () => {
   it('interpolates smoothly through tablet-sized aspect ratios', () => {
     expect(cameraFovForAspect(0.75)).toBeGreaterThan(70)
     expect(cameraFovForAspect(0.75)).toBeLessThan(78)
+  })
+})
+
+describe('scheduled station cruise speed', () => {
+  it('tracks authored stop distance while keeping a restrained speed envelope', () => {
+    expect(cruiseSpeedForScheduledStop(CRUISE_SPEED * 600, 600)).toBeCloseTo(CRUISE_SPEED)
+    expect(cruiseSpeedForScheduledStop(1, 600)).toBeCloseTo(CRUISE_SPEED * 0.65)
+    expect(cruiseSpeedForScheduledStop(100000, 60)).toBeCloseTo(CRUISE_SPEED * 1.25)
   })
 })

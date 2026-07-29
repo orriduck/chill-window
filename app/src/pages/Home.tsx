@@ -139,6 +139,8 @@ export default function Home() {
             arrivingRef.current = false;
             stationPreparedRef.current = false;
             phaseRef.current = 'ride';
+            const nextSegment = plan.segments[segIdxRef.current];
+            trainControlRef.current?.planStation(nextSegment.name, nextSegment.focusSec);
             trainControlRef.current?.departStation();
           }
         }
@@ -190,6 +192,7 @@ export default function Home() {
     // The Three.js station manager owns the visible dwell/departure sequence.
     const camZ = trainControlRef.current?.getZ() ?? 0;
     trainControlRef.current?.showStation(originRef.current, camZ);
+    trainControlRef.current?.planStation(plan.segments[0].name, plan.segments[0].focusSec);
     departureSchedulerRef.current?.schedule(() => {
       if (phaseRef.current !== 'ride') return;
       trainControlRef.current?.departStation();

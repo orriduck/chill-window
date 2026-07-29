@@ -60,6 +60,11 @@ export interface RouteAnchor {
   halfLength: number
 }
 
+export interface RouteStationAnchor {
+  z: number
+  kind: Exclude<StationKind, 'none'>
+}
+
 export interface RouteFeatureSample {
   current: RouteBeat
   next: RouteBeat
@@ -196,6 +201,45 @@ export function routeAnchorsForSegment(
   }
 
   return []
+}
+
+/** Station beats own a single platform centre in the middle of their route
+ * segment. The town generator uses the same segment, keeping access roads,
+ * buildings, and a scheduled stop in one geographic envelope. */
+export function stationAnchorForSegment(
+  segmentIndex: number,
+  plan: RoutePlan = DEFAULT_ROUTE_PLAN,
+): RouteStationAnchor | null {
+  const kind = routeBeatForSegment(segmentIndex, plan).station
+  if (kind === 'none') return null
+  return { z: segmentIndex * ROUTE_SEGMENT_LENGTH + ROUTE_SEGMENT_LENGTH / 2, kind }
+}
+
+/** Find the authored station nearest the journey's expected travel distance.
+ * Candidates are always ahead of the train and the lookup spans several route
+ * cycles, so an unusually long focus interval still lands on real rail logic. */
+export function nearestStationAnchor(
+  startZ: number,
+  expectedDistance: number,
+  plan: RoutePlan = DEFAULT_ROUTE_PLAN,
+): RouteStationAnchor {
+  const targetZ = startZ + Math.max(expectedDistance, ROUTE_SEGMENT_LENGTH / 2)
+  const firstSegment = Math.floor(startZ / ROUTE_SEGMENT_LENGTH)
+  let best: RouteStationAnchor | null = null
+  let bestDistance = Number.POSITIVE_INFINITY
+
+  for (let segment = firstSegment; segment < firstSegment + plan.beats.length * 4; segment++) {
+    const anchor = stationAnchorForSegment(segment, plan)
+    if (!anchor || anchor.z <= startZ + ROUTE_SEGMENT_LENGTH * 0.2) continue
+    const distance = Math.abs(anchor.z - targetZ)
+    if (distance < bestDistance) {
+      best = anchor
+      bestDistance = distance
+    }
+  }
+
+  if (!best) throw new Error('Route plan must include at least one station beat')
+  return best
 }
 
 /** Returns human-readable violations to make authored route programmes testable. */
