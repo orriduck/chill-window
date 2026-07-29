@@ -19,8 +19,8 @@ import ballastGravelUrl from './assets/gravel_01.490410e9.jpg'
 
 const loader = new THREE.TextureLoader()
 
-function load(url: string, srgb = true): THREE.Texture {
-  const tex = loader.load(url)
+function load(url: string, srgb = true, onLoad?: () => void): THREE.Texture {
+  const tex = loader.load(url, onLoad)
   if (srgb) tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 4
   return tex
@@ -30,7 +30,12 @@ function load(url: string, srgb = true): THREE.Texture {
 export const groundGrassTex = load(groundGrassUrl)
 export const groundRockTex = load(groundRockUrl)
 export const groundRockBumpTex = load(groundRockBumpUrl, false)
-export const ballastGravelTex = load(ballastGravelUrl)
+let resolveBallastGravelReady!: () => void
+/** Resolves only after the shared gravel image is available to clone safely. */
+export const ballastGravelReady = new Promise<void>((resolve) => {
+  resolveBallastGravelReady = resolve
+})
+export const ballastGravelTex = load(ballastGravelUrl, true, resolveBallastGravelReady)
 
 // ---- Sprite atlases ----
 export const grassSpriteTex = load(grassSpriteUrl) // 2x2, 4 clump variants

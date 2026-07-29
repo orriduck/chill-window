@@ -1,6 +1,7 @@
 import * as THREE from 'three'
-import { ballastGravelTex } from '../textures'
+import { ballastGravelReady, ballastGravelTex } from '../textures'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
+import { configureBallastTexture } from './ballast'
 
 const RAIL_GAUGE = 1.5
 const SEGMENT = 400 // track length that follows the camera (uniform, no seam)
@@ -17,23 +18,26 @@ export class TrackSystem {
   private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
   private sleepers: THREE.InstancedMesh
   private dummy = new THREE.Object3D()
-  private ballastTexture: THREE.Texture
+  private ballastTexture: THREE.Texture | null = null
+  private disposed = false
 
   constructor() {
-    this.ballastTexture = this.track(ballastGravelTex.clone())
-    this.ballastTexture.wrapS = THREE.RepeatWrapping
-    this.ballastTexture.wrapT = THREE.RepeatWrapping
-    this.ballastTexture.repeat.set(3, 90)
-    this.ballastTexture.anisotropy = 8
-    this.ballastTexture.needsUpdate = true
     const ballastMat = this.track(
       new THREE.MeshStandardMaterial({
         color: 0xd0c7bc,
-        map: this.ballastTexture,
         roughness: 1.0,
         metalness: 0,
       })
     )
+    // Texture.clone() marks a texture for upload. Waiting until the shared
+    // image exists avoids that upload happening with no source pixels.
+    void ballastGravelReady.then(() => {
+      if (this.disposed) return
+      this.ballastTexture = this.track(ballastGravelTex.clone())
+      configureBallastTexture(this.ballastTexture)
+      ballastMat.map = this.ballastTexture
+      ballastMat.needsUpdate = true
+    })
     const steelMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0xb8bcc4, roughness: 0.25, metalness: 0.95 })
     )
@@ -124,10 +128,12 @@ export class TrackSystem {
     this.sleepers.position.z = -(camZ % SLEEPER_SPACING)
     // The geometry follows the train for precision, but the texture remains
     // in world space so the crushed stone visibly passes beneath the window.
-    this.ballastTexture.offset.y = THREE.MathUtils.euclideanModulo(
-      (camZ / SEGMENT) * this.ballastTexture.repeat.y,
-      1,
-    )
+    if (this.ballastTexture) {
+      this.ballastTexture.offset.y = THREE.MathUtils.euclideanModulo(
+        (camZ / SEGMENT) * this.ballastTexture.repeat.y,
+        1,
+      )
+    }
   }
 
   private box(w: number, h: number, d: number): THREE.BoxGeometry {
@@ -140,6 +146,7 @@ export class TrackSystem {
   }
 
   dispose() {
+    this.disposed = true
     for (const resource of this.disposables) resource.dispose()
     this.disposables = []
     this.sleepers.dispose()
