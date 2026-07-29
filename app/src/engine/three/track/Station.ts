@@ -13,11 +13,15 @@ const EDGE_LINE_W = 0.35
 const CANOPY_LENGTH = 132
 const CANOPY_HEIGHT = 4.5
 const CANOPY_OVERHANG = 1.5
+const PLATFORM_SIGN_Y = CANOPY_HEIGHT - 0.8
+const PLATFORM_SIGN_HEIGHT = 0.6
 
 // Furniture
 const BENCH_COUNT = 6
 const LIGHT_COUNT = 7
-const SIGN_COUNT = 2
+// The first board is centered at the scheduled stop, with the second held
+// toward departure so both states read without overfilling the platform.
+const PLATFORM_SIGN_OFFSETS = [-16, 22]
 
 /**
  * Fade station lighting against the real exterior ambient budget. This keeps
@@ -69,9 +73,6 @@ export class Station {
     const signMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x1a2a4a, roughness: 0.5, metalness: 0.2 })
     )
-    const signTextMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xffdd66, roughness: 0.3, metalness: 0.1, emissive: 0xffdd66, emissiveIntensity: 0.3 })
-    )
     const lightMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4, metalness: 0.6 })
     )
@@ -117,7 +118,7 @@ export class Station {
     this.buildCanopy(roofMat, pillarMat)
     this.buildBenches(benchWoodMat, benchMetalMat)
     this.buildLights(lightMat, lightBulbMat, platformGlowMaterial, bulbGeometry, platformGlowGeometry)
-    this.buildSigns(name, signMat, signTextMat)
+    this.buildSigns(name, signMat)
     this.buildDistrict(
       name,
       roadCenterX(zCenter),
@@ -262,32 +263,37 @@ export class Station {
     }
   }
 
-  /** Station name signs hanging from the canopy */
-  private buildSigns(_name: string, signMat: THREE.Material, textMat: THREE.Material) {
-    const spacing = CANOPY_LENGTH / (SIGN_COUNT + 1)
-    for (let i = 0; i < SIGN_COUNT; i++) {
+  /** Station-specific platform and section signs hanging from the canopy. */
+  private buildSigns(name: string, signMat: THREE.Material) {
+    const displayMat = this.track(new THREE.MeshBasicMaterial({ map: this.makePlatformSignTexture(name) }))
+    const rodLength = CANOPY_HEIGHT - (PLATFORM_SIGN_Y + PLATFORM_SIGN_HEIGHT / 2)
+    for (const zOffset of PLATFORM_SIGN_OFFSETS) {
       const sign = new THREE.Group()
 
       // Sign board
-      const board = new THREE.Mesh(this.box(0.08, 0.6, 3.5), signMat)
+      const board = new THREE.Mesh(this.box(0.08, PLATFORM_SIGN_HEIGHT, 3.5), signMat)
       sign.add(board)
 
-      // Text strip (emissive bar representing station name)
-      const textBar = new THREE.Mesh(this.box(0.09, 0.35, 2.8), textMat)
-      textBar.position.x = -0.01
-      sign.add(textBar)
+      // Two physical faces let travellers read the same location data from
+      // the train and the platform without turning off depth testing.
+      for (const side of [-1, 1]) {
+        const display = new THREE.Mesh(this.track(new THREE.PlaneGeometry(2.8, 0.35)), displayMat)
+        display.rotation.y = side * Math.PI / 2
+        display.position.x = side * 0.051
+        sign.add(display)
+      }
 
       // Hanging rods
       for (const side of [-1, 1]) {
-        const rod = new THREE.Mesh(this.box(0.03, 0.5, 0.03), signMat)
-        rod.position.set(0, 0.55, side * 1.2)
+        const rod = new THREE.Mesh(this.box(0.03, rodLength, 0.03), signMat)
+        rod.position.set(0, PLATFORM_SIGN_HEIGHT / 2 + rodLength / 2, side * 1.2)
         sign.add(rod)
       }
 
       sign.position.set(
         PLATFORM_X,
-        CANOPY_HEIGHT - 0.8,
-        -CANOPY_LENGTH / 2 + (i + 1) * spacing
+        PLATFORM_SIGN_Y,
+        zOffset,
       )
       this.group.add(sign)
     }
@@ -490,6 +496,35 @@ export class Station {
       context.textBaseline = 'middle'
       context.fillText(name, canvas.width / 2, canvas.height / 2 + 2)
     }
+    const texture = this.track(new THREE.CanvasTexture(canvas))
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+  }
+
+  /** Compact platform display: location data comes from the actual Station name. */
+  private makePlatformSignTexture(name: string): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas')
+    canvas.width = 560
+    canvas.height = 92
+    const context = canvas.getContext('2d')!
+
+    context.fillStyle = '#17344e'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.fillStyle = '#f5f3ea'
+    context.font = '700 36px sans-serif'
+    context.textAlign = 'right'
+    context.textBaseline = 'middle'
+    context.fillText(name, 368, 48)
+    context.fillStyle = '#e8d99e'
+    context.fillRect(392, 12, 72, 68)
+    context.fillStyle = '#17344e'
+    context.font = '700 52px sans-serif'
+    context.textAlign = 'center'
+    context.fillText('1', 428, 48)
+    context.fillStyle = '#a8d3e1'
+    context.font = '700 32px sans-serif'
+    context.fillText('B', 510, 48)
+
     const texture = this.track(new THREE.CanvasTexture(canvas))
     texture.colorSpace = THREE.SRGBColorSpace
     return texture
