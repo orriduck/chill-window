@@ -109,7 +109,19 @@ export default function ThreeCanvas({
 
     // ---- Core systems ----
     const camera = new TrainCamera()
-    const renderer = new WebGLRenderer()
+    let renderer: WebGLRenderer
+    try {
+      renderer = new WebGLRenderer()
+    } catch {
+      // Keep the React shell and setup controls mounted on environments that
+      // cannot allocate WebGL (for example, a browser process without GPU
+      // access) instead of letting an effect exception blank the whole app.
+      if (controlRef) controlRef.current = null
+      container.dataset.webgl = 'unavailable'
+      scene.dispose()
+      interiorScene.clear()
+      return
+    }
     const terrain = new TerrainLOD(exteriorGroup, 'field', routePlan)
     const water = new WaterSystem(routePlan)
     const fields = new FieldPlots((x, z) => terrain.sampleHeight(x, z))
