@@ -1,10 +1,10 @@
 import * as THREE from 'three'
 import { compactViewportFactor } from '../core/Camera'
 
-const FRAME_DISTANCE = 3.65
+// Keep both physical HUD rails inside the viewport while giving the view more
+// of the frame than the surrounding cabin wall.
+const FRAME_DISTANCE = 3.1
 const WINDOW_FORWARD_OFFSET = 0.5
-// Keep the complete window, its two physical HUD rails, and a little cabin
-// structure inside the viewport on a regular desktop display.
 const GROUP_Y_OFFSET = 0
 const OPENING_W = 3.5
 const OPENING_H = 2.9
@@ -48,8 +48,8 @@ export type WindowFrameViewportLayout = {
 export function windowFrameViewportLayout(aspect: number): WindowFrameViewportLayout {
   const compactness = compactViewportFactor(aspect)
   return {
-    frameDistance: THREE.MathUtils.lerp(FRAME_DISTANCE, 4.35, compactness),
-    scale: THREE.MathUtils.lerp(1, 0.9, compactness),
+    frameDistance: THREE.MathUtils.lerp(FRAME_DISTANCE, 3.85, compactness),
+    scale: THREE.MathUtils.lerp(1, 0.95, compactness),
     yOffset: THREE.MathUtils.lerp(GROUP_Y_OFFSET, -0.04, compactness),
     forwardOffset: compactness,
   }
