@@ -104,6 +104,19 @@
 
 @media (max-width: 767px) and (orientation: portrait) {
   .journey-controls {
-    top: clamp(12.5rem, 43svh, 25rem);
+    left: auto;
+    right: max(0.75rem, env(safe-area-inset-right));
+    top: clamp(20rem, 62svh, 42rem);
+    gap: 0.25rem;
+    transform: none;
+  }
+
+  .journey-control {
+    padding: 0.4rem;
+  }
+
+  .journey-control svg {
+    height: 0.9rem;
+    width: 0.9rem;
   }
 }
