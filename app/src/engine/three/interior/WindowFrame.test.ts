@@ -42,13 +42,12 @@ describe('glassReflectionOpacity', () => {
 })
 
 describe('window HUD surfaces', () => {
-  it('keeps both physical rails within the glazed opening', () => {
+  it('keeps the consolidated physical rail within the glazed opening', () => {
     const layout = windowHudSurfaceLayout()
 
-    expect(layout.bottom.y - layout.bottom.height / 2).toBeGreaterThan(-1.45)
-    expect(layout.bottom.y + layout.bottom.height / 2).toBeLessThan(1.45)
-    expect(layout.top.y - layout.top.height / 2).toBeGreaterThan(-1.45)
-    expect(layout.top.y + layout.top.height / 2).toBeLessThan(1.45)
+    expect(layout.rail.y - layout.rail.height / 2).toBeGreaterThan(-1.45)
+    expect(layout.rail.y + layout.rail.height / 2).toBeLessThan(1.45)
+    expect(layout.rail.y).toBeLessThan(-0.9)
   })
 
   it('clamps physical progress to the drawable rail', () => {

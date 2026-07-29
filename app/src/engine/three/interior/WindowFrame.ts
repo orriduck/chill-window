@@ -32,8 +32,7 @@ export interface WindowHudReadout {
 }
 
 export type WindowHudSurfaceLayout = {
-  top: { x: number; y: number; z: number; width: number; height: number }
-  bottom: { x: number; y: number; z: number; width: number; height: number }
+  rail: { x: number; y: number; z: number; width: number; height: number }
 }
 
 export type WindowFrameViewportLayout = {
@@ -55,12 +54,12 @@ export function windowFrameViewportLayout(aspect: number): WindowFrameViewportLa
   }
 }
 
-/** Passive rails occupy real cabin/window planes. Their perspective comes
- * from the same camera projection as the frame, not from a CSS approximation. */
+/** The passive journey rail occupies one real cabin/window plane. Its
+ * perspective comes from the same camera projection as the frame, not from a
+ * CSS approximation. Keeping it low leaves the upper aperture for scenery. */
 export function windowHudSurfaceLayout(): WindowHudSurfaceLayout {
   return {
-    top: { x: 0.05, y: 1.08, z: 0.035, width: 1.92, height: 0.34 },
-    bottom: { x: -0.02, y: -1.08, z: 0.035, width: 3.08, height: 0.52 },
+    rail: { x: -0.02, y: -1.08, z: 0.035, width: 3.08, height: 0.66 },
   }
 }
 
@@ -115,12 +114,9 @@ export class WindowFrame {
     stationNames: [],
     currentSegment: 0,
   }
-  private topHudCanvas: HTMLCanvasElement | null = null
-  private topHudTexture: THREE.CanvasTexture | null = null
-  private topHudPlane: THREE.Mesh | null = null
-  private bottomHudCanvas: HTMLCanvasElement | null = null
-  private bottomHudTexture: THREE.CanvasTexture | null = null
-  private bottomHudPlane: THREE.Mesh | null = null
+  private journeyHudCanvas: HTMLCanvasElement | null = null
+  private journeyHudTexture: THREE.CanvasTexture | null = null
+  private journeyHudPlane: THREE.Mesh | null = null
 
   constructor() {
     const frame = this.track(
@@ -165,8 +161,7 @@ export class WindowFrame {
       progress: clampWindowHudProgress(readout.progress),
       currentSegment: Math.max(0, Math.floor(readout.currentSegment)),
     }
-    if (this.topHudPlane) this.topHudPlane.visible = readout.visible
-    if (this.bottomHudPlane) this.bottomHudPlane.visible = readout.visible
+    if (this.journeyHudPlane) this.journeyHudPlane.visible = readout.visible
     if (!readout.visible) return
     this.drawWindowHud()
   }
@@ -623,26 +618,21 @@ export class WindowFrame {
     this.group.add(rain)
   }
 
-  /** The timer and journey rail are passive, so they can live on real cabin
-   * surfaces instead of fighting the 3D projection from a screen-space layer. */
+  /** One quiet lower rail combines the timer and journey state. It belongs on
+   * a real cabin surface instead of fighting the 3D projection in screen space. */
   private buildWindowHud() {
     const layout = windowHudSurfaceLayout()
-    const top = this.createHudSurface(840, 190, layout.top, 16)
-    this.topHudCanvas = top.canvas
-    this.topHudTexture = top.texture
-    this.topHudPlane = top.plane
-
-    const bottom = this.createHudSurface(1280, 250, layout.bottom, 17)
-    this.bottomHudCanvas = bottom.canvas
-    this.bottomHudTexture = bottom.texture
-    this.bottomHudPlane = bottom.plane
+    const rail = this.createHudSurface(1280, 320, layout.rail, 17)
+    this.journeyHudCanvas = rail.canvas
+    this.journeyHudTexture = rail.texture
+    this.journeyHudPlane = rail.plane
     this.drawWindowHud()
   }
 
   private createHudSurface(
     canvasWidth: number,
     canvasHeight: number,
-    layout: WindowHudSurfaceLayout['top'],
+    layout: WindowHudSurfaceLayout['rail'],
     renderOrder: number,
   ) {
     const canvas = document.createElement('canvas')
@@ -668,46 +658,33 @@ export class WindowFrame {
   }
 
   private drawWindowHud() {
-    if (!this.topHudCanvas || !this.topHudTexture || !this.bottomHudCanvas || !this.bottomHudTexture) return
-    this.drawTopHud(this.topHudCanvas)
-    this.drawBottomHud(this.bottomHudCanvas)
-    this.topHudTexture.needsUpdate = true
-    this.bottomHudTexture.needsUpdate = true
+    if (!this.journeyHudCanvas || !this.journeyHudTexture) return
+    this.drawJourneyHud(this.journeyHudCanvas)
+    this.journeyHudTexture.needsUpdate = true
   }
 
-  private drawTopHud(canvas: HTMLCanvasElement) {
-    const context = canvas.getContext('2d')!
-    const { width, height } = canvas
-    context.clearRect(0, 0, width, height)
-    context.fillStyle = 'rgba(8, 13, 16, 0.42)'
-    context.fillRect(0, 0, width, height)
-    context.fillStyle = 'rgba(190, 220, 226, 0.42)'
-    context.fillRect(0, 0, width, 3)
-    context.fillRect(0, height - 3, width, 3)
-
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-    context.fillStyle = '#f4f7f5'
-    context.font = '700 92px ui-monospace, SFMono-Regular, Menlo, monospace'
-    context.fillText(this.windowHud.time, width / 2, height * 0.47)
-    context.fillStyle = 'rgba(220, 231, 232, 0.8)'
-    context.font = '500 27px system-ui, sans-serif'
-    context.fillText(this.windowHud.journey, width / 2, height * 0.79)
-  }
-
-  private drawBottomHud(canvas: HTMLCanvasElement) {
+  private drawJourneyHud(canvas: HTMLCanvasElement) {
     const context = canvas.getContext('2d')!
     const { width, height } = canvas
     const left = 64
     const right = width - 64
-    const railY = 72
+    const railY = 142
     const railWidth = right - left
     context.clearRect(0, 0, width, height)
-    context.fillStyle = 'rgba(8, 13, 16, 0.34)'
+    context.fillStyle = 'rgba(8, 13, 16, 0.42)'
     context.fillRect(0, 0, width, height)
     context.fillStyle = 'rgba(190, 220, 226, 0.34)'
     context.fillRect(0, 0, width, 2)
     context.fillRect(0, height - 2, width, 2)
+
+    context.textBaseline = 'middle'
+    context.textAlign = 'left'
+    context.fillStyle = '#f4f7f5'
+    context.font = '700 48px ui-monospace, SFMono-Regular, Menlo, monospace'
+    context.fillText(this.windowHud.time, left, 54)
+    context.fillStyle = 'rgba(220, 231, 232, 0.82)'
+    context.font = '500 24px system-ui, sans-serif'
+    context.fillText(this.windowHud.journey, left + 194, 54)
 
     context.strokeStyle = 'rgba(234, 241, 239, 0.52)'
     context.lineWidth = 5
@@ -734,31 +711,30 @@ export class WindowFrame {
       context.fill()
       context.stroke()
       context.fillStyle = 'rgba(233, 241, 240, 0.82)'
-      context.font = '500 22px system-ui, sans-serif'
+      context.font = '500 20px system-ui, sans-serif'
       context.textAlign = 'center'
       context.textBaseline = 'top'
-      context.fillText(this.windowHud.stationNames[index], x, railY + 21)
+      context.fillText(this.windowHud.stationNames[index], x, railY + 18)
     }
 
     context.textBaseline = 'middle'
-    context.font = '500 24px system-ui, sans-serif'
-    context.fillStyle = 'rgba(235, 242, 241, 0.75)'
+    context.font = '500 22px system-ui, sans-serif'
+    context.fillStyle = 'rgba(235, 242, 241, 0.78)'
     context.textAlign = 'left'
-    context.fillText(this.windowHud.segmentLabel, left, 182)
-    context.textAlign = 'center'
-    context.fillStyle = 'rgba(235, 242, 241, 0.86)'
-    context.fillText(this.windowHud.routeLabel, width / 2, 182)
+    const nextStop = this.windowHud.stationNames[this.windowHud.currentSegment] ?? this.windowHud.journey
+    context.fillText(`Next: ${nextStop}`, left, 262)
     context.textAlign = 'right'
-    context.fillStyle = 'rgba(235, 242, 241, 0.76)'
-    context.fillText(this.windowHud.motionLabel, right, 182)
-    const motionWidth = context.measureText(this.windowHud.motionLabel).width
+    context.fillStyle = 'rgba(235, 242, 241, 0.8)'
+    const motion = this.windowHud.motionLabel.split('•').slice(0, 2).join(' • ').trim()
+    context.fillText(motion, right, 262)
+    const motionWidth = context.measureText(motion).width
     const gradeX = right - motionWidth - 48
-    const gradeAngle = THREE.MathUtils.clamp(this.windowHud.grade, -0.02, 0.02) * 620
+    const gradeAngle = THREE.MathUtils.clamp(this.windowHud.grade, -0.02, 0.02) * 360
     context.strokeStyle = '#e4ae43'
-    context.lineWidth = 4
+    context.lineWidth = 3
     context.beginPath()
-    context.moveTo(gradeX, 182)
-    context.lineTo(gradeX + 34, 182 - gradeAngle)
+    context.moveTo(gradeX, 262)
+    context.lineTo(gradeX + 34, 262 - gradeAngle)
     context.stroke()
   }
 
