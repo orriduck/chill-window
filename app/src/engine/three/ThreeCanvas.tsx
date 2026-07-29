@@ -19,7 +19,7 @@ import { ValleyBridgeManager } from './track/ValleyBridge'
 import { MountainRoadworkManager } from './track/MountainRoadworks'
 import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
-import { routeContextAt, type RouteContext } from './terrain/RouteFeatures'
+import { routeContextAt, sampleRouteFeature, type RouteContext } from './terrain/RouteFeatures'
 
 const MAX_DT = 0.1 // clamp delta time to avoid spiral of death on lag
 export type WeatherPreset = WeatherType | 'auto'
@@ -310,7 +310,7 @@ export default function ThreeCanvas({
       // Time of day drives sky, sun and lighting; weather modulates on top
       timeOfDay.update(simulationDt)
       const state = timeOfDay.state
-      weather.update(simulationDt, cam)
+      weather.update(simulationDt, cam, sampleRouteFeature(camPos.z).current.biome)
       weather.setShelter(tunnelD)
       weather.applyToEnvironment(state)
 
