@@ -14,6 +14,10 @@ const BALE_COUNT = 12
 type HeightSampler = (x: number, z: number) => number
 type FieldSampler = (z: number) => boolean
 
+export function shouldShowFieldBale(isField: boolean): boolean {
+  return isField
+}
+
 /** Farm fields: rectangular crop plots that hug the terrain, painted with
  *  striped canvas textures (wheat, vegetables, ploughed soil, rapeseed),
  *  plus scattered hay bales. Active in the field biome; plots recycle
@@ -28,7 +32,7 @@ export class FieldPlots {
   private materials: THREE.MeshStandardMaterial[] = []
   private plots: { mesh: THREE.Mesh; cx: number; cz: number; index: number }[] = []
   private bales: THREE.InstancedMesh
-  private baleData: { x: number; z: number; rot: number; s: number }[] = []
+  private baleData: { x: number; z: number; rot: number; s: number; visible: boolean }[] = []
 
   constructor(sampleHeight: HeightSampler) {
     this.sampleHeight = sampleHeight
@@ -69,6 +73,7 @@ export class FieldPlots {
         z: -PLOT_BEHIND + hash01(i, 0, 11) * PLOT_WINDOW,
         rot: 0,
         s: 1,
+        visible: true,
       })
       this.resetBale(i, this.baleData[i].z)
     }
@@ -97,6 +102,12 @@ export class FieldPlots {
         this.resetBale(i, b.z + PLOT_WINDOW)
         balesChanged = true
       }
+      const visible = shouldShowFieldBale(isFieldAt(b.z))
+      if (visible !== b.visible) {
+        b.visible = visible
+        this.writeBale(i)
+        balesChanged = true
+      }
     }
     if (balesChanged) {
       this.bales.instanceMatrix.needsUpdate = true
@@ -123,15 +134,21 @@ export class FieldPlots {
     bale.x = PLOT_X_MIN + hash01(index, z, 12) * (PLOT_X_MAX - PLOT_X_MIN)
     bale.rot = hash01(index, z, 13) * Math.PI
     bale.s = 0.8 + hash01(index, z, 14) * 0.5
+    bale.visible = true
     this.colorScratch.setHSL(
       0.11,
       0.45 + hash01(index, z, 15) * 0.15,
       0.42 + hash01(index, z, 16) * 0.12,
     )
     this.bales.setColorAt(index, this.colorScratch)
-    this.dummy.position.set(bale.x, this.sampleHeight(bale.x, z) + 0.82 * bale.s, z)
+    this.writeBale(index)
+  }
+
+  private writeBale(index: number) {
+    const bale = this.baleData[index]
+    this.dummy.position.set(bale.x, this.sampleHeight(bale.x, bale.z) + 0.82 * bale.s, bale.z)
     this.dummy.rotation.set(0, bale.rot, 0)
-    this.dummy.scale.setScalar(bale.s)
+    this.dummy.scale.setScalar(bale.visible ? bale.s : 0)
     this.dummy.updateMatrix()
     this.bales.setMatrixAt(index, this.dummy.matrix)
   }
