@@ -6,10 +6,10 @@ describe('TimeOfDay night readability', () => {
     const time = new TimeOfDay('night')
     time.update(0)
 
-    expect(time.state.ambientIntensity).toBe(0.24)
-    expect(time.state.dirIntensity).toBe(0.35)
-    expect(time.state.fogNear).toBe(80)
-    expect(time.state.fogFar).toBe(520)
+    expect(time.state.ambientIntensity).toBe(0.3)
+    expect(time.state.dirIntensity).toBe(0.45)
+    expect(time.state.fogNear).toBe(105)
+    expect(time.state.fogFar).toBe(620)
   })
 
   it('leaves the established daytime and dusk light budgets unchanged', () => {
