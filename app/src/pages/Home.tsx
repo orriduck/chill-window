@@ -210,10 +210,9 @@ export default function Home() {
     setIsPaused(false);
     trainControlRef.current?.setPaused(false);
     audioRef.current?.stop();
-    // 渐变减速到静止，在原地显示一个车站
+    // An early stop can occur between scheduled stations. Keep the visible
+    // world continuous instead of spawning a fictional platform at the camera.
     trainControlRef.current?.setSpeed(0);
-    const camZ = trainControlRef.current?.getZ() ?? 0;
-    trainControlRef.current?.showStation('临时停车', camZ);
     setHud((p) => ({ ...p, phase: 'abort' }));
   }, []);
 
@@ -493,7 +492,7 @@ export default function Home() {
           title="你已在途中下车"
           lines={[
             `本次专注了 ${Math.floor(focusDone / 60)} 分 ${Math.round(focusDone % 60)} 秒`,
-            '列车已在临时停车站停靠，准备下一趟行程。',
+            '列车已在沿线停稳，准备下一趟行程。',
           ]}
           onAgain={backToSetup}
         />
