@@ -7,6 +7,7 @@ import {
 } from '@/engine/journey';
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
 import { CabinOverlay } from '@/components/CabinOverlay';
+import { gradeProfileAngleDeg } from '@/engine/gradeProfile';
 import ThreeCanvas, { type TrainControl, type WeatherPreset } from '@/engine/three/ThreeCanvas';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
@@ -463,7 +464,11 @@ export default function Home() {
             <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[11px] tracking-wider text-white/60">
               <span>第 {Math.min(hud.segIdx + 1, hud.segCount)} / {hud.segCount} 区间</span>
               <span className="min-w-0 text-center text-white/70">{hud.routeLabel} · 前方 {hud.nextRouteLabel}</span>
-              <span className="whitespace-nowrap">{Math.round(hud.speedKmh)} km/h · {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km</span>
+              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                {Math.round(hud.speedKmh)} km/h ·
+                <GradeProfile grade={hud.grade} />
+                {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km
+              </span>
             </div>
           </div>
         </>
@@ -508,6 +513,17 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+function GradeProfile({ grade }: { grade: number }) {
+  return (
+    <span className="relative inline-block h-3 w-7" aria-hidden="true">
+      <span
+        className="absolute left-0 top-1.5 h-px w-7 origin-left bg-amber-300/90"
+        style={{ transform: `rotate(${gradeProfileAngleDeg(grade)}deg)` }}
+      />
+    </span>
   );
 }
 
