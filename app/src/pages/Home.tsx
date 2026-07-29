@@ -5,7 +5,7 @@ import {
   buildFreeJourney, buildPomodoroJourney, suggestStops,
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
-import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, Settings2 } from 'lucide-react';
+import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, RotateCcw, Settings2 } from 'lucide-react';
 import { CabinOverlay } from '@/components/CabinOverlay';
 import ThreeCanvas, { type TrainControl } from '@/engine/three/ThreeCanvas';
 
@@ -360,6 +360,12 @@ export default function Home() {
           </div>
 
           <div className="absolute right-8 top-8 z-20 flex gap-2">
+            <button onClick={() => {
+              const control = trainControlRef.current;
+              if (typeof control?.resetView === 'function') control.resetView();
+            }} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="复位观察方向" aria-label="复位观察方向">
+              <RotateCcw className="h-4 w-4" />
+            </button>
             <button onClick={toggleSound} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65">
               {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>

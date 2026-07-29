@@ -34,6 +34,8 @@ export interface TrainControl {
   approachStation: (name: string) => void
   /** Resume from a station with the gentler departure acceleration. */
   departStation: () => void
+  /** Return the passenger view to the centered side-window pose. */
+  resetView: () => void
   /** Remove the current station. */
   hideStation: () => void
 }
@@ -129,6 +131,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
           preparedStationStopZ = null
         },
         departStation: () => camera.departStation(),
+        resetView: () => camera.resetView(),
         hideStation: () => stations.hideStation(),
       }
     }
@@ -137,7 +140,39 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
     canvas.style.width = '100%'
     canvas.style.height = '100%'
     canvas.style.display = 'block'
+    canvas.style.cursor = 'grab'
+    canvas.style.touchAction = 'none'
     container.appendChild(canvas)
+
+    let activePointerId: number | null = null
+    let lastPointerX = 0
+    let lastPointerY = 0
+    const endViewDrag = (event: PointerEvent) => {
+      if (activePointerId !== event.pointerId) return
+      activePointerId = null
+      canvas.style.cursor = 'grab'
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return
+      activePointerId = event.pointerId
+      lastPointerX = event.clientX
+      lastPointerY = event.clientY
+      canvas.setPointerCapture(event.pointerId)
+      canvas.style.cursor = 'grabbing'
+    }
+    const onPointerMove = (event: PointerEvent) => {
+      if (activePointerId !== event.pointerId) return
+      camera.panBy(event.clientX - lastPointerX, event.clientY - lastPointerY)
+      lastPointerX = event.clientX
+      lastPointerY = event.clientY
+    }
+    const onDoubleClick = () => camera.resetView()
+    canvas.addEventListener('pointerdown', onPointerDown)
+    canvas.addEventListener('pointermove', onPointerMove)
+    canvas.addEventListener('pointerup', endViewDrag)
+    canvas.addEventListener('pointercancel', endViewDrag)
+    canvas.addEventListener('dblclick', onDoubleClick)
 
     const rect = container.getBoundingClientRect()
     camera.updateAspect(rect.width, rect.height)
@@ -335,6 +370,11 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
     return () => {
       cancelAnimationFrame(rafRef.current)
       window.removeEventListener('resize', onResize)
+      canvas.removeEventListener('pointerdown', onPointerDown)
+      canvas.removeEventListener('pointermove', onPointerMove)
+      canvas.removeEventListener('pointerup', endViewDrag)
+      canvas.removeEventListener('pointercancel', endViewDrag)
+      canvas.removeEventListener('dblclick', onDoubleClick)
       if (controlRef) controlRef.current = null
       debugMode.dispose()
       terrain.dispose()
