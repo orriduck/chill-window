@@ -1,21 +1,20 @@
 import * as THREE from 'three'
 import { compactViewportFactor } from '../core/Camera'
 
-const FRAME_DISTANCE = 2
+const FRAME_DISTANCE = 3.65
 const WINDOW_FORWARD_OFFSET = 0.5
-// Shift the whole cabin down in view so the upper compartment (luggage
-// rack, folded bunk) sits inside the visible band instead of hugging the
-// top edge, where the app UI covers it.
-const GROUP_Y_OFFSET = -0.1
+// Keep the complete window, its two physical HUD rails, and a little cabin
+// structure inside the viewport on a regular desktop display.
+const GROUP_Y_OFFSET = 0
 const OPENING_W = 3.5
 const OPENING_H = 2.9
 const FRAME_T = 0.14
 const FRAME_D = 0.08
 
-// Cabin wall is large enough to cover the camera frustum at FRAME_DISTANCE,
-// so nothing outside the window opening leaks through at the screen edges.
-const WALL_W = 12
-const WALL_H = 7
+// The physical cabin wall extends past the widened view volume, so the exterior
+// can only be visible through the glazed opening at every supported aspect.
+const WALL_W = 24
+const WALL_H = 10
 const RAIN_DROP_COUNT = 96
 const RAIN_GLASS_TOP = OPENING_H / 2 - 0.05
 
@@ -41,16 +40,18 @@ export type WindowFrameViewportLayout = {
   frameDistance: number
   scale: number
   yOffset: number
+  forwardOffset: number
 }
 
-/** Preserve the complete physical aperture on a phone by widening the real camera
- * and stepping the cabin plane back, rather than flattening it with CSS. */
+/** Preserve the complete physical aperture at every viewport by keeping the
+ * cabin plane behind the camera's near view, then adding distance for phones. */
 export function windowFrameViewportLayout(aspect: number): WindowFrameViewportLayout {
   const compactness = compactViewportFactor(aspect)
   return {
-    frameDistance: THREE.MathUtils.lerp(FRAME_DISTANCE, 3.25, compactness),
-    scale: THREE.MathUtils.lerp(1, 0.94, compactness),
-    yOffset: THREE.MathUtils.lerp(GROUP_Y_OFFSET, -0.14, compactness),
+    frameDistance: THREE.MathUtils.lerp(FRAME_DISTANCE, 4.35, compactness),
+    scale: THREE.MathUtils.lerp(1, 0.9, compactness),
+    yOffset: THREE.MathUtils.lerp(GROUP_Y_OFFSET, -0.04, compactness),
+    forwardOffset: compactness,
   }
 }
 
@@ -836,7 +837,7 @@ export class WindowFrame {
     this.group.position.set(
       camera.position.x + viewport.frameDistance,
       camera.position.y + viewport.yOffset,
-      camera.position.z + WINDOW_FORWARD_OFFSET,
+      camera.position.z + WINDOW_FORWARD_OFFSET + viewport.forwardOffset,
     )
     this.group.rotation.set(0, -Math.PI / 2, 0)
     this.group.scale.setScalar(viewport.scale)
