@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   clampWindowHudProgress,
+  coachCabinLayout,
   glassReflectionOpacity,
   rainDropFallSpeed,
   rainDropInitialY,
@@ -121,5 +122,14 @@ describe('modern coach bay layout', () => {
     expect(bay.seatLength).toBeGreaterThan(2)
     expect(bay.tableWidth).toBeGreaterThan(1.4)
     expect(bay.tableDepth).toBeGreaterThan(0.8)
+  })
+
+  it('extends the passenger bay into a finished multi-window coach section', () => {
+    const cabin = coachCabinLayout()
+
+    expect(cabin.windowCenters).toEqual([-5.3, 0, 5.3])
+    expect(cabin.windowCenters[1] - cabin.windowCenters[0]).toBeGreaterThan(4.45)
+    expect(cabin.ceilingY).toBeLessThan(2.2)
+    expect(cabin.seatBackrestTop).toBeGreaterThan(0)
   })
 })

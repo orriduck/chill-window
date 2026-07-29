@@ -16,7 +16,9 @@ const CAMERA_Y = 2
 const LOOK_DISTANCE = Math.hypot(LOOK_AHEAD_X, LOOK_AHEAD_Z)
 const BASE_VIEW_YAW = Math.atan2(LOOK_AHEAD_X, LOOK_AHEAD_Z)
 const BASE_VIEW_PITCH = Math.atan2(LOOK_Y - CAMERA_Y, LOOK_DISTANCE)
-const MAX_VIEW_YAW = 0.24
+// A passenger can turn far enough to read the neighbouring bays, but not far
+// enough to expose the artificial edge of the surrounding world.
+export const MAX_PASSENGER_VIEW_YAW = 0.4
 const MAX_VIEW_PITCH = 0.1
 const VIEW_SENSITIVITY = 0.0028
 const DESKTOP_FOV = 70
@@ -120,8 +122,8 @@ export class TrainCamera {
   panBy(deltaX: number, deltaY: number) {
     this.targetViewYaw = THREE.MathUtils.clamp(
       this.targetViewYaw - deltaX * VIEW_SENSITIVITY,
-      -MAX_VIEW_YAW,
-      MAX_VIEW_YAW,
+      -MAX_PASSENGER_VIEW_YAW,
+      MAX_PASSENGER_VIEW_YAW,
     )
     this.targetViewPitch = THREE.MathUtils.clamp(
       this.targetViewPitch - deltaY * VIEW_SENSITIVITY,
