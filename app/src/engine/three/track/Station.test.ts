@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stationDistrictLayout, stationNightLightLevel } from './Station'
+import { stationDistrictLayout, stationHallFacadeLayout, stationNightLightLevel } from './Station'
 
 describe('stationNightLightLevel', () => {
   it('keeps platform lighting restrained by day and readable at night', () => {
@@ -24,5 +24,17 @@ describe('stationDistrictLayout', () => {
     expect(layout.hallCenterX - 10.5 / 2).toBeGreaterThan(layout.roadMaxX)
     expect(layout.taxiBayX).toBeLessThan(layout.roadMinX)
     expect(layout.shelterX).toBeLessThan(layout.roadMinX)
+  })
+})
+
+describe('stationHallFacadeLayout', () => {
+  it('keeps the entry sequence in front of the facade and clear of window bays', () => {
+    const layout = stationHallFacadeLayout()
+
+    expect(layout.porticoX).toBeLessThan(layout.frontX)
+    expect(layout.stepX).toBeLessThan(layout.porticoX)
+    expect(layout.eaveY).toBeGreaterThan(4.6)
+    expect(layout.ridgeY).toBeGreaterThan(layout.eaveY)
+    expect(layout.windowCenters.every((center) => Math.abs(center) > layout.entranceWidth / 2)).toBe(true)
   })
 })
