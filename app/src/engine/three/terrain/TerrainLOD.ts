@@ -6,6 +6,12 @@ import {
 } from './TerrainGen'
 import type { BiomeType, BiomeColors, HeightParams } from './Biome'
 import { getBiomeConfig } from './Biome'
+import {
+  ROUTE_BLEND_LENGTH,
+  ROUTE_SEGMENT_LENGTH,
+  routeFeatureForSegment,
+  sampleRouteFeature,
+} from './RouteFeatures'
 import { createTownCluster } from './TownGenerator'
 import { createSeededRandom, hash01, seedFromGrid, type RandomSource } from '../core/procedural'
 import {
@@ -38,9 +44,6 @@ const CHUNKS_VIEW_X = 3 // chunks in the view direction (+X side window)
 const UPDATE_INTERVAL = 4 // frames between low-cost streaming jobs
 const INITIAL_CHUNKS_PER_TICK = 6
 const STREAM_CHUNKS_PER_TICK = 1
-const SEGMENT_LENGTH = 1500 // travel distance per biome
-const BLEND_LENGTH = 350 // world-space biome transition zone
-const BIOME_ORDER: BiomeType[] = ['field', 'forest', 'town', 'river', 'mountain']
 const BALLAST_LIGHT = 0x8a8078
 const BALLAST_DARK = 0x5f564c
 // Slowroad-style mottled meadow tones: dry golden straw vs deep olive
@@ -382,16 +385,16 @@ if ( terrainDebugView > 0.5 ) {
     return this.currentBiome
   }
 
-  /** Next biome name (beginning at segmentStartZ + SEGMENT_LENGTH). */
+  /** Next biome name (beginning at segmentStartZ + ROUTE_SEGMENT_LENGTH). */
   get nextBiomeName(): BiomeType {
     return this.nextBiome
   }
 
   /** Length of one biome segment in world units. */
-  static readonly SEGMENT_LENGTH = SEGMENT_LENGTH
+  static readonly SEGMENT_LENGTH = ROUTE_SEGMENT_LENGTH
 
   /** Length of the blend transition between two segments. */
-  static readonly BLEND_LENGTH = BLEND_LENGTH
+  static readonly BLEND_LENGTH = ROUTE_BLEND_LENGTH
 
   /** World-space terrain height under the current (possibly blending) biome. */
   sampleHeight(x: number, z: number): number {
@@ -443,27 +446,21 @@ if ( terrainDebugView > 0.5 ) {
   // ---- Biome transitions ----
 
   private getBiomeAt(z: number): BiomeSample {
-    const segmentIndex = Math.floor(z / SEGMENT_LENGTH)
-    const orderIndex = ((segmentIndex % BIOME_ORDER.length) + BIOME_ORDER.length) % BIOME_ORDER.length
-    const type = BIOME_ORDER[orderIndex]
-    const next = BIOME_ORDER[(orderIndex + 1) % BIOME_ORDER.length]
-    const segmentStart = segmentIndex * SEGMENT_LENGTH
-    const blendStart = segmentStart + SEGMENT_LENGTH - BLEND_LENGTH
-    const blend = THREE.MathUtils.smoothstep(
-      THREE.MathUtils.clamp((z - blendStart) / BLEND_LENGTH, 0, 1),
-      0,
-      1,
-    )
-    const from = getBiomeConfig(type)
-    const to = getBiomeConfig(next)
+    const route = sampleRouteFeature(z)
+    const from = getBiomeConfig(route.current.biome)
+    const to = getBiomeConfig(route.next.biome)
     return {
-      type,
-      next,
-      segmentIndex,
-      segmentStart,
-      params: this.lerpParams(from.heightParams, to.heightParams, blend),
-      colors: this.lerpColors(from.colors, to.colors, blend),
-      decorDensity: THREE.MathUtils.lerp(from.decorDensity, to.decorDensity, blend),
+      type: route.current.biome,
+      next: route.next.biome,
+      segmentIndex: route.segmentIndex,
+      segmentStart: route.segmentStart,
+      params: this.lerpParams(
+        { ...from.heightParams, road: route.current.road },
+        { ...to.heightParams, road: route.next.road },
+        route.blend,
+      ),
+      colors: this.lerpColors(from.colors, to.colors, route.blend),
+      decorDensity: THREE.MathUtils.lerp(from.decorDensity, to.decorDensity, route.blend),
     }
   }
 
@@ -483,6 +480,7 @@ if ( terrainDebugView > 0.5 ) {
       octaves: Math.round(THREE.MathUtils.lerp(a.octaves, b.octaves, t)),
       persistence: THREE.MathUtils.lerp(a.persistence, b.persistence, t),
       river: THREE.MathUtils.lerp(a.river ?? 0, b.river ?? 0, t),
+      road: THREE.MathUtils.lerp(a.road ?? 0, b.road ?? 0, t),
     }
   }
 
@@ -582,7 +580,7 @@ if ( terrainDebugView > 0.5 ) {
         const riverStrength = biome.params.river ?? 0
 
         if (Math.abs(x) < TRACK_FLAT_HALF + 5) continue
-        if (Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
+        if ((biome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
         if (riverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 1.5) continue
 
         // Reuse the terrain grid created for this chunk. This keeps every
@@ -713,14 +711,15 @@ if ( terrainDebugView > 0.5 ) {
       // Country road: packed dirt lane with darker wheel ruts, grass verge
       // blend on the edges. Asphalt when passing through town.
       const roadD = Math.abs(x - roadCenterX(z))
-      if (roadD < ROAD_VERGE && dist >= 6) {
+      const roadStrength = params.road ?? 0
+      if (roadStrength > 0.01 && roadD < ROAD_VERGE && dist >= 6) {
         const inTown = biome.type === 'town'
         const base = inTown ? ROAD_ASPHALT : ROAD_DIRT
         const speck = 0.9 + hash01(x * 7.3, z * 7.3) * 0.2
         let roadTone = base
         if (!inTown && Math.abs(roadD - 0.9) < 0.28) roadTone = ROAD_RUT
         const edge = THREE.MathUtils.smoothstep((roadD - ROAD_HALF_WIDTH) / (ROAD_VERGE - ROAD_HALF_WIDTH), 0, 1)
-        const mixed = this.lerpColor(roadTone, this.rgbToHex(color), edge)
+        const mixed = this.lerpColor(roadTone, this.rgbToHex(color), 1 - (1 - edge) * roadStrength)
         color = { r: Math.min(1, mixed.r * speck), g: Math.min(1, mixed.g * speck), b: Math.min(1, mixed.b * speck), isGround: false }
       }
 
@@ -740,7 +739,7 @@ if ( terrainDebugView > 0.5 ) {
       // perfectly parallel bands while preserving the rail clearances.
       const edgeNoise = (hash01(x * 0.23, z * 0.23) - 0.5) * 0.16
       const trackWeight = 1 - THREE.MathUtils.smoothstep(dist + edgeNoise, 5, 11)
-      const roadWeight = 1 - THREE.MathUtils.smoothstep(roadD + edgeNoise, ROAD_HALF_WIDTH, ROAD_VERGE + 1.2)
+      const roadWeight = roadStrength * (1 - THREE.MathUtils.smoothstep(roadD + edgeNoise, ROAD_HALF_WIDTH, ROAD_VERGE + 1.2))
       const riverD = Math.abs(x - riverCenterX(z))
       const riverBankWeight = riverStrength > 0.05
         ? 1 - THREE.MathUtils.smoothstep(riverD + edgeNoise, RIVER_HALF_WIDTH * 0.7, RIVER_BANK)
@@ -839,7 +838,7 @@ if ( terrainDebugView > 0.5 ) {
       // Keep the rail corridor clear of trees/rocks
       if (Math.abs(x) < TRACK_FLAT_HALF + 4) continue
       // Keep the country road clear
-      if (Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
+      if ((localBiome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
       // Keep the river channel clear
       if (localRiverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 2) continue
 
@@ -896,13 +895,12 @@ if ( terrainDebugView > 0.5 ) {
   }
 
   private getTownSite(chunkX: number, chunkZ: number): { x: number; z: number } | null {
-    const firstSegment = Math.floor((chunkZ * CHUNK_SIZE) / SEGMENT_LENGTH) - 1
+    const firstSegment = Math.floor((chunkZ * CHUNK_SIZE) / ROUTE_SEGMENT_LENGTH) - 1
     for (let segmentIndex = firstSegment; segmentIndex <= firstSegment + 2; segmentIndex++) {
-      const orderIndex = ((segmentIndex % BIOME_ORDER.length) + BIOME_ORDER.length) % BIOME_ORDER.length
-      if (BIOME_ORDER[orderIndex] !== 'town') continue
+      if (routeFeatureForSegment(segmentIndex).biome !== 'town') continue
 
       const random = createSeededRandom(seedFromGrid(segmentIndex, 0, 29))
-      const z = segmentIndex * SEGMENT_LENGTH + SEGMENT_LENGTH * (0.3 + random() * 0.38)
+      const z = segmentIndex * ROUTE_SEGMENT_LENGTH + ROUTE_SEGMENT_LENGTH * (0.3 + random() * 0.38)
       const x = roadCenterX(z)
       if (Math.floor(x / CHUNK_SIZE) === chunkX && Math.floor(z / CHUNK_SIZE) === chunkZ) {
         return { x, z }
