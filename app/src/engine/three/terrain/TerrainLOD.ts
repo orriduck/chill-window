@@ -26,6 +26,7 @@ import {
   applyAtlasUV,
 } from '../textures'
 import { treeSpriteCell, treeSpriteVariantCount, treeStyleForBiome, type TreeStyle } from './Vegetation'
+import { CHUNK_SIZE, isDecorationInsideChunk } from './DecorationPlacement'
 
 interface Chunk {
   mesh: THREE.Mesh
@@ -43,7 +44,6 @@ interface TerrainShaderDebug {
   }
 }
 
-const CHUNK_SIZE = 256
 const CHUNKS_BEHIND_Z = 3 // chunks behind the camera along travel (+Z)
 const CHUNKS_AHEAD_Z = 5 // prewarmed chunks ahead of the side window
 const CHUNKS_VIEW_X = 3 // chunks in the view direction (+X side window)
@@ -900,6 +900,7 @@ if ( terrainDebugView > 0.5 ) {
     for (let i = 0; i < attempts; i++) {
       const x = worldX + random() * CHUNK_SIZE
       const z = worldZ + random() * CHUNK_SIZE
+      if (!isDecorationInsideChunk(x, z, worldX, worldZ)) continue
       const localBiome = this.getBiomeAt(z)
       const localRiverStrength = localBiome.params.river ?? 0
       const channel = waterChannelAt(z)
