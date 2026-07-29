@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { TimeOfDay as TimeOfDayPreset } from '../scenery'
 import { Scene3D } from './core/Scene3D'
-import { TrainCamera } from './core/Camera'
+import { CRUISE_SPEED, CRUISE_SPEED_KMH, TrainCamera } from './core/Camera'
 import { WebGLRenderer } from './core/Renderer'
 import { TerrainLOD } from './terrain/TerrainLOD'
 import { WaterSystem } from './terrain/WaterSystem'
@@ -19,6 +19,12 @@ import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
 
 const MAX_DT = 0.1 // clamp delta time to avoid spiral of death on lag
+export interface TrainMotionTelemetry {
+  /** Current physical speed translated for the passenger HUD. */
+  speedKmh: number
+  /** 0..1 ratio for systems such as the rolling audio mix. */
+  speedRatio: number
+}
 
 /** Methods exposed to the parent for controlling the 3D train. */
 export interface TrainControl {
@@ -28,6 +34,8 @@ export interface TrainControl {
   getZ: () => number
   /** Current rail grade as a fraction, e.g. 0.006 means 0.6%. */
   getGrade: () => number
+  /** Current camera motion, used by the HUD and audio as the single source of truth. */
+  getMotion: () => TrainMotionTelemetry
   /** Show a station ahead of the camera. */
   showStation: (name: string, zCenter: number) => void
   /** Build the next station outside the view before its arrival sequence starts. */
@@ -120,6 +128,10 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
         setSpeed: (s: number) => camera.setTargetSpeed(s),
         getZ: () => camera.z,
         getGrade: () => camera.grade,
+        getMotion: () => ({
+          speedKmh: (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
+          speedRatio: Math.min(1, camera.currentSpeed / CRUISE_SPEED),
+        }),
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
         prepareStation: (name: string) => {
           preparedStationStopZ = camera.z + TrainCamera.STATION_PREPARE_DISTANCE

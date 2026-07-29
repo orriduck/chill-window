@@ -27,7 +27,7 @@ interface HudState {
   segIdx: number;
   segCount: number;
   nextStation: string;
-  speed: number;
+  speedKmh: number;
   distance: number;
   grade: number;
 }
@@ -62,7 +62,7 @@ export default function Home() {
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
 
   const [hud, setHud] = useState<HudState>({
-    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speed: 0, distance: 0, grade: 0,
+    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0,
   });
 
   // 初始化 / 切换时段时重建引擎：列车停靠在始发站等待发车
@@ -87,9 +87,12 @@ export default function Home() {
 
       const plan = planRef.current;
       const phase = phaseRef.current;
+      const trainControl = trainControlRef.current;
+      const motion = typeof trainControl?.getMotion === 'function' ? trainControl.getMotion() : undefined;
+      const speedKmh = motion?.speedKmh ?? 0;
       if (plan && (phase === 'ride' || phase === 'dwell')) {
-        distanceRef.current += eng.speed * (120 / 3600) * dt;
-        audioRef.current?.setSpeed(eng.speed);
+        distanceRef.current += speedKmh * dt / 3600;
+        audioRef.current?.setSpeed(motion?.speedRatio ?? 0);
 
         if (phase === 'ride') {
           const seg = plan.segments[segIdxRef.current];
@@ -106,7 +109,7 @@ export default function Home() {
             trainControlRef.current?.approachStation(seg.name);
             if (audioRef.current?.isRunning) audioRef.current.chime();
           }
-          if (left <= 0 && eng.speed < 0.02) {
+          if (left <= 0 && speedKmh < 0.2) {
             const isLast = segIdxRef.current >= plan.segments.length - 1;
             if (isLast) {
               phaseRef.current = 'done';
@@ -144,9 +147,9 @@ export default function Home() {
           segIdx: segIdxRef.current,
           segCount: p ? p.segments.length : 0,
           nextStation: p && segIdxRef.current < p.segments.length ? p.segments[segIdxRef.current].name : '',
-          speed: eng.speed,
+          speedKmh,
           distance: distanceRef.current,
-          grade: trainControlRef.current?.getGrade() ?? 0,
+          grade: typeof trainControl?.getGrade === 'function' ? trainControl.getGrade() : 0,
         });
       }
     };
@@ -408,7 +411,7 @@ export default function Home() {
             </div>
             <div className="mt-6 flex justify-between text-[11px] tracking-wider text-white/60">
               <span>第 {Math.min(hud.segIdx + 1, hud.segCount)} / {hud.segCount} 区间</span>
-              <span>{Math.round(hud.speed * 120)} km/h · {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km</span>
+              <span>{Math.round(hud.speedKmh)} km/h · {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km</span>
             </div>
           </div>
         </>
