@@ -20,9 +20,10 @@ const MAX_VIEW_YAW = 0.24
 const MAX_VIEW_PITCH = 0.1
 const VIEW_SENSITIVITY = 0.0028
 const DESKTOP_FOV = 70
-// Portrait needs a wider projection than desktop, but 90 degrees made the
-// physical window read like a small object across the carriage.
-const COMPACT_FOV = 78
+// Portrait keeps enough projection room for the whole physical window and
+// its lower journey rail, without turning the compartment into a distant
+// dollhouse view.
+const COMPACT_FOV = 72
 const COMPACT_ASPECT_START = 0.9
 const COMPACT_ASPECT_FULL = 0.6
 
