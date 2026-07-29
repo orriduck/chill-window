@@ -8,8 +8,8 @@ export const TRACK_FLAT_HALF = 10 // fully flat within |x| < this
 export const TRACK_BLEND_END = 60 // smooth blend out to natural terrain
 
 // ---- River channel (active in the river biome) ----
-export const RIVER_HALF_WIDTH = 8 // flat water surface half-width
-export const RIVER_BANK = 18 // carve falls off over this distance
+export const RIVER_HALF_WIDTH = 11 // flat water surface half-width
+export const RIVER_BANK = 22 // carve falls off over this distance
 export const RIVER_DEPTH = 2.6 // max carve depth at the channel center
 export const WATER_LEVEL = -0.85 // water surface height at full river strength
 
@@ -18,6 +18,12 @@ export const WATER_LEVEL = -0.85 // water surface height at full river strength
  *  from the low side-window camera, but clear of the track bed. */
 export function riverCenterX(z: number): number {
   return 44 + Math.sin(z * 0.0032) * 9 + Math.sin(z * 0.0009 + 2.1) * 5
+}
+
+/** River surface shares the route elevation so valley infrastructure and
+ * water stay vertically coherent through the route's gentle grades. */
+export function riverWaterElevationAt(z: number, strength = 1): number {
+  return trackElevationAt(z) - 0.75 - (Math.abs(WATER_LEVEL) - 0.75) * strength
 }
 
 /** Country road centerline, roughly paralleling the track on the view side.
@@ -65,13 +71,15 @@ export class TerrainGen {
 
     // River channel SECOND, so the carve cuts through the corridor blend
     // zone instead of being flattened away by it (that was hiding the water).
-    // A guard keeps the carve off the rail bed / country road strip.
+    // Guards keep the carve off the rail bed and the parallel valley road.
     const river = params.river ?? 0
     if (river > 0.01) {
       const dRiver = Math.abs(x - riverCenterX(z))
       if (dRiver < RIVER_BANK) {
-        const guard = smoothstep(Math.min(Math.max((dist - 12) / 8, 0), 1))
-        height -= smoothstep(1 - dRiver / RIVER_BANK) * RIVER_DEPTH * river * guard
+        const railGuard = smoothstep(Math.min(Math.max((dist - 12) / 8, 0), 1))
+        const roadDistance = Math.abs(x - roadCenterX(z))
+        const roadGuard = smoothstep(Math.min(Math.max((roadDistance - ROAD_HALF_WIDTH) / 3.5, 0), 1))
+        height -= smoothstep(1 - dRiver / RIVER_BANK) * RIVER_DEPTH * river * railGuard * roadGuard
       }
     }
 
