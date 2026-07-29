@@ -1,6 +1,5 @@
 import * as THREE from 'three'
-import { riverCenterX, RIVER_HALF_WIDTH, WATER_LEVEL } from './TerrainGen'
-import { trackElevationAt } from './RouteProfile'
+import { riverCenterX, riverWaterElevationAt, RIVER_HALF_WIDTH } from './TerrainGen'
 
 const RIBBON_LENGTH = 700 // water follows the camera over this Z window
 const RIBBON_BEHIND = 140 // how far behind the camera the ribbon extends
@@ -32,13 +31,15 @@ export class WaterSystem {
     }
 
     this.material = new THREE.MeshStandardMaterial({
-      // Light sky-mix blue: without an envmap the color itself must carry
-      // the "reflects the sky" cue, especially at grazing view angles
-      color: 0x6a9ab8,
+      // A restrained blue-green base keeps the surface legible at the
+      // shallow side-window angle even without a reflection environment.
+      color: 0x4d88a4,
+      emissive: 0x102832,
+      emissiveIntensity: 0.22,
       transparent: true,
       opacity: 0,
-      roughness: 0.06,
-      metalness: 0.55,
+      roughness: 0.16,
+      metalness: 0.18,
     })
 
     this.mesh = new THREE.Mesh(this.geometry, this.material)
@@ -60,7 +61,7 @@ export class WaterSystem {
       return
     }
     this.mesh.visible = true
-    this.material.opacity = 0.82 * fade
+    this.material.opacity = 0.92 * fade
 
     const pos = this.geometry.attributes.position.array as Float32Array
     const zStart = camZ - RIBBON_BEHIND
@@ -69,10 +70,7 @@ export class WaterSystem {
       const worldZ = zStart + this.rowT[v] * RIBBON_LENGTH
       const cx = riverCenterX(worldZ)
       pos[v * 3] = cx + localX
-      // The river is a valley companion to the railway. Following the same
-      // gentle longitudinal profile keeps the water, carved bank and raised
-      // rail corridor together when the route climbs or descends.
-      const waterY = trackElevationAt(worldZ) - 0.75 - (Math.abs(WATER_LEVEL) - 0.75) * strength
+      const waterY = riverWaterElevationAt(worldZ, strength)
       pos[v * 3 + 1] = waterY + Math.sin(time * 1.2 + worldZ * 0.35 + localX * 0.6) * 0.05
       pos[v * 3 + 2] = worldZ
     }

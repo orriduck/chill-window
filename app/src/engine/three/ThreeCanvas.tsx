@@ -15,6 +15,7 @@ import { TrackSystem } from './track/TrackSystem'
 import { LinesideProps } from './track/LinesideProps'
 import { StationManager } from './track/Station'
 import { TunnelManager } from './track/Tunnel'
+import { ValleyBridgeManager } from './track/ValleyBridge'
 import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
 
@@ -90,6 +91,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
     const lineside = new LinesideProps((x, z) => terrain.sampleHeight(x, z))
     const stations = new StationManager()
     const tunnels = new TunnelManager()
+    const valleyBridges = new ValleyBridgeManager()
     const perfMonitor = new PerfMonitor(renderer.renderer)
     const debugMode = new DebugMode()
     let preparedStationStopZ: number | null = null
@@ -105,6 +107,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
     exteriorGroup.add(lineside.group)
     exteriorGroup.add(stations.group)
     exteriorGroup.add(tunnels.group)
+    exteriorGroup.add(valleyBridges.group)
     exteriorGroup.add(water.mesh)
     exteriorGroup.add(fields.group)
 
@@ -313,6 +316,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
       lineside.update(camPos.z)
       stations.update(camPos.z, dt)
       water.update(camPos.z, terrain.riverStrength, elapsedTime)
+      valleyBridges.update(camPos.z)
       fields.update(camPos.z, (z) => terrain.isBiomeAt(z, 'field'))
       windowFrame.update(cam, elapsedTime)
 
