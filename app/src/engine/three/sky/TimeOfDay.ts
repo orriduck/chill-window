@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { TimeOfDay as TimeOfDayPreset } from '../../scenery'
+import type { TimeOfDay as TimeOfDayPreset } from '../../time'
 
 export const Phase = {
   DAWN: 0,

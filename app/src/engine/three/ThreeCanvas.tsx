@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
-import type { TimeOfDay as TimeOfDayPreset } from '../scenery'
+import type { TimeOfDay as TimeOfDayPreset } from '../time'
 import { Scene3D } from './core/Scene3D'
 import { CRUISE_SPEED, CRUISE_SPEED_KMH, TrainCamera } from './core/Camera'
 import { WebGLRenderer } from './core/Renderer'
