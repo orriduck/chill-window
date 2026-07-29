@@ -5,7 +5,9 @@ import {
   MOUNTAIN_TUNNEL_LENGTH,
   MOUNTAIN_TUNNEL_OFFSET,
   ROUTE_SEGMENT_LENGTH,
+  DEFAULT_ROUTE_PLAN,
   routeFeatureForSegment,
+  type RoutePlan,
 } from '../terrain/RouteFeatures'
 
 // Tunnel geometry
@@ -199,12 +201,17 @@ export class TunnelManager {
   private zEnd = 0
   /** 0..1 — how enclosed the camera currently is. */
   darkness = 0
+  private routePlan: RoutePlan
+
+  constructor(routePlan: RoutePlan = DEFAULT_ROUTE_PLAN) {
+    this.routePlan = routePlan
+  }
 
   /** Centre Z of the next scheduled tunnel at or after the camera. */
   private nextTunnelCenter(camZ: number): number {
     const n0 = Math.floor((camZ - TUNNEL_OFFSET) / ROUTE_SEGMENT_LENGTH)
     for (let n = n0; n < n0 + 12; n++) {
-      if (routeFeatureForSegment(n).tunnel) {
+      if (routeFeatureForSegment(n, this.routePlan).tunnel) {
         const center = n * ROUTE_SEGMENT_LENGTH + TUNNEL_OFFSET
         if (center + TUNNEL_LENGTH / 2 > camZ - 50) return center
       }

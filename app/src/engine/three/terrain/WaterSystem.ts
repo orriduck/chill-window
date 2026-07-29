@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { MAX_WATER_HALF_WIDTH, riverWaterElevationAt, waterChannelAt } from './TerrainGen'
+import { DEFAULT_ROUTE_PLAN, type RoutePlan } from './RouteFeatures'
 
 const RIBBON_LENGTH = 700 // water follows the camera over this Z window
 const RIBBON_BEHIND = 140 // how far behind the camera the ribbon extends
@@ -62,8 +63,10 @@ export class WaterSystem {
   private rippleTexture: THREE.CanvasTexture
   private localX: Float32Array // original across-ribbon offsets
   private rowT: Float32Array // 0..1 along-ribbon parameter per vertex
+  private routePlan: RoutePlan
 
-  constructor() {
+  constructor(routePlan: RoutePlan = DEFAULT_ROUTE_PLAN) {
+    this.routePlan = routePlan
     this.geometry = new THREE.PlaneGeometry(RIBBON_WIDTH, RIBBON_LENGTH, 1, SEGMENTS)
     this.geometry.rotateX(-Math.PI / 2) // lie flat, length along Z
 
@@ -118,7 +121,7 @@ export class WaterSystem {
     for (let v = 0; v < this.localX.length; v++) {
       const localX = this.localX[v]
       const worldZ = zStart + this.rowT[v] * RIBBON_LENGTH
-      const channel = waterChannelAt(worldZ)
+      const channel = waterChannelAt(worldZ, this.routePlan)
       pos[v * 3] = channel.centerX + localX * (channel.halfWidth / (RIBBON_WIDTH / 2))
       const waterY = riverWaterElevationAt(worldZ, strength)
       pos[v * 3 + 1] = waterY + Math.sin(time * 1.2 + worldZ * 0.35 + localX * 0.6) * 0.05

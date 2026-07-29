@@ -1,7 +1,7 @@
 import { createNoise2D } from 'simplex-noise'
 import type { HeightParams } from './Biome'
 import { trackElevationAt } from './RouteProfile'
-import { lakeBasinStrengthAt } from './RouteFeatures'
+import { DEFAULT_ROUTE_PLAN, lakeBasinStrengthAt, type RoutePlan } from './RouteFeatures'
 
 /** Track runs along Z at x=0. Terrain is flattened to rail-bed level nearby,
  *  both to avoid clipping through the train and to mimic a real rail corridor. */
@@ -27,13 +27,13 @@ export function riverCenterX(z: number): number {
 /** Water, terrain banks, and far-bank access use this one channel profile.
  * The lakeshore widens away from the rail so the existing parallel road keeps
  * a dry, believable verge instead of being swallowed by the water. */
-export function waterChannelAt(z: number): {
+export function waterChannelAt(z: number, plan: RoutePlan = DEFAULT_ROUTE_PLAN): {
   centerX: number
   halfWidth: number
   bankHalfWidth: number
   lakeStrength: number
 } {
-  const lakeStrength = lakeBasinStrengthAt(z)
+  const lakeStrength = lakeBasinStrengthAt(z, plan)
   const halfWidth = RIVER_HALF_WIDTH + lakeStrength * LAKE_HALF_WIDTH_BONUS
   return {
     centerX: riverCenterX(z) + lakeStrength * LAKE_CENTER_SHIFT,
@@ -46,8 +46,8 @@ export function waterChannelAt(z: number): {
 /** A small far-bank service road continues from the valley bridge to the
  * river village. Keeping it tied to the river prevents a settlement from
  * looking independently scattered across the valley. */
-export function farBankRoadCenterX(z: number): number {
-  const channel = waterChannelAt(z)
+export function farBankRoadCenterX(z: number, plan: RoutePlan = DEFAULT_ROUTE_PLAN): number {
+  const channel = waterChannelAt(z, plan)
   return channel.centerX + channel.halfWidth + 14
 }
 
@@ -71,6 +71,11 @@ function smoothstep(t: number): number {
 
 export class TerrainGen {
   private noise = createNoise2D()
+  private routePlan: RoutePlan
+
+  constructor(routePlan: RoutePlan = DEFAULT_ROUTE_PLAN) {
+    this.routePlan = routePlan
+  }
 
   /** Low-frequency patchiness (0..1) for mottled meadow coloring. */
   getMottle(x: number, z: number): number {
@@ -105,7 +110,7 @@ export class TerrainGen {
     // Guards keep the carve off the rail bed and the parallel valley road.
     const river = params.river ?? 0
     if (river > 0.01) {
-      const channel = waterChannelAt(z)
+      const channel = waterChannelAt(z, this.routePlan)
       const dRiver = Math.abs(x - channel.centerX)
       if (dRiver < channel.bankHalfWidth) {
         const railGuard = smoothstep(Math.min(Math.max((dist - 12) / 8, 0), 1))
@@ -122,7 +127,7 @@ export class TerrainGen {
       // the open lakeshore. It is slightly above the water and fades back to
       // natural terrain with the same basin strength that shapes the shore.
       if (channel.lakeStrength > 0.01) {
-        const farRoadD = Math.abs(x - farBankRoadCenterX(z))
+        const farRoadD = Math.abs(x - farBankRoadCenterX(z, this.routePlan))
         if (farRoadD < ROAD_VERGE) {
           const edgeT = Math.min(Math.max((farRoadD - ROAD_HALF_WIDTH) / (ROAD_VERGE - ROAD_HALF_WIDTH), 0), 1)
           const roadWeight = (1 - smoothstep(edgeT)) * channel.lakeStrength

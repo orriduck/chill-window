@@ -4,7 +4,9 @@ import {
   MOUNTAIN_TUNNEL_LENGTH,
   MOUNTAIN_TUNNEL_OFFSET,
   ROUTE_SEGMENT_LENGTH,
+  DEFAULT_ROUTE_PLAN,
   routeFeatureForSegment,
+  type RoutePlan,
 } from '../terrain/RouteFeatures'
 
 const BUILD_AHEAD = 900
@@ -89,15 +91,17 @@ export class MountainRoadworkManager {
   private roadwork: MountainRoadwork | null = null
   private roadworkCenter = 0
   private sampleHeight: HeightSampler
+  private routePlan: RoutePlan
 
-  constructor(sampleHeight: HeightSampler) {
+  constructor(sampleHeight: HeightSampler, routePlan: RoutePlan = DEFAULT_ROUTE_PLAN) {
     this.sampleHeight = sampleHeight
+    this.routePlan = routePlan
   }
 
   private nextRoadworkCenter(camZ: number): number {
     const firstSegment = Math.floor((camZ - MOUNTAIN_TUNNEL_OFFSET) / ROUTE_SEGMENT_LENGTH)
     for (let segment = firstSegment; segment < firstSegment + 12; segment++) {
-      if (!routeFeatureForSegment(segment).tunnel) continue
+      if (!routeFeatureForSegment(segment, this.routePlan).tunnel) continue
       const center = segment * ROUTE_SEGMENT_LENGTH + MOUNTAIN_TUNNEL_OFFSET
       if (center + MOUNTAIN_TUNNEL_LENGTH / 2 > camZ - 50) return center
     }

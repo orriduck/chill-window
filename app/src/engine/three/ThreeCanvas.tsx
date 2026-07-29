@@ -19,7 +19,12 @@ import { ValleyBridgeManager } from './track/ValleyBridge'
 import { MountainRoadworkManager } from './track/MountainRoadworks'
 import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
-import { routeContextAt, sampleRouteFeature, type RouteContext } from './terrain/RouteFeatures'
+import {
+  createRoutePlan,
+  routeContextAt,
+  sampleRouteFeature,
+  type RouteContext,
+} from './terrain/RouteFeatures'
 
 const MAX_DT = 0.1 // clamp delta time to avoid spiral of death on lag
 export type WeatherPreset = WeatherType | 'auto'
@@ -88,6 +93,10 @@ export default function ThreeCanvas({
     // ---- Scene ----
     const scene = new Scene3D()
     const interiorScene = new THREE.Scene()
+    // The route is selected once for this carriage session. Every streamed
+    // system receives the same immutable plan, so a station never disagrees
+    // with the terrain, roads, water, or railway engineering around it.
+    const routePlan = createRoutePlan(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
 
     // ---- Exterior group: everything outside the window frame ----
     // DebugMode F6 toggles this group's visibility to hide the outside world.
@@ -98,8 +107,8 @@ export default function ThreeCanvas({
     // ---- Core systems ----
     const camera = new TrainCamera()
     const renderer = new WebGLRenderer()
-    const terrain = new TerrainLOD(exteriorGroup, 'field')
-    const water = new WaterSystem()
+    const terrain = new TerrainLOD(exteriorGroup, 'field', routePlan)
+    const water = new WaterSystem(routePlan)
     const fields = new FieldPlots((x, z) => terrain.sampleHeight(x, z))
     const skyDome = new SkyDome()
     const timeOfDay = new TimeOfDay(timePreset)
@@ -108,10 +117,10 @@ export default function ThreeCanvas({
     const windowFrame = new WindowFrame()
     const trackSystem = new TrackSystem()
     const lineside = new LinesideProps((x, z) => terrain.sampleHeight(x, z))
-    const stations = new StationManager()
-    const tunnels = new TunnelManager()
-    const valleyBridges = new ValleyBridgeManager()
-    const mountainRoadworks = new MountainRoadworkManager((x, z) => terrain.sampleHeight(x, z))
+    const stations = new StationManager(routePlan)
+    const tunnels = new TunnelManager(routePlan)
+    const valleyBridges = new ValleyBridgeManager(routePlan)
+    const mountainRoadworks = new MountainRoadworkManager((x, z) => terrain.sampleHeight(x, z), routePlan)
     const perfMonitor = new PerfMonitor(renderer.renderer)
     const debugMode = new DebugMode()
     let preparedStationStopZ: number | null = null
@@ -154,7 +163,7 @@ export default function ThreeCanvas({
         setPaused: (nextPaused: boolean) => { paused = nextPaused },
         getZ: () => camera.z,
         getGrade: () => camera.grade,
-        getRouteContext: () => routeContextAt(camera.z),
+        getRouteContext: () => routeContextAt(camera.z, routePlan),
         getMotion: () => ({
           speedKmh: paused ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
           speedRatio: paused ? 0 : Math.min(1, camera.currentSpeed / CRUISE_SPEED),
@@ -316,7 +325,7 @@ export default function ThreeCanvas({
       // Time of day drives sky, sun and lighting; weather modulates on top
       timeOfDay.update(simulationDt)
       const state = timeOfDay.state
-      weather.update(simulationDt, cam, sampleRouteFeature(camPos.z).current.biome)
+      weather.update(simulationDt, cam, sampleRouteFeature(camPos.z, routePlan).current.biome)
       weather.setShelter(tunnelD)
       weather.applyToEnvironment(state)
 

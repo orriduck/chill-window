@@ -164,9 +164,12 @@ export function routeBeatForSegment(
   return plan.beats[positiveModulo(segmentIndex, plan.beats.length)]
 }
 
-/** Compatibility surface for existing terrain, weather and streaming systems. */
-export function routeFeatureForSegment(segmentIndex: number): RouteFeature {
-  return routeBeatForSegment(segmentIndex)
+/** Compatibility surface for terrain, weather and streaming systems. */
+export function routeFeatureForSegment(
+  segmentIndex: number,
+  plan: RoutePlan = DEFAULT_ROUTE_PLAN,
+): RouteFeature {
+  return routeBeatForSegment(segmentIndex, plan)
 }
 
 export function routeAnchorsForSegment(
@@ -235,7 +238,10 @@ export function routePlanIssues(plan: RoutePlan): string[] {
   return issues
 }
 
-export function sampleRouteFeature(z: number): RouteFeatureSample {
+export function sampleRouteFeature(
+  z: number,
+  plan: RoutePlan = DEFAULT_ROUTE_PLAN,
+): RouteFeatureSample {
   const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
   const segmentStart = segmentIndex * ROUTE_SEGMENT_LENGTH
   const blendStart = segmentStart + ROUTE_SEGMENT_LENGTH - ROUTE_BLEND_LENGTH
@@ -243,8 +249,8 @@ export function sampleRouteFeature(z: number): RouteFeatureSample {
   const blend = t * t * (3 - 2 * t)
 
   return {
-    current: routeBeatForSegment(segmentIndex),
-    next: routeBeatForSegment(segmentIndex + 1),
+    current: routeBeatForSegment(segmentIndex, plan),
+    next: routeBeatForSegment(segmentIndex + 1, plan),
     segmentIndex,
     segmentStart,
     blend,
@@ -256,9 +262,12 @@ export function sampleRouteFeature(z: number): RouteFeatureSample {
  * The plateau keeps the side-window view open long enough to read as a lake,
  * while the eased edges let the terrain and water ribbon meet continuously.
  */
-export function lakeBasinStrengthAt(z: number): number {
+export function lakeBasinStrengthAt(
+  z: number,
+  plan: RoutePlan = DEFAULT_ROUTE_PLAN,
+): number {
   const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
-  const lake = routeAnchorsForSegment(segmentIndex).find((anchor) => anchor.kind === 'lakeshore')
+  const lake = routeAnchorsForSegment(segmentIndex, plan).find((anchor) => anchor.kind === 'lakeshore')
   if (!lake) return 0
 
   const distance = Math.abs(z - lake.z)
@@ -271,9 +280,12 @@ export function lakeBasinStrengthAt(z: number): number {
 
 /** Passenger-facing terrain context derived from the exact route coordinate
  * used by the camera and streamed scenery. */
-export function routeContextAt(z: number): RouteContext {
-  const route = sampleRouteFeature(z)
-  const isLakeshore = lakeBasinStrengthAt(z) >= 0.12
+export function routeContextAt(
+  z: number,
+  plan: RoutePlan = DEFAULT_ROUTE_PLAN,
+): RouteContext {
+  const route = sampleRouteFeature(z, plan)
+  const isLakeshore = lakeBasinStrengthAt(z, plan) >= 0.12
 
   return {
     currentLabel: isLakeshore ? 'Lakeshore' : BIOME_LABELS[route.current.biome],
