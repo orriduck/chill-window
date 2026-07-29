@@ -14,6 +14,10 @@ type PrecipitationKind = 'rain' | 'snow'
 
 const MAX_PARTICLES = 4000
 const PARTICLE_BOX = { x: 140, y: 80, z: 140 }
+// Rain shares the same pool as snow, but a lower spawn band gives the fixed
+// particle budget a readable side-window density instead of scattering most
+// drops above the passenger's view.
+const RAIN_SPAWN_HEIGHT = 34
 const MAX_SPLASHES = 40
 // A focus trip should not feel like it crosses several weather fronts.
 // Auto weather is re-evaluated at most once over most journeys instead of
@@ -67,6 +71,18 @@ export function precipitationKindFor(weather: WeatherType): PrecipitationKind | 
   return null
 }
 
+/** Spawn precipitation above the shared rail-side ground plane. Rain uses a
+ * tighter band than snow so the same object-pool budget stays legible from a
+ * low side window instead of becoming sparse sky noise. */
+export function precipitationSpawnY(
+  kind: PrecipitationKind,
+  cameraY: number,
+  randomValue: number,
+): number {
+  const height = kind === 'rain' ? RAIN_SPAWN_HEIGHT : PARTICLE_BOX.y
+  return cameraY - 2 + THREE.MathUtils.clamp(randomValue, 0, 1) * height
+}
+
 /** A single alpha sprite keeps particle quads from reading as white squares.
  * Snow is a soft disc; rain remains a narrow, vertically weighted streak. */
 function createPrecipitationTexture(kind: PrecipitationKind): THREE.CanvasTexture {
@@ -93,7 +109,7 @@ function createPrecipitationTexture(kind: PrecipitationKind): THREE.CanvasTextur
     streak.addColorStop(0.58, 'rgba(255,255,255,0.96)')
     streak.addColorStop(1, 'rgba(255,255,255,0)')
     context.fillStyle = streak
-    context.fillRect(width * 0.4, 0, width * 0.2, height)
+    context.fillRect(width * 0.37, 0, width * 0.26, height)
   }
 
   const texture = new THREE.CanvasTexture(canvas)
@@ -271,8 +287,8 @@ export class WeatherSystem {
     if (particleKind === 'rain') {
       this.activeParticles = 2500
       this.pointMat.color.setHex(0xaaccee)
-      this.pointMat.size = 0.16
-      this.particleOpacity = 0.6
+      this.pointMat.size = 0.22
+      this.particleOpacity = 0.72
     } else if (particleKind === 'snow') {
       this.activeParticles = 1800
       this.pointMat.color.setHex(0xffffff)
@@ -288,12 +304,14 @@ export class WeatherSystem {
   }
 
   private respawnParticle(i: number, cameraPos: THREE.Vector3) {
+    const kind = this.particleKind
+    if (kind === null) return
     const depth = WINDOW_EXTERIOR_NEAR + Math.random() * (PARTICLE_BOX.x - WINDOW_EXTERIOR_NEAR)
     const lateral = (Math.random() - 0.5) * PARTICLE_BOX.z
     this.positions[i * 3] = cameraPos.x + this.weatherForward.x * depth + this.weatherRight.x * lateral
-    this.positions[i * 3 + 1] = cameraPos.y - 2 + Math.random() * PARTICLE_BOX.y
+    this.positions[i * 3 + 1] = precipitationSpawnY(kind, cameraPos.y, Math.random())
     this.positions[i * 3 + 2] = cameraPos.z + this.weatherForward.z * depth + this.weatherRight.z * lateral
-    if (this.particleKind === 'rain') {
+    if (kind === 'rain') {
       this.velocities[i * 3] = -3
       this.velocities[i * 3 + 1] = -55 - Math.random() * 10
       this.velocities[i * 3 + 2] = -4
