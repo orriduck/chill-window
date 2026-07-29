@@ -5,6 +5,7 @@ import {
   rainDropFallSpeed,
   rainDropInitialY,
   windowFrameViewportLayout,
+  windowHudControlLayout,
   windowHudSurfaceLayout,
 } from './WindowFrame'
 
@@ -49,6 +50,14 @@ describe('window HUD surfaces', () => {
     expect(layout.rail.y + layout.rail.height / 2).toBeLessThan(1.45)
     expect(layout.rail.y).toBeLessThan(-0.9)
     expect(layout.rail.height).toBeLessThan(0.6)
+  })
+
+  it('reserves one compact right-side strip for the canvas-painted controls', () => {
+    const controls = windowHudControlLayout()
+    const stripWidth = controls.size * 5 + controls.gap * 4
+
+    expect(stripWidth + controls.rightInset).toBeLessThan(1280)
+    expect(controls.topInset + controls.size).toBeLessThan(104)
   })
 
   it('clamps physical progress to the drawable rail', () => {

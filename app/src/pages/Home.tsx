@@ -450,22 +450,22 @@ export default function Home() {
               transformOrigin: 'top right',
             } : undefined}
           >
-            <button onClick={togglePause} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}>
+            <button onClick={togglePause} className="journey-control rounded-full" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}>
               {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </button>
             <button onClick={() => {
               const control = trainControlRef.current;
               if (typeof control?.resetView === 'function') control.resetView();
-            }} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="Reset view" aria-label="Reset view">
+            }} className="journey-control rounded-full" title="Reset view" aria-label="Reset view">
               <RotateCcw className="h-4 w-4" />
             </button>
-            <button onClick={toggleSound} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={sound ? 'Mute sound' : 'Enable sound'} aria-label={sound ? 'Mute sound' : 'Enable sound'}>
+            <button onClick={toggleSound} className="journey-control rounded-full" title={sound ? 'Mute sound' : 'Enable sound'} aria-label={sound ? 'Mute sound' : 'Enable sound'}>
               {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
-            <button onClick={toggleFullscreen} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
+            <button onClick={toggleFullscreen} className="journey-control rounded-full" title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
-            <button onClick={() => setConfirmAbort(true)} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="End journey" aria-label="End journey">
+            <button onClick={() => setConfirmAbort(true)} className="journey-control rounded-full" title="End journey" aria-label="End journey">
               <Flag className="h-4 w-4" />
             </button>
           </div>

@@ -40,6 +40,13 @@ export type WindowHudSurfaceLayout = {
   rail: { x: number; y: number; z: number; width: number; height: number }
 }
 
+export type WindowHudControlLayout = {
+  rightInset: number
+  topInset: number
+  size: number
+  gap: number
+}
+
 export type WindowFrameViewportLayout = {
   frameDistance: number
   scale: number
@@ -66,6 +73,12 @@ export function windowHudSurfaceLayout(): WindowHudSurfaceLayout {
   return {
     rail: { x: -0.02, y: -1.18, z: 0.035, width: 2.82, height: 0.46 },
   }
+}
+
+/** Canvas-space layout for the five controls painted into the physical rail.
+ * The interactive DOM hit strip uses the same right/top corner projection. */
+export function windowHudControlLayout(): WindowHudControlLayout {
+  return { rightInset: 64, topInset: 14, size: 42, gap: 7 }
 }
 
 /** Keep the physical progress stripe within its drawn surface. */
@@ -170,19 +183,26 @@ export class WindowFrame {
     this.drawWindowHud()
   }
 
-  /** Project an inset point on the journey rail. DOM controls remain clickable
-   * while reading as controls printed into the same physical HUD surface. */
+  /** Project the painted control strip's top-right corner. The visible controls
+   * live in the CanvasTexture; the DOM layer is only the click hit target. */
   getHudControlAnchor(camera: THREE.Camera): WindowHudControlAnchor | null {
     if (!this.journeyHudPlane?.visible) return null
     const layout = windowHudSurfaceLayout().rail
+    const controls = windowHudControlLayout()
+    const canvasWidth = 1280
+    const canvasHeight = 190
+    const stripWidth = controls.size * 5 + controls.gap * 4
+    const rightInset = controls.rightInset
+    const leftInset = rightInset + stripWidth
+    const topInset = controls.topInset
     const rightTop = new THREE.Vector3(
-      layout.x + layout.width / 2 - 0.1,
-      layout.y + layout.height / 2 - 0.075,
+      layout.x + layout.width / 2 - (rightInset / canvasWidth) * layout.width,
+      layout.y + layout.height / 2 - (topInset / canvasHeight) * layout.height,
       layout.z + 0.01,
     )
     const leftTop = new THREE.Vector3(
-      layout.x + layout.width / 2 - 0.9,
-      layout.y + layout.height / 2 - 0.075,
+      layout.x + layout.width / 2 - (leftInset / canvasWidth) * layout.width,
+      layout.y + layout.height / 2 - (topInset / canvasHeight) * layout.height,
       layout.z + 0.01,
     )
     this.group.localToWorld(rightTop)
@@ -770,6 +790,8 @@ export class WindowFrame {
     context.font = '500 20px Manrope, ui-sans-serif, system-ui, sans-serif'
     context.fillText(this.windowHud.journey, left + 174, 42)
 
+    this.drawHudControls(context)
+
     context.strokeStyle = 'rgba(234, 241, 239, 0.52)'
     context.lineWidth = 4
     context.beginPath()
@@ -815,6 +837,88 @@ export class WindowFrame {
     context.beginPath()
     context.moveTo(gradeX, 168)
     context.lineTo(gradeX + 34, 168 - gradeAngle)
+    context.stroke()
+  }
+
+  /** Draw the icons into the HUD texture itself so their perspective is the
+   * same as the timer, route line and every other physical panel detail. */
+  private drawHudControls(context: CanvasRenderingContext2D) {
+    const { width } = context.canvas
+    const layout = windowHudControlLayout()
+    const stripWidth = layout.size * 5 + layout.gap * 4
+    const startX = width - layout.rightInset - stripWidth
+    const y = layout.topInset
+    const center = (index: number) => startX + index * (layout.size + layout.gap) + layout.size / 2
+
+    for (let index = 0; index < 5; index++) {
+      const x = startX + index * (layout.size + layout.gap)
+      context.fillStyle = 'rgba(5, 10, 12, 0.6)'
+      context.strokeStyle = 'rgba(203, 223, 226, 0.32)'
+      context.lineWidth = 1.5
+      context.beginPath()
+      context.arc(x + layout.size / 2, y + layout.size / 2, layout.size / 2 - 1, 0, Math.PI * 2)
+      context.fill()
+      context.stroke()
+    }
+
+    context.strokeStyle = 'rgba(239, 246, 244, 0.94)'
+    context.fillStyle = 'rgba(239, 246, 244, 0.94)'
+    context.lineWidth = 2.5
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    const cy = y + layout.size / 2
+
+    // pause
+    for (const offset of [-4, 4]) {
+      context.beginPath()
+      context.moveTo(center(0) + offset, cy - 7)
+      context.lineTo(center(0) + offset, cy + 7)
+      context.stroke()
+    }
+    // reset-view
+    context.beginPath()
+    context.arc(center(1), cy, 8, -Math.PI * 0.15, Math.PI * 1.35)
+    context.stroke()
+    context.beginPath()
+    context.moveTo(center(1) + 8, cy - 7)
+    context.lineTo(center(1) + 8, cy - 1)
+    context.lineTo(center(1) + 2, cy - 3)
+    context.stroke()
+    // sound
+    const speakerX = center(2) - 8
+    context.beginPath()
+    context.moveTo(speakerX, cy - 3)
+    context.lineTo(speakerX + 4, cy - 3)
+    context.lineTo(speakerX + 9, cy - 8)
+    context.lineTo(speakerX + 9, cy + 8)
+    context.lineTo(speakerX + 4, cy + 3)
+    context.lineTo(speakerX, cy + 3)
+    context.closePath()
+    context.stroke()
+    for (const radius of [6, 10]) {
+      context.beginPath()
+      context.arc(center(2) + 6, cy, radius, -0.72, 0.72)
+      context.stroke()
+    }
+    // fullscreen corners
+    const fullX = center(3)
+    for (const [dx, dy] of [[-7, -7], [7, -7], [-7, 7], [7, 7]]) {
+      const sx = fullX + dx
+      const sy = cy + dy
+      context.beginPath()
+      context.moveTo(sx, sy + (dy < 0 ? 5 : -5))
+      context.lineTo(sx, sy)
+      context.lineTo(sx + (dx < 0 ? 5 : -5), sy)
+      context.stroke()
+    }
+    // end-journey flag
+    const flagX = center(4) - 7
+    context.beginPath()
+    context.moveTo(flagX, cy + 9)
+    context.lineTo(flagX, cy - 9)
+    context.lineTo(flagX + 11, cy - 6)
+    context.lineTo(flagX + 11, cy + 1)
+    context.lineTo(flagX, cy - 1)
     context.stroke()
   }
 
