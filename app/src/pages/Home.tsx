@@ -5,7 +5,7 @@ import {
   buildFreeJourney, buildPomodoroJourney, suggestStops,
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
-import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, RotateCcw, Settings2 } from 'lucide-react';
+import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
 import { CabinOverlay } from '@/components/CabinOverlay';
 import ThreeCanvas, { type TrainControl } from '@/engine/three/ThreeCanvas';
 
@@ -49,6 +49,7 @@ export default function Home() {
   const distanceRef = useRef(0);
   const soundRef = useRef(true);
   const hudTimerRef = useRef(0);
+  const pausedRef = useRef(false);
 
   // 设置项
   const [mode, setMode] = useState<Mode>('free');
@@ -60,6 +61,7 @@ export default function Home() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmAbort, setConfirmAbort] = useState(false);
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   const [hud, setHud] = useState<HudState>({
     phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0,
@@ -83,7 +85,8 @@ export default function Home() {
       last = now;
       const eng = engineRef.current;
       if (!eng) return;
-      eng.update(dt);
+      const paused = pausedRef.current;
+      if (!paused) eng.update(dt);
 
       const plan = planRef.current;
       const phase = phaseRef.current;
@@ -91,10 +94,10 @@ export default function Home() {
       const motion = typeof trainControl?.getMotion === 'function' ? trainControl.getMotion() : undefined;
       const speedKmh = motion?.speedKmh ?? 0;
       if (plan && (phase === 'ride' || phase === 'dwell')) {
-        distanceRef.current += speedKmh * dt / 3600;
         audioRef.current?.setSpeed(motion?.speedRatio ?? 0);
 
-        if (phase === 'ride') {
+        if (!paused && phase === 'ride') {
+          distanceRef.current += speedKmh * dt / 3600;
           const seg = plan.segments[segIdxRef.current];
           segElapsedRef.current += dt;
           focusDoneRef.current += dt;
@@ -121,7 +124,7 @@ export default function Home() {
               trainControlRef.current?.setSpeed(0);
             }
           }
-        } else if (phase === 'dwell') {
+        } else if (!paused && phase === 'dwell') {
           dwellLeftRef.current -= dt;
           if (dwellLeftRef.current <= 0) {
             segIdxRef.current += 1;
@@ -147,7 +150,7 @@ export default function Home() {
           segIdx: segIdxRef.current,
           segCount: p ? p.segments.length : 0,
           nextStation: p && segIdxRef.current < p.segments.length ? p.segments[segIdxRef.current].name : '',
-          speedKmh,
+          speedKmh: paused ? 0 : speedKmh,
           distance: distanceRef.current,
           grade: typeof trainControl?.getGrade === 'function' ? trainControl.getGrade() : 0,
         });
@@ -168,6 +171,9 @@ export default function Home() {
     distanceRef.current = 0;
     arrivingRef.current = false;
     stationPreparedRef.current = false;
+    pausedRef.current = false;
+    setIsPaused(false);
+    trainControlRef.current?.setPaused(false);
     const eng = engineRef.current;
     if (eng) {
       // 列车已在始发站停稳，检票上车后稍候发车（关门-启动的节奏）
@@ -194,6 +200,9 @@ export default function Home() {
   const doAbort = useCallback(() => {
     phaseRef.current = 'abort';
     setConfirmAbort(false);
+    pausedRef.current = false;
+    setIsPaused(false);
+    trainControlRef.current?.setPaused(false);
     audioRef.current?.stop();
     // 渐变减速到静止，在原地显示一个车站
     trainControlRef.current?.setSpeed(0);
@@ -207,6 +216,8 @@ export default function Home() {
     planRef.current = null;
     setPlan(null);
     phaseRef.current = 'setup';
+    pausedRef.current = false;
+    setIsPaused(false);
     audioRef.current?.stop();
     audioRef.current = null;
     const eng = new SceneryEngine(tod);
@@ -214,6 +225,7 @@ export default function Home() {
     eng.platformMode = 'dwell';
     engineRef.current = eng;
     // Return to stopped-at-station state
+    trainControlRef.current?.setPaused(false);
     trainControlRef.current?.setSpeed(0);
     const camZ = trainControlRef.current?.getZ() ?? 0;
     trainControlRef.current?.showStation(pickStations(1)[0], camZ);
@@ -234,6 +246,19 @@ export default function Home() {
       }
       return next;
     });
+  }, []);
+
+  const togglePause = useCallback(() => {
+    const nextPaused = !pausedRef.current;
+    pausedRef.current = nextPaused;
+    trainControlRef.current?.setPaused(nextPaused);
+    if (nextPaused) {
+      audioRef.current?.setSpeed(0);
+    } else {
+      const motion = trainControlRef.current?.getMotion();
+      audioRef.current?.setSpeed(motion?.speedRatio ?? 0);
+    }
+    setIsPaused(nextPaused);
   }, []);
 
   const toggleFullscreen = useCallback(() => {
@@ -362,21 +387,24 @@ export default function Home() {
               {formatTime(hud.focusLeft)}
             </div>
             <div className="mt-1 text-xs tracking-widest text-white/70 drop-shadow">
-              {hud.phase === 'dwell' ? '列车经停中' : `开往 ${hud.nextStation}站`}
+              {isPaused ? '行程已暂停' : hud.phase === 'dwell' ? '列车经停中' : `开往 ${hud.nextStation}站`}
             </div>
           </div>
 
           <div className="absolute right-8 top-8 z-20 flex gap-2">
+            <button onClick={togglePause} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isPaused ? '继续行程' : '暂停行程'} aria-label={isPaused ? '继续行程' : '暂停行程'}>
+              {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+            </button>
             <button onClick={() => {
               const control = trainControlRef.current;
               if (typeof control?.resetView === 'function') control.resetView();
             }} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="复位观察方向" aria-label="复位观察方向">
               <RotateCcw className="h-4 w-4" />
             </button>
-            <button onClick={toggleSound} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65">
+            <button onClick={toggleSound} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={sound ? '关闭声音' : '开启声音'} aria-label={sound ? '关闭声音' : '开启声音'}>
               {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
-            <button onClick={toggleFullscreen} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65">
+            <button onClick={toggleFullscreen} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isFullscreen ? '退出全屏' : '进入全屏'} aria-label={isFullscreen ? '退出全屏' : '进入全屏'}>
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
             <button onClick={() => setConfirmAbort(true)} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="中途下车">

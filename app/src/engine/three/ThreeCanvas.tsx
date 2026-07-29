@@ -31,6 +31,8 @@ export interface TrainMotionTelemetry {
 export interface TrainControl {
   /** Set target speed (0 = stop at station, 15 = cruise). */
   setSpeed: (speed: number) => void
+  /** Freeze/resume the journey simulation without losing its current motion state. */
+  setPaused: (paused: boolean) => void
   /** Current camera Z position. */
   getZ: () => number
   /** Current rail grade as a fraction, e.g. 0.006 means 0.6%. */
@@ -99,6 +101,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
     let debugStationStopTarget: number | null = null
     let debugStationBrakeAt = 0
     let debugStationDwellUntil: number | null = null
+    let paused = false
 
     // Add exterior objects to the exteriorGroup
     exteriorGroup.add(skyDome.mesh)
@@ -129,11 +132,12 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
     if (controlRef) {
       controlRef.current = {
         setSpeed: (s: number) => camera.setTargetSpeed(s),
+        setPaused: (nextPaused: boolean) => { paused = nextPaused },
         getZ: () => camera.z,
         getGrade: () => camera.grade,
         getMotion: () => ({
-          speedKmh: (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
-          speedRatio: Math.min(1, camera.currentSpeed / CRUISE_SPEED),
+          speedKmh: paused ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
+          speedRatio: paused ? 0 : Math.min(1, camera.currentSpeed / CRUISE_SPEED),
         }),
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
         prepareStation: (name: string) => {
@@ -233,7 +237,8 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
       const now = performance.now()
       const dt = Math.min((now - lastFrameTime) / 1000, MAX_DT)
       lastFrameTime = now
-      elapsedTime += dt
+      const simulationDt = paused ? 0 : dt
+      elapsedTime += simulationDt
 
       // ---- Top-down camera toggle ----
       if (debugMode.isTopDown !== wasTopDown) {
@@ -245,8 +250,8 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
         wasTopDown = debugMode.isTopDown
       }
 
-      // Always run camera physics so Z advances (top-down only overrides view)
-      camera.update(dt)
+      // Keep camera panning responsive while journey physics is paused.
+      camera.update(dt, !paused)
       const jumpTarget = debugMode.consumeJumpTarget()
       if (jumpTarget !== null) camera.setZ(jumpTarget)
       if (debugMode.consumeStationProbe()) {
@@ -283,9 +288,9 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
       const camPos = cam.position
 
       // Time of day drives sky, sun and lighting; weather modulates on top
-      timeOfDay.update(dt)
+      timeOfDay.update(simulationDt)
       const state = timeOfDay.state
-      weather.update(dt, cam)
+      weather.update(simulationDt, cam)
       weather.applyToEnvironment(state)
 
       skyDome.update(camPos)
@@ -314,7 +319,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
       terrain.applyFrustumCulling(cam)
       trackSystem.update(camPos.z)
       lineside.update(camPos.z)
-      stations.update(camPos.z, dt)
+      stations.update(camPos.z, simulationDt)
       water.update(camPos.z, terrain.riverStrength, elapsedTime)
       valleyBridges.update(camPos.z)
       fields.update(camPos.z, (z) => terrain.isBiomeAt(z, 'field'))
