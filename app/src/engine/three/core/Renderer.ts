@@ -1,11 +1,27 @@
 import * as THREE from 'three'
 
+const COMPACT_VIEWPORT_MAX = 700
+const COMPACT_PIXEL_RATIO_MAX = 1.25
+const DESKTOP_PIXEL_RATIO_MAX = 2
+
+/** Keep high-DPI phones within their pixel budget without softening desktop. */
+export function renderPixelRatio(
+  devicePixelRatio: number,
+  width: number,
+  height: number,
+  hasCoarsePointer: boolean,
+): number {
+  const compactTouchViewport = hasCoarsePointer && Math.min(width, height) < COMPACT_VIEWPORT_MAX
+  const maxRatio = compactTouchViewport ? COMPACT_PIXEL_RATIO_MAX : DESKTOP_PIXEL_RATIO_MAX
+  return Math.min(Math.max(devicePixelRatio, 1), maxRatio)
+}
+
 export class WebGLRenderer {
   renderer: THREE.WebGLRenderer
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.updatePixelRatio(window.innerWidth, window.innerHeight)
     this.renderer.setClearColor(0x111111)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
@@ -30,7 +46,13 @@ export class WebGLRenderer {
   }
 
   resize(width: number, height: number) {
+    this.updatePixelRatio(width, height)
     this.renderer.setSize(width, height, false)
+  }
+
+  private updatePixelRatio(width: number, height: number) {
+    const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
+    this.renderer.setPixelRatio(renderPixelRatio(window.devicePixelRatio, width, height, hasCoarsePointer))
   }
 
   getDomElement(): HTMLCanvasElement {
