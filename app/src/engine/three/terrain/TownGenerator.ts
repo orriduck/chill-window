@@ -7,6 +7,7 @@ import {
   riverWaterElevationAt,
 } from './TerrainGen'
 import { createTownRoadBridge } from './TownRoadBridge'
+import type { TownProfile } from './SettlementProfile'
 
 /** European-style building factories + town cluster generator.
  *  All textures are canvas-generated; no external assets.
@@ -22,14 +23,23 @@ type HeightSampler = (x: number, z: number) => number
 // envelope. Terrain streaming uses the same bounds to keep natural foliage
 // out of planned urban space when a chunk is rebuilt.
 const TOWN_FOOTPRINT_RAIL_SIDE = 4
-const TOWN_FOOTPRINT_OUTER_SIDE = 44
-const TOWN_FOOTPRINT_HALF_LENGTH = 100
+const TOWN_FOOTPRINTS: Record<TownProfile, { outerSide: number; halfLength: number }> = {
+  regional: { outerSide: 44, halfLength: 100 },
+  urban: { outerSide: 58, halfLength: 118 },
+}
 
-export function isTownPlannedFootprint(x: number, z: number, cx: number, cz: number): boolean {
+export function isTownPlannedFootprint(
+  x: number,
+  z: number,
+  cx: number,
+  cz: number,
+  profile: TownProfile = 'regional',
+): boolean {
+  const footprint = TOWN_FOOTPRINTS[profile]
   return (
     x >= cx - TOWN_FOOTPRINT_RAIL_SIDE &&
-    x <= cx + TOWN_FOOTPRINT_OUTER_SIDE &&
-    Math.abs(z - cz) <= TOWN_FOOTPRINT_HALF_LENGTH
+    x <= cx + footprint.outerSide &&
+    Math.abs(z - cz) <= footprint.halfLength
   )
 }
 
@@ -314,12 +324,18 @@ export function createTownCluster(
   cz: number,
   sampleHeight: HeightSampler,
   random: RandomSource = Math.random,
+  profile: TownProfile = 'regional',
 ): THREE.Group {
   const town = new THREE.Group()
 
-  const houseCount = 8 + Math.floor(random() * 4)
-  const aptCount = 2 + Math.floor(random() * 3)
-  const hasChurch = random() < 0.5
+  const isUrban = profile === 'urban'
+  const houseCount = isUrban ? 4 + Math.floor(random() * 3) : 8 + Math.floor(random() * 4)
+  const aptCount = isUrban ? 5 + Math.floor(random() * 3) : 2 + Math.floor(random() * 3)
+  const hasChurch = !isUrban && random() < 0.5
+  const streetWidth = isUrban ? 6.2 : 4
+  const streetLength = isUrban ? 224 : 190
+  const sideStreetCount = isUrban ? 4 : 3
+  const sideStreetLength = isUrban ? 42 : 28
 
   const placed: { x: number; z: number; r: number }[] = []
   const tryPlace = (make: () => THREE.Group, r: number, xMin: number, xMax: number) => {
@@ -343,13 +359,13 @@ export function createTownCluster(
     }
   }
 
-  for (let i = 0; i < houseCount; i++) tryPlace(() => createHouse(random), 3.2, 10, 38)
-  for (let i = 0; i < aptCount; i++) tryPlace(() => createApartment(random), 5.5, 10, 24)
+  for (let i = 0; i < houseCount; i++) tryPlace(() => createHouse(random), 3.2, 10, isUrban ? 54 : 38)
+  for (let i = 0; i < aptCount; i++) tryPlace(() => createApartment(random), 5.5, 10, isUrban ? 42 : 24)
   if (hasChurch) tryPlace(createChurch, 6, 8, 20)
 
   // Main street: paved strip parallel to the track through the town centre
   const streetMat = new THREE.MeshStandardMaterial({ color: 0x55524c, roughness: 0.95 })
-  const streetGeom = new THREE.PlaneGeometry(4, 190, 1, 24)
+  const streetGeom = new THREE.PlaneGeometry(streetWidth, streetLength, 1, 24)
   streetGeom.rotateX(-Math.PI / 2)
   const pos = streetGeom.attributes.position.array as Float32Array
   for (let i = 0; i < pos.length; i += 3) {
@@ -365,9 +381,9 @@ export function createTownCluster(
 
   // Side streets connect the main road with homes instead of leaving them
   // scattered over grass. Their surfaces conform to the same terrain sampler.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < sideStreetCount; i++) {
     const z = cz - 54 + i * 54
-    const length = 28 + random() * 12
+    const length = sideStreetLength + random() * 12
     const laneGeom = new THREE.PlaneGeometry(length, 2.7, 6, 1)
     laneGeom.rotateX(-Math.PI / 2)
     const lanePos = laneGeom.attributes.position.array as Float32Array
@@ -382,6 +398,15 @@ export function createTownCluster(
     const lane = new THREE.Mesh(laneGeom, streetMat)
     lane.receiveShadow = true
     town.add(lane)
+  }
+
+  if (isUrban) {
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xd9cfaa })
+    for (let z = cz - streetLength / 2 + 10; z < cz + streetLength / 2 - 8; z += 16) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.025, 6), lineMat)
+      line.position.set(cx, sampleHeight(cx, z) + 0.095, z)
+      town.add(line)
+    }
   }
 
   // The bridge starts just before the town block. Its descending town-side

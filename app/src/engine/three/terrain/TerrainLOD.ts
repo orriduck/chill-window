@@ -12,11 +12,13 @@ import {
   RIVER_BRIDGE_OFFSET,
   RIVER_VILLAGE_OFFSET,
   ROUTE_SEGMENT_LENGTH,
+  routeBeatForSegment,
   routeFeatureForSegment,
   sampleRouteFeature,
 } from './RouteFeatures'
 import { createRiverVillage, createTownCluster, isTownPlannedFootprint } from './TownGenerator'
 import { isTownRoadBridgeFootprint } from './TownRoadBridge'
+import { townProfileForSettlement, type TownProfile } from './SettlementProfile'
 import { createSeededRandom, hash01, seedFromGrid, type RandomSource } from '../core/procedural'
 import {
   ballastGravelTex, groundGrassTex, groundRockBumpTex, groundRockTex,
@@ -880,7 +882,13 @@ if ( terrainDebugView > 0.5 ) {
     // It is intentionally not repeated in each chunk of a town biome.
     const townSite = this.getTownSite(chunkX, chunkZ)
     if (townSite && densityScale >= 0.5) {
-      decorations.push(createTownCluster(townSite.x, townSite.z, (x, z) => this.sampleHeight(x, z), random))
+      decorations.push(createTownCluster(
+        townSite.x,
+        townSite.z,
+        (x, z) => this.sampleHeight(x, z),
+        random,
+        townSite.profile,
+      ))
       cityClusters++
     }
 
@@ -973,14 +981,15 @@ if ( terrainDebugView > 0.5 ) {
     return { decorations, cityClusters }
   }
 
-  private getTownSite(chunkX: number, chunkZ: number): { x: number; z: number } | null {
+  private getTownSite(chunkX: number, chunkZ: number): { x: number; z: number; profile: TownProfile } | null {
     const firstSegment = Math.floor((chunkZ * CHUNK_SIZE) / ROUTE_SEGMENT_LENGTH) - 1
     for (let segmentIndex = firstSegment; segmentIndex <= firstSegment + 2; segmentIndex++) {
-      if (routeFeatureForSegment(segmentIndex).biome !== 'town') continue
+      const profile = townProfileForSettlement(routeBeatForSegment(segmentIndex).settlement)
+      if (!profile) continue
 
       const site = this.townSiteForSegment(segmentIndex)
       if (Math.floor(site.x / CHUNK_SIZE) === chunkX && Math.floor(site.z / CHUNK_SIZE) === chunkZ) {
-        return site
+        return { ...site, profile }
       }
     }
     return null
@@ -995,9 +1004,10 @@ if ( terrainDebugView > 0.5 ) {
 
   private isTownPlannedFootprint(x: number, z: number): boolean {
     const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
-    if (routeFeatureForSegment(segmentIndex).biome !== 'town') return false
+    const profile = townProfileForSettlement(routeBeatForSegment(segmentIndex).settlement)
+    if (!profile) return false
     const site = this.townSiteForSegment(segmentIndex)
-    return isTownPlannedFootprint(x, z, site.x, site.z)
+    return isTownPlannedFootprint(x, z, site.x, site.z, profile)
   }
 
   private isTownRoadBridgeFootprint(x: number, z: number): boolean {

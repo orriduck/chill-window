@@ -16,4 +16,9 @@ describe('town planned footprint', () => {
     expect(isTownPlannedFootprint(centerX + 44.1, centerZ, centerX, centerZ)).toBe(false)
     expect(isTownPlannedFootprint(centerX + 20, centerZ + 100.1, centerX, centerZ)).toBe(false)
   })
+
+  it('reserves a broader, longer envelope for an urban-edge district', () => {
+    expect(isTownPlannedFootprint(centerX + 54, centerZ + 112, centerX, centerZ, 'urban')).toBe(true)
+    expect(isTownPlannedFootprint(centerX + 54, centerZ + 112, centerX, centerZ, 'regional')).toBe(false)
+  })
 })
