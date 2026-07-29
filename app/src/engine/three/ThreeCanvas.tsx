@@ -384,6 +384,7 @@ export default function ThreeCanvas({
 
       terrain.setDebugView(debugMode.terrainDebugView)
       terrain.setStreamingFrozen(debugMode.streamingFrozen)
+      terrain.updateWind(elapsedTime)
       terrain.update(camPos)
       terrain.applyFrustumCulling(cam)
       trackSystem.update(camPos.z)

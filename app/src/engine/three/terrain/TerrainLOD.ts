@@ -48,6 +48,12 @@ interface TerrainShaderDebug {
   }
 }
 
+interface GrassWindShader {
+  uniforms: {
+    grassWindTime: { value: number }
+  }
+}
+
 const CHUNKS_BEHIND_Z = 3 // chunks behind the camera along travel (+Z)
 const CHUNKS_AHEAD_Z = 5 // prewarmed chunks ahead of the side window
 const CHUNKS_VIEW_X = 3 // chunks in the view direction (+X side window)
@@ -122,6 +128,7 @@ export class TerrainLOD {
   // ---- Shared vegetation sprite resources (one per TerrainLOD instance) ----
   private grassGeoms: THREE.BufferGeometry[] = []   // 4 atlas variants (2x2)
   private grassMat!: THREE.MeshStandardMaterial
+  private grassShader: GrassWindShader | null = null
   private bushGeoms: THREE.BufferGeometry[] = []    // 4 atlas variants, crossed
   private bushMat!: THREE.MeshStandardMaterial
   private treeGeomsNear: THREE.BufferGeometry[] = []
@@ -237,6 +244,34 @@ if ( terrainDebugView > 0.5 ) {
       roughness: 1.0,
       metalness: 0,
     })
+    this.grassMat.onBeforeCompile = (shader) => {
+      this.grassShader = shader as unknown as GrassWindShader
+      shader.uniforms.grassWindTime = { value: 0 }
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+uniform float grassWindTime;`,
+        )
+        .replace(
+          '#include <project_vertex>',
+          `vec4 grassInstancePosition = vec4( transformed, 1.0 );
+#ifdef USE_INSTANCING
+  grassInstancePosition = instanceMatrix * grassInstancePosition;
+#endif
+vec4 grassWorldPosition = modelMatrix * grassInstancePosition;
+// The source sprite spans local Y [-0.02, 0.58] after its authored lift.
+float grassRootToTip = clamp( ( position.y + 0.02 ) / 0.60, 0.0, 1.0 );
+float grassWindMask = grassRootToTip * grassRootToTip;
+vec2 grassWindDir = normalize( vec2( 0.82, 0.57 ) );
+float grassWave = sin( dot( grassWorldPosition.xz, grassWindDir ) * 0.31 + grassWindTime * 1.4 );
+float grassDetail = sin( dot( grassWorldPosition.xz, vec2( -0.47, 0.88 ) ) * 0.79 + grassWindTime * 2.1 ) * 0.32;
+grassWorldPosition.xz += grassWindDir * ( grassWave + grassDetail ) * 0.075 * grassWindMask;
+vec4 mvPosition = viewMatrix * grassWorldPosition;
+gl_Position = projectionMatrix * mvPosition;`,
+        )
+    }
+    this.grassMat.customProgramCacheKey = () => 'streamed-grass-world-wind-v1'
     for (let v = 0; v < 4; v++) {
       const g = new THREE.PlaneGeometry(0.75, 0.6)
       g.translate(0, 0.28, 0)
@@ -365,6 +400,11 @@ if ( terrainDebugView > 0.5 ) {
     }
     this.pendingChunks = Math.max(0, pending.length - budget)
     if (pending.length <= budget) this.initialWarmup = false
+  }
+
+  /** GPU-only animation: chunks keep their fixed instance matrices. */
+  updateWind(elapsedSeconds: number) {
+    if (this.grassShader) this.grassShader.uniforms.grassWindTime.value = elapsedSeconds
   }
 
   /** Manual frustum culling: hide chunks outside the view before render. */
