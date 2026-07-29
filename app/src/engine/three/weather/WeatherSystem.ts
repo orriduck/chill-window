@@ -10,6 +10,7 @@ export const WeatherType = {
   FOGGY: 'foggy',
 } as const
 export type WeatherType = (typeof WeatherType)[keyof typeof WeatherType]
+type PrecipitationKind = 'rain' | 'snow'
 
 const MAX_PARTICLES = 4000
 const PARTICLE_BOX = { x: 140, y: 80, z: 140 }
@@ -56,6 +57,46 @@ export function weatherForRoute(
   return isAutomaticWeatherAllowed(current, biome) ? current : WeatherType.CLEAR
 }
 
+export function precipitationKindFor(weather: WeatherType): PrecipitationKind | null {
+  if (weather === WeatherType.RAIN) return 'rain'
+  if (weather === WeatherType.SNOW) return 'snow'
+  return null
+}
+
+/** A single alpha sprite keeps particle quads from reading as white squares.
+ * Snow is a soft disc; rain remains a narrow, vertically weighted streak. */
+function createPrecipitationTexture(kind: PrecipitationKind): THREE.CanvasTexture {
+  const width = kind === 'rain' ? 32 : 64
+  const height = kind === 'rain' ? 96 : 64
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')!
+
+  if (kind === 'snow') {
+    const radius = width * 0.5
+    const glow = context.createRadialGradient(radius, radius, 0, radius, radius, radius)
+    glow.addColorStop(0, 'rgba(255,255,255,1)')
+    glow.addColorStop(0.32, 'rgba(255,255,255,0.96)')
+    glow.addColorStop(0.72, 'rgba(255,255,255,0.28)')
+    glow.addColorStop(1, 'rgba(255,255,255,0)')
+    context.fillStyle = glow
+    context.fillRect(0, 0, width, height)
+  } else {
+    const streak = context.createLinearGradient(0, 0, 0, height)
+    streak.addColorStop(0, 'rgba(255,255,255,0)')
+    streak.addColorStop(0.22, 'rgba(255,255,255,0.2)')
+    streak.addColorStop(0.58, 'rgba(255,255,255,0.96)')
+    streak.addColorStop(1, 'rgba(255,255,255,0)')
+    context.fillStyle = streak
+    context.fillRect(width * 0.4, 0, width * 0.2, height)
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
 interface Cloud {
   mesh: THREE.Mesh
   speed: number
@@ -75,8 +116,10 @@ export class WeatherSystem {
   private positions = new Float32Array(MAX_PARTICLES * 3)
   private velocities = new Float32Array(MAX_PARTICLES * 3)
   private activeParticles = 0
-  private particleKind: 'rain' | 'snow' | null = null
+  private particleKind: PrecipitationKind | null = null
   private particleOpacity = 0.7
+  private snowParticleTexture: THREE.CanvasTexture
+  private rainParticleTexture: THREE.CanvasTexture
   private shelter = 0
   private weatherForward = new THREE.Vector3()
   private weatherRight = new THREE.Vector3()
@@ -90,11 +133,15 @@ export class WeatherSystem {
   private override: WeatherType | null = null
 
   constructor() {
+    this.snowParticleTexture = createPrecipitationTexture('snow')
+    this.rainParticleTexture = createPrecipitationTexture('rain')
     this.pointMat = new THREE.PointsMaterial({
       color: 0xaaccee,
       size: 0.12,
+      map: this.snowParticleTexture,
       transparent: true,
       opacity: 0.7,
+      alphaTest: 0.04,
       depthWrite: false,
     })
     const geo = new THREE.BufferGeometry()
@@ -268,14 +315,21 @@ export class WeatherSystem {
   // ---- Precipitation (pooled) ----
 
   private configureParticles() {
-    if (this.current === WeatherType.RAIN) {
-      this.particleKind = 'rain'
+    const particleKind = precipitationKindFor(this.current)
+    this.particleKind = particleKind
+    this.pointMat.map = particleKind === 'rain'
+      ? this.rainParticleTexture
+      : particleKind === 'snow'
+        ? this.snowParticleTexture
+        : null
+    this.pointMat.needsUpdate = true
+
+    if (particleKind === 'rain') {
       this.activeParticles = 2500
       this.pointMat.color.setHex(0xaaccee)
-      this.pointMat.size = 0.1
+      this.pointMat.size = 0.16
       this.particleOpacity = 0.6
-    } else if (this.current === WeatherType.SNOW) {
-      this.particleKind = 'snow'
+    } else if (particleKind === 'snow') {
       this.activeParticles = 1800
       this.pointMat.color.setHex(0xffffff)
       this.pointMat.size = 0.18
@@ -373,6 +427,8 @@ export class WeatherSystem {
     this.cloudMat?.dispose()
     this.points.geometry.dispose()
     this.pointMat.dispose()
+    this.snowParticleTexture.dispose()
+    this.rainParticleTexture.dispose()
     this.splashGeo.dispose()
     for (const splash of this.splashes) {
       ;(splash.mesh.material as THREE.Material).dispose()
