@@ -55,6 +55,7 @@ export class WeatherSystem {
 
   private switchTimer = this.randomSwitchDelay()
   private time = 0
+  private override: WeatherType | null = null
 
   constructor() {
     this.pointMat = new THREE.PointsMaterial({
@@ -96,6 +97,13 @@ export class WeatherSystem {
     this.configureParticles()
   }
 
+  /** A departure preset holds weather steady; null resumes the ambient cycle. */
+  setOverride(type: WeatherType | null) {
+    this.override = type
+    if (type !== null) this.setWeather(type)
+    else this.switchTimer = this.randomSwitchDelay()
+  }
+
   private randomSwitchDelay() {
     return MIN_SWITCH_SECONDS + Math.random() * (MAX_SWITCH_SECONDS - MIN_SWITCH_SECONDS)
   }
@@ -116,9 +124,11 @@ export class WeatherSystem {
   update(dt: number, camera: THREE.PerspectiveCamera) {
     const cameraPos = camera.position
     this.time += dt
-    this.switchTimer -= dt
-    if (this.switchTimer <= 0) {
-      this.setWeather(this.pickRandomWeather())
+    if (this.override === null) {
+      this.switchTimer -= dt
+      if (this.switchTimer <= 0) {
+        this.setWeather(this.pickRandomWeather())
+      }
     }
 
     this.group.position.set(0, 0, 0)

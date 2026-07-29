@@ -7,9 +7,18 @@ import {
 } from '@/engine/journey';
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
 import { CabinOverlay } from '@/components/CabinOverlay';
-import ThreeCanvas, { type TrainControl } from '@/engine/three/ThreeCanvas';
+import ThreeCanvas, { type TrainControl, type WeatherPreset } from '@/engine/three/ThreeCanvas';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
+
+const WEATHER_OPTIONS: { value: WeatherPreset; label: string }[] = [
+  { value: 'auto', label: '自动' },
+  { value: 'clear', label: '晴' },
+  { value: 'cloudy', label: '阴' },
+  { value: 'rain', label: '雨' },
+  { value: 'snow', label: '雪' },
+  { value: 'foggy', label: '雾' },
+]
 
 // 根据真实时间自动选择出发时段
 function detectTimeOfDay(): TimeOfDay {
@@ -56,6 +65,7 @@ export default function Home() {
   const [stops, setStops] = useState(1);
   const [rounds, setRounds] = useState(4);
   const [tod, setTod] = useState<TimeOfDay>(detectTimeOfDay);
+  const [weatherPreset, setWeatherPreset] = useState<WeatherPreset>('auto');
   const [sound, setSound] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmAbort, setConfirmAbort] = useState(false);
@@ -258,7 +268,12 @@ export default function Home() {
 
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
-      <ThreeCanvas className="absolute inset-0" controlRef={trainControlRef} timePreset={tod} />
+      <ThreeCanvas
+        className="absolute inset-0"
+        controlRef={trainControlRef}
+        timePreset={tod}
+        weatherPreset={weatherPreset}
+      />
 
       <CabinOverlay />
 
@@ -343,6 +358,17 @@ export default function Home() {
                       <button key={o.value} onClick={() => setTod(o.value)}
                         className={`rounded-md border py-1 text-[11px] transition ${tod === o.value ? 'border-amber-400/60 bg-amber-400/15 text-amber-200' : 'border-white/10 text-white/40 hover:text-white/70'}`}>
                         {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-white/50">出发天气</div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {WEATHER_OPTIONS.map((option) => (
+                      <button key={option.value} onClick={() => setWeatherPreset(option.value)}
+                        className={`rounded-md border py-1 text-[11px] transition ${weatherPreset === option.value ? 'border-amber-400/60 bg-amber-400/15 text-amber-200' : 'border-white/10 text-white/40 hover:text-white/70'}`}>
+                        {option.label}
                       </button>
                     ))}
                   </div>
