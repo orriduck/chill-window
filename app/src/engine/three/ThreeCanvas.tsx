@@ -151,6 +151,7 @@ export default function ThreeCanvas({
     let debugStationBrakeAt = 0
     let debugStationDwellUntil: number | null = null
     let paused = false
+    let wasGrassProbe = false
 
     // Add exterior objects to the exteriorGroup
     exteriorGroup.add(skyDome.mesh)
@@ -304,6 +305,16 @@ export default function ThreeCanvas({
       lastFrameTime = now
       const simulationDt = paused ? 0 : dt
       elapsedTime += simulationDt
+
+      if (debugMode.grassProbe !== wasGrassProbe) {
+        wasGrassProbe = debugMode.grassProbe
+        weather.setOverride(debugMode.grassProbe ? WeatherType.CLEAR : (weatherPreset === 'auto' ? null : weatherPreset))
+        if (debugMode.grassProbe) camera.setTargetSpeed(0)
+      }
+      if (debugMode.grassProbe) {
+        timeOfDay.setPreset('day')
+        camera.setTargetSpeed(0)
+      }
 
       // ---- Top-down camera toggle ----
       if (debugMode.isTopDown !== wasTopDown) {
