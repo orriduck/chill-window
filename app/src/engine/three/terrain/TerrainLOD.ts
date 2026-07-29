@@ -351,10 +351,12 @@ export class TerrainLOD {
     chunk.mesh.geometry.dispose()
 
     if (chunk.grass) {
-      for (const g of chunk.grass) this.parent.remove(g)
-      // Shared geometries/material managed by TerrainLOD, not per-chunk.
-      // GPU instance-data buffers are small; JS GC reclaims them when
-      // the InstancedMesh wrappers are collected.
+      for (const grass of chunk.grass) {
+        this.parent.remove(grass)
+        // Geometries/materials are shared by TerrainLOD, while each
+        // InstancedMesh owns a GPU instance-data buffer.
+        grass.dispose()
+      }
     }
 
     for (const decor of chunk.decorations) {
