@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getBiomeConfig } from './Biome'
-import { roadCenterX, ROAD_VERGE, TerrainGen } from './TerrainGen'
+import { roadCenterX, ROADBED_OFFSET, ROAD_VERGE, TerrainGen } from './TerrainGen'
 import { trackElevationAt } from './RouteProfile'
 
 describe('engineered roadbeds', () => {
@@ -9,7 +9,7 @@ describe('engineered roadbeds', () => {
     const params = { ...getBiomeConfig('town').heightParams, road: 1 }
     const terrain = new TerrainGen()
 
-    expect(terrain.getHeight(roadCenterX(z), z, params)).toBeCloseTo(trackElevationAt(z) - 0.12, 6)
+    expect(terrain.getHeight(roadCenterX(z), z, params)).toBeCloseTo(trackElevationAt(z) + ROADBED_OFFSET, 6)
   })
 
   it('eases back to natural terrain outside the road verge', () => {

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import {
   RIVER_HALF_WIDTH,
+  ROADBED_OFFSET,
   riverCenterX,
   riverWaterElevationAt,
   roadCenterX,
@@ -16,6 +17,13 @@ import { trackElevationAt } from '../terrain/RouteProfile'
 
 const BUILD_AHEAD = 900
 const DISPOSE_BEHIND = 650
+const DECK_THICKNESS = 0.24
+
+/** The bridge deck's centre must leave its finished driving surface level with
+ * the parallel road formation at the near-bank join. */
+export function valleyRoadBridgeDeckElevationAt(z: number): number {
+  return trackElevationAt(z) + ROADBED_OFFSET - DECK_THICKNESS / 2
+}
 
 /**
  * A small road bridge explains how the existing parallel valley road reaches
@@ -35,7 +43,7 @@ class ValleyRoadBridge {
     const deckLength = deckEnd - deckStart
     const deckCenterX = (deckStart + deckEnd) / 2
     const waterY = riverWaterElevationAt(zCenter)
-    const deckY = trackElevationAt(zCenter) + 0.34
+    const deckY = valleyRoadBridgeDeckElevationAt(zCenter)
 
     const deckMat = this.track(new THREE.MeshStandardMaterial({
       color: 0x51565b, roughness: 0.82, metalness: 0.16,
@@ -50,7 +58,7 @@ class ValleyRoadBridge {
       color: 0xe9d8a3, emissive: 0x7e6b3c, emissiveIntensity: 0.18, roughness: 0.42,
     }))
 
-    const deck = new THREE.Mesh(this.box(deckLength, 0.24, 4.6), deckMat)
+    const deck = new THREE.Mesh(this.box(deckLength, DECK_THICKNESS, 4.6), deckMat)
     deck.position.set(deckCenterX, deckY, zCenter)
     deck.castShadow = true
     deck.receiveShadow = true
