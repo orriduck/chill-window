@@ -43,6 +43,8 @@ interface HudState {
   routeLabel: string;
   nextRouteLabel: string;
   approaching: boolean;
+  topWindowHudAngle: number;
+  bottomWindowHudAngle: number;
 }
 
 export default function Home() {
@@ -81,7 +83,7 @@ export default function Home() {
   useEffect(() => () => departureSchedulerRef.current?.cancel(), []);
 
   const [hud, setHud] = useState<HudState>({
-    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: '田野', nextRouteLabel: '林地', approaching: false,
+    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: '田野', nextRouteLabel: '林地', approaching: false, topWindowHudAngle: 0, bottomWindowHudAngle: 0,
   });
 
   // 主循环
@@ -150,6 +152,9 @@ export default function Home() {
         const routeContext = typeof trainControl?.getRouteContext === 'function'
           ? trainControl.getRouteContext()
           : { currentLabel: '田野', nextLabel: '林地' };
+        const windowHudPose = typeof trainControl?.getWindowHudPose === 'function'
+          ? trainControl.getWindowHudPose()
+          : { topAngleDeg: 0, bottomAngleDeg: 0 };
         setHud({
           phase: phaseRef.current,
           focusLeft: p ? Math.max(0, p.totalFocusSec - focusDoneRef.current) : 0,
@@ -163,6 +168,8 @@ export default function Home() {
           routeLabel: routeContext.currentLabel,
           nextRouteLabel: routeContext.nextLabel,
           approaching: arrivingRef.current,
+          topWindowHudAngle: windowHudPose.topAngleDeg,
+          bottomWindowHudAngle: windowHudPose.bottomAngleDeg,
         });
       }
     };
@@ -405,12 +412,17 @@ export default function Home() {
       {/* ================= 行驶 HUD ================= */}
       {riding && (
         <>
-          <div className="absolute left-1/2 top-8 z-20 -translate-x-1/2 text-center text-white max-[520px]:top-14">
-            <div className="font-mono text-5xl font-bold tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] max-[520px]:text-4xl">
-              {formatTime(hud.focusLeft)}
-            </div>
-            <div className="mt-1 text-xs tracking-widest text-white/70 drop-shadow max-[520px]:mt-0.5 max-[520px]:text-[10px]">
-              {journeyBanner}
+          <div className="absolute left-1/2 top-8 z-20 -translate-x-1/2 max-[520px]:top-14">
+            <div
+              className="border-y border-white/15 bg-black/20 px-5 py-1.5 text-center text-white shadow-[0_1px_12px_rgba(0,0,0,0.18)] backdrop-blur-[2px] transition-transform duration-200 ease-out"
+              style={{ transform: `rotate(${hud.topWindowHudAngle}deg)` }}
+            >
+              <div className="font-mono text-5xl font-bold tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] max-[520px]:text-4xl">
+                {formatTime(hud.focusLeft)}
+              </div>
+              <div className="mt-1 text-xs tracking-widest text-white/70 drop-shadow max-[520px]:mt-0.5 max-[520px]:text-[10px]">
+                {journeyBanner}
+              </div>
             </div>
           </div>
 
@@ -446,28 +458,33 @@ export default function Home() {
 
           {/* 底部进度 */}
           <div className="absolute bottom-16 left-1/2 z-20 w-[min(620px,80vw)] -translate-x-1/2">
-            <div className="relative h-1 rounded bg-white/25">
-              <div className="absolute h-1 rounded bg-amber-400 transition-all duration-500"
-                style={{ width: `${plan ? (focusDone / plan.totalFocusSec) * 100 : 0}%` }} />
-              {plan?.segments.map((s, i) => {
-                const acc = plan.segments.slice(0, i + 1).reduce((a, x) => a + x.focusSec, 0);
-                const pct = (acc / plan.totalFocusSec) * 100;
-                return (
-                  <div key={i} className="group absolute -top-1" style={{ left: `calc(${pct}% - 5px)` }}>
-                    <div className={`h-3 w-3 rounded-full border-2 ${i < hud.segIdx ? 'border-amber-400 bg-amber-400' : 'border-white/60 bg-black/60'}`} />
-                    <div className="absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap text-[10px] text-white/70">{s.name}</div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[11px] tracking-wider text-white/60">
-              <span>第 {Math.min(hud.segIdx + 1, hud.segCount)} / {hud.segCount} 区间</span>
-              <span className="min-w-0 text-center text-white/70">{hud.routeLabel} · 前方 {hud.nextRouteLabel}</span>
-              <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                {Math.round(hud.speedKmh)} km/h ·
-                <GradeProfile grade={hud.grade} />
-                {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km
-              </span>
+            <div
+              className="border-y border-white/12 bg-black/15 px-3 py-2 shadow-[0_1px_12px_rgba(0,0,0,0.16)] backdrop-blur-[2px] transition-transform duration-200 ease-out"
+              style={{ transform: `rotate(${hud.bottomWindowHudAngle}deg)` }}
+            >
+              <div className="relative h-1 rounded bg-white/25">
+                <div className="absolute h-1 rounded bg-amber-400 transition-all duration-500"
+                  style={{ width: `${plan ? (focusDone / plan.totalFocusSec) * 100 : 0}%` }} />
+                {plan?.segments.map((s, i) => {
+                  const acc = plan.segments.slice(0, i + 1).reduce((a, x) => a + x.focusSec, 0);
+                  const pct = (acc / plan.totalFocusSec) * 100;
+                  return (
+                    <div key={i} className="group absolute -top-1" style={{ left: `calc(${pct}% - 5px)` }}>
+                      <div className={`h-3 w-3 rounded-full border-2 ${i < hud.segIdx ? 'border-amber-400 bg-amber-400' : 'border-white/60 bg-black/60'}`} />
+                      <div className="absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap text-[10px] text-white/70">{s.name}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[11px] tracking-wider text-white/60">
+                <span>第 {Math.min(hud.segIdx + 1, hud.segCount)} / {hud.segCount} 区间</span>
+                <span className="min-w-0 text-center text-white/70">{hud.routeLabel} · 前方 {hud.nextRouteLabel}</span>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  {Math.round(hud.speedKmh)} km/h ·
+                  <GradeProfile grade={hud.grade} />
+                  {gradeLabel} {gradePercent.toFixed(1)}% · 已行驶 {hud.distance.toFixed(1)} km
+                </span>
+              </div>
             </div>
           </div>
         </>

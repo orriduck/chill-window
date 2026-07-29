@@ -17,6 +17,27 @@ const WALL_W = 12
 const WALL_H = 7
 const RAIN_DROP_COUNT = 96
 const RAIN_GLASS_TOP = OPENING_H / 2 - 0.05
+const MAX_HUD_SLOPE_DEG = 12
+
+export interface WindowHudPose {
+  topAngleDeg: number
+  bottomAngleDeg: number
+}
+
+interface ProjectedPoint {
+  x: number
+  y: number
+}
+
+/** Converts a projected window edge into a DOM rotation. Three's NDC y axis
+ * grows upward; CSS screen y grows downward, so the visual slope is inverted. */
+export function projectedWindowEdgeAngleDeg(left: ProjectedPoint, right: ProjectedPoint): number {
+  const dx = right.x - left.x
+  if (dx <= 0.0001) return 0
+  const screenDy = left.y - right.y
+  const angle = THREE.MathUtils.radToDeg(Math.atan2(screenDy, dx))
+  return THREE.MathUtils.clamp(angle, -MAX_HUD_SLOPE_DEG, MAX_HUD_SLOPE_DEG)
+}
 
 /** A stopped train leaves water to creep; speed creates a shorter, faster streak. */
 export function rainDropFallSpeed(speedRatio: number): number {
@@ -52,6 +73,8 @@ export class WindowFrame {
   private glassReflectionMaterials: { material: THREE.MeshBasicMaterial; weight: number }[] = []
   private rainOpacity = 0
   private lastUpdateTime = 0
+  private readonly hudEdgeLeft = new THREE.Vector3()
+  private readonly hudEdgeRight = new THREE.Vector3()
 
   constructor() {
     const frame = this.track(
@@ -628,6 +651,28 @@ export class WindowFrame {
     this.lastUpdateTime = time
     this.updateGlassReflections(ambientIntensity)
     this.updateRainDrops(dt, raining, speedRatio, shelter)
+  }
+
+  /** Project the real upper/lower opening rails so DOM HUD can stay anchored
+   * to the physical window during passenger-view panning. */
+  getHudPose(camera: THREE.PerspectiveCamera): WindowHudPose {
+    this.group.updateMatrixWorld(true)
+    return {
+      topAngleDeg: this.projectOpeningEdge(camera, OPENING_H / 2),
+      bottomAngleDeg: this.projectOpeningEdge(camera, -OPENING_H / 2),
+    }
+  }
+
+  private projectOpeningEdge(camera: THREE.PerspectiveCamera, y: number): number {
+    this.hudEdgeLeft
+      .set(-OPENING_W / 2, y, 0)
+      .applyMatrix4(this.group.matrixWorld)
+      .project(camera)
+    this.hudEdgeRight
+      .set(OPENING_W / 2, y, 0)
+      .applyMatrix4(this.group.matrixWorld)
+      .project(camera)
+    return projectedWindowEdgeAngleDeg(this.hudEdgeLeft, this.hudEdgeRight)
   }
 
   private updateGlassReflections(ambientIntensity: number) {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { glassReflectionOpacity, rainDropFallSpeed, rainDropInitialY } from './WindowFrame'
+import {
+  glassReflectionOpacity,
+  projectedWindowEdgeAngleDeg,
+  rainDropFallSpeed,
+  rainDropInitialY,
+} from './WindowFrame'
 
 describe('rainDropFallSpeed', () => {
   it('keeps rain slow while stopped and increases streak motion at cruise', () => {
@@ -31,5 +36,20 @@ describe('glassReflectionOpacity', () => {
   it('clamps lighting values outside the supported range', () => {
     expect(glassReflectionOpacity(-1)).toBeCloseTo(glassReflectionOpacity(0))
     expect(glassReflectionOpacity(2)).toBeCloseTo(glassReflectionOpacity(0.45))
+  })
+})
+
+describe('projectedWindowEdgeAngleDeg', () => {
+  it('converts NDC y-up coordinates to a clockwise DOM slope', () => {
+    expect(projectedWindowEdgeAngleDeg({ x: -0.8, y: 0.1 }, { x: 0.8, y: -0.1 })).toBeCloseTo(7.13, 1)
+  })
+
+  it('keeps a level window rail level and clamps extreme perspective', () => {
+    expect(projectedWindowEdgeAngleDeg({ x: -0.8, y: 0.1 }, { x: 0.8, y: 0.1 })).toBeCloseTo(0)
+    expect(projectedWindowEdgeAngleDeg({ x: -0.8, y: 0.9 }, { x: 0.8, y: -0.9 })).toBe(12)
+  })
+
+  it('falls back to level when projection reverses the edge', () => {
+    expect(projectedWindowEdgeAngleDeg({ x: 0.2, y: 0 }, { x: 0.1, y: 0.2 })).toBe(0)
   })
 })
