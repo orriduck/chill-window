@@ -71,7 +71,14 @@ class Tunnel {
     tubeGeom.rotateX(Math.PI / 2)
     const tubeMat = this.track(
       new THREE.MeshStandardMaterial({
-        color: 0x26262b, roughness: 0.9, metalness: 0.05, side: THREE.BackSide,
+        // Keep the lining readable at the deepest part of the darkness ramp
+        // without making the bore look daylight-bright.
+        color: 0x62636c,
+        emissive: 0x3a3b46,
+        emissiveIntensity: 0.72,
+        roughness: 0.9,
+        metalness: 0.05,
+        side: THREE.BackSide,
       })
     )
     const tube = new THREE.Mesh(tubeGeom, tubeMat)
@@ -84,10 +91,24 @@ class Tunnel {
         color: 0xffeecc, emissive: 0xffdd99, emissiveIntensity: 1.4, roughness: 0.4,
       })
     )
+    const guideLightGeom = this.track(new THREE.BoxGeometry(0.14, 0.14, 2.4))
+    // Basic material keeps these small safety dashes visible even when the
+    // tunnel darkness ramp intentionally removes almost all scene lighting.
+    const guideLightMat = this.track(new THREE.MeshBasicMaterial({ color: 0xd98b4b }))
     for (let z = -TUNNEL_LENGTH / 2 + 12; z < TUNNEL_LENGTH / 2 - 6; z += 16) {
       const lamp = new THREE.Mesh(lampGeom, lampMat)
       lamp.position.set(0, TUNNEL_RADIUS - 0.25, z)
       this.group.add(lamp)
+
+      // Side-window passengers read these repeated guide lights against the
+      // lining even when the ceiling fixtures are outside their view angle.
+      for (const side of [-1, 1]) {
+        const guideLight = new THREE.Mesh(guideLightGeom, guideLightMat)
+        // Keep the fixture inside the curved lining; mounting it on the
+        // theoretical radius placed it outside the tube and out of view.
+        guideLight.position.set(side * (TUNNEL_RADIUS - 0.96), 2.65, z)
+        this.group.add(guideLight)
+      }
     }
     // Wall cable trays (dark ledges at both sides) for interior detail
     const trayMat = this.track(new THREE.MeshStandardMaterial({ color: 0x17171a, roughness: 0.9 }))

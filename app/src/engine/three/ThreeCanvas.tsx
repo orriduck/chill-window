@@ -287,10 +287,15 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
       const cam = camera.getCamera()
       const camPos = cam.position
 
+      // Tunnel coverage must reach weather before rendering so snow/rain
+      // cannot appear on the interior side of the bore wall.
+      const tunnelD = tunnels.update(camPos.z)
+
       // Time of day drives sky, sun and lighting; weather modulates on top
       timeOfDay.update(simulationDt)
       const state = timeOfDay.state
       weather.update(simulationDt, cam)
+      weather.setShelter(tunnelD)
       weather.applyToEnvironment(state)
 
       skyDome.update(camPos)
@@ -307,7 +312,6 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
       fog.color.copy(state.fogColor)
 
       // Tunnel enclosure: lights dim and fog closes in while inside the bore
-      const tunnelD = tunnels.update(camPos.z)
       ambient.intensity = state.ambientIntensity * (1 - tunnelD * 0.8)
       dirLight.intensity = state.dirIntensity * (1 - tunnelD * 0.92)
       fog.near = THREE.MathUtils.lerp(state.fogNear, 8, tunnelD)

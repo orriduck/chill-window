@@ -44,6 +44,8 @@ export class WeatherSystem {
   private velocities = new Float32Array(MAX_PARTICLES * 3)
   private activeParticles = 0
   private particleKind: 'rain' | 'snow' | null = null
+  private particleOpacity = 0.7
+  private shelter = 0
   private weatherForward = new THREE.Vector3()
   private weatherRight = new THREE.Vector3()
 
@@ -123,6 +125,16 @@ export class WeatherSystem {
     this.updateClouds(dt, cameraPos)
     this.updateParticles(dt, camera)
     this.updateSplashes(dt)
+  }
+
+  /** Fade precipitation at a covered location such as a tunnel. Cloud state
+   * can keep updating normally, while particles never cross the carriage view
+   * through a solid tunnel wall. */
+  setShelter(enclosure: number) {
+    this.shelter = THREE.MathUtils.clamp(enclosure, 0, 1)
+    const outdoors = 1 - this.shelter
+    this.pointMat.opacity = this.particleOpacity * outdoors
+    this.points.visible = this.particleKind !== null && outdoors > 0.02
   }
 
   /** Weather-driven overrides applied on top of the time-of-day state. */
@@ -219,18 +231,19 @@ export class WeatherSystem {
       this.activeParticles = 2500
       this.pointMat.color.setHex(0xaaccee)
       this.pointMat.size = 0.1
-      this.pointMat.opacity = 0.6
+      this.particleOpacity = 0.6
     } else if (this.current === WeatherType.SNOW) {
       this.particleKind = 'snow'
       this.activeParticles = 1800
       this.pointMat.color.setHex(0xffffff)
       this.pointMat.size = 0.18
-      this.pointMat.opacity = 0.85
+      this.particleOpacity = 0.85
     } else {
       this.particleKind = null
       this.activeParticles = 0
+      this.particleOpacity = 0
     }
-    this.points.visible = this.particleKind !== null
+    this.setShelter(this.shelter)
     this.points.geometry.setDrawRange(0, this.activeParticles)
   }
 
@@ -309,7 +322,7 @@ export class WeatherSystem {
       }
       const t = 1 - splash.life / 0.3
       splash.mesh.scale.setScalar(1 + t * 3)
-      ;(splash.mesh.material as THREE.MeshBasicMaterial).opacity = 0.6 * (1 - t)
+      ;(splash.mesh.material as THREE.MeshBasicMaterial).opacity = 0.6 * (1 - t) * (1 - this.shelter)
     }
   }
 
