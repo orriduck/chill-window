@@ -10,6 +10,9 @@ const GROUP_Y_OFFSET = 0
 const OPENING_W = 4.45
 const OPENING_H = 2.85
 const FRAME_T = 0.14
+const CABIN_FLOOR_Y = -2.03
+const WINDOW_CENTER_Y = 0.35
+const WINDOW_BOTTOM_Y = WINDOW_CENTER_Y - OPENING_H / 2
 const COACH_CEILING_Y = 2.06
 const COACH_WINDOW_CENTERS = [-5.3, 0, 5.3] as const
 
@@ -89,6 +92,8 @@ export type WindowBayLayout = {
 export type CoachCabinLayout = {
   windowCenters: number[]
   ceilingY: number
+  floorY: number
+  windowBottomY: number
   seatBackrestTop: number
 }
 
@@ -104,6 +109,8 @@ export function coachCabinLayout(): CoachCabinLayout {
   return {
     windowCenters: [...COACH_WINDOW_CENTERS],
     ceilingY: COACH_CEILING_Y,
+    floorY: CABIN_FLOOR_Y,
+    windowBottomY: WINDOW_BOTTOM_Y,
     seatBackrestTop: 0.2,
   }
 }
@@ -125,7 +132,7 @@ export function windowFrameViewportLayout(aspect: number): WindowFrameViewportLa
  * CSS approximation. Keeping it low leaves the upper aperture for scenery. */
 export function windowHudSurfaceLayout(): WindowHudSurfaceLayout {
   return {
-    rail: { x: -0.02, y: -1.18, z: 0.035, width: 2.82, height: 0.46 },
+    rail: { x: -0.02, y: WINDOW_CENTER_Y - 1.18, z: 0.035, width: 2.82, height: 0.46 },
   }
 }
 
@@ -230,12 +237,10 @@ export class WindowFrame {
     )
 
     const halfW = OPENING_W / 2 + FRAME_T / 2
-    const halfH = OPENING_H / 2 + FRAME_T / 2
-
     this.buildWall(wallMat)
     this.buildCabinCeiling(aluminium, accent)
     for (const centerX of COACH_WINDOW_CENTERS) {
-      this.buildFrame(frame, aluminium, halfW, halfH, centerX)
+      this.buildFrame(frame, aluminium, halfW, centerX)
       this.buildWindowHeader(frame, blindMat, accent, centerX)
     }
     this.buildGlass()
@@ -352,15 +357,15 @@ export class WindowFrame {
     const radius = 0.26
     for (const centerX of COACH_WINDOW_CENTERS) {
       const hole = new THREE.Path()
-      hole.moveTo(centerX - OPENING_W / 2 + radius, -OPENING_H / 2)
-      hole.lineTo(centerX + OPENING_W / 2 - radius, -OPENING_H / 2)
-      hole.absarc(centerX + OPENING_W / 2 - radius, -OPENING_H / 2 + radius, radius, -Math.PI / 2, 0, false)
-      hole.lineTo(centerX + OPENING_W / 2, OPENING_H / 2 - radius)
-      hole.absarc(centerX + OPENING_W / 2 - radius, OPENING_H / 2 - radius, radius, 0, Math.PI / 2, false)
-      hole.lineTo(centerX - OPENING_W / 2 + radius, OPENING_H / 2)
-      hole.absarc(centerX - OPENING_W / 2 + radius, OPENING_H / 2 - radius, radius, Math.PI / 2, Math.PI, false)
-      hole.lineTo(centerX - OPENING_W / 2, -OPENING_H / 2 + radius)
-      hole.absarc(centerX - OPENING_W / 2 + radius, -OPENING_H / 2 + radius, radius, Math.PI, Math.PI * 1.5, false)
+      hole.moveTo(centerX - OPENING_W / 2 + radius, WINDOW_CENTER_Y - OPENING_H / 2)
+      hole.lineTo(centerX + OPENING_W / 2 - radius, WINDOW_CENTER_Y - OPENING_H / 2)
+      hole.absarc(centerX + OPENING_W / 2 - radius, WINDOW_CENTER_Y - OPENING_H / 2 + radius, radius, -Math.PI / 2, 0, false)
+      hole.lineTo(centerX + OPENING_W / 2, WINDOW_CENTER_Y + OPENING_H / 2 - radius)
+      hole.absarc(centerX + OPENING_W / 2 - radius, WINDOW_CENTER_Y + OPENING_H / 2 - radius, radius, 0, Math.PI / 2, false)
+      hole.lineTo(centerX - OPENING_W / 2 + radius, WINDOW_CENTER_Y + OPENING_H / 2)
+      hole.absarc(centerX - OPENING_W / 2 + radius, WINDOW_CENTER_Y + OPENING_H / 2 - radius, radius, Math.PI / 2, Math.PI, false)
+      hole.lineTo(centerX - OPENING_W / 2, WINDOW_CENTER_Y - OPENING_H / 2 + radius)
+      hole.absarc(centerX - OPENING_W / 2 + radius, WINDOW_CENTER_Y - OPENING_H / 2 + radius, radius, Math.PI, Math.PI * 1.5, false)
       hole.closePath()
       wall.holes.push(hole)
     }
@@ -436,15 +441,15 @@ export class WindowFrame {
     this.group.add(coveAccent)
   }
 
-  private buildFrame(frame: THREE.Material, metal: THREE.Material, halfW: number, halfH: number, centerX: number) {
+  private buildFrame(frame: THREE.Material, metal: THREE.Material, halfW: number, centerX: number) {
     const roundedPath = (inset: number) => {
       const radius = 0.26 - inset * 0.35
       const width = OPENING_W - inset * 2
       const height = OPENING_H - inset * 2
       const right = centerX + width / 2
       const left = centerX - width / 2
-      const top = height / 2
-      const bottom = -top
+      const top = WINDOW_CENTER_Y + height / 2
+      const bottom = WINDOW_CENTER_Y - height / 2
       const z = 0.05
       const path = new THREE.CurvePath<THREE.Vector3>()
       const point = (x: number, y: number) => new THREE.Vector3(x, y, z)
@@ -476,10 +481,10 @@ export class WindowFrame {
     this.group.add(innerTrim)
 
     const sill = new THREE.Mesh(this.box(OPENING_W - 0.18, 0.1, 0.3), frame)
-    sill.position.set(centerX, -halfH + 0.02, 0.17)
+    sill.position.set(centerX, WINDOW_BOTTOM_Y + 0.02, 0.17)
     this.group.add(sill)
     const latch = new THREE.Mesh(this.box(0.12, 0.04, 0.06), metal)
-    latch.position.set(centerX + halfW - 0.34, -halfH + 0.12, 0.11)
+    latch.position.set(centerX + halfW - 0.34, WINDOW_BOTTOM_Y + 0.12, 0.11)
     this.group.add(latch)
   }
 
@@ -487,15 +492,15 @@ export class WindowFrame {
    * coach rather than a divided, older carriage window. */
   private buildWindowHeader(frame: THREE.Material, blindMat: THREE.Material, accent: THREE.Material, centerX: number) {
     const cassette = new THREE.Mesh(this.box(OPENING_W - 0.24, 0.16, 0.13), blindMat)
-    cassette.position.set(centerX, OPENING_H / 2 - 0.02, 0.09)
+    cassette.position.set(centerX, WINDOW_CENTER_Y + OPENING_H / 2 - 0.02, 0.09)
     this.group.add(cassette)
     const lowerEdge = new THREE.Mesh(this.box(OPENING_W - 0.46, 0.018, 0.02), accent)
-    lowerEdge.position.set(centerX, OPENING_H / 2 - 0.115, 0.17)
+    lowerEdge.position.set(centerX, WINDOW_CENTER_Y + OPENING_H / 2 - 0.115, 0.17)
     this.group.add(lowerEdge)
     for (const side of [-1, 1]) {
       const fixing = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.028, 0.028, 0.025, 10)), frame)
       fixing.rotation.x = Math.PI / 2
-      fixing.position.set(centerX + side * (OPENING_W / 2 - 0.28), OPENING_H / 2 + 0.08, 0.12)
+      fixing.position.set(centerX + side * (OPENING_W / 2 - 0.28), WINDOW_CENTER_Y + OPENING_H / 2 + 0.08, 0.12)
       this.group.add(fixing)
     }
   }
@@ -623,7 +628,7 @@ export class WindowFrame {
       const switchDot = new THREE.Mesh(this.track(new THREE.CircleGeometry(0.018, 10)), glowMat)
       switchDot.position.set(0, -0.11, 0.046)
       pod.add(switchDot)
-      pod.position.set(side * (OPENING_W / 2 + 0.36), 0.62, 0.07)
+      pod.position.set(side * (OPENING_W / 2 + 0.36), WINDOW_CENTER_Y + 0.62, 0.07)
       this.group.add(pod)
     }
   }
@@ -643,14 +648,14 @@ export class WindowFrame {
     )
     const floor = new THREE.Mesh(this.track(new THREE.PlaneGeometry(WALL_W - 1.2, 6.4)), floorMat)
     floor.rotation.x = -Math.PI / 2
-    floor.position.set(0, -2.03, 1.32)
+    floor.position.set(0, CABIN_FLOOR_Y, 1.32)
     this.group.add(floor)
 
     const runnerMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x1e2c31, roughness: 0.96, metalness: 0 }),
     )
     const runner = new THREE.Mesh(this.box(1.35, 0.025, 4.6), runnerMat)
-    runner.position.set(0, -2.005, 1.35)
+    runner.position.set(0, CABIN_FLOOR_Y + 0.025, 1.35)
     this.group.add(runner)
 
     const thresholdMat = this.track(
@@ -658,7 +663,7 @@ export class WindowFrame {
     )
     for (const z of [-0.72, 0.72, 2.16]) {
       const threshold = new THREE.Mesh(this.box(WALL_W - 1.45, 0.025, 0.035), thresholdMat)
-      threshold.position.set(0, -1.995, z)
+      threshold.position.set(0, CABIN_FLOOR_Y + 0.035, z)
       this.group.add(threshold)
     }
   }
@@ -698,21 +703,23 @@ export class WindowFrame {
         this.roundedBox(0.14, 1.42, WINDOW_BAY.seatLength - 0.14, 0.07),
         fabric,
       )
-      back.position.set(side * 0.37, -0.59, 0)
+      // The upholstered face must point into the shared table space. Placing
+      // it on the outer shell left a large black slab between passenger and seat.
+      back.position.set(side * 0.075, -0.59, 0)
       couch.add(back)
 
       for (const z of [-0.5, 0.5]) {
         const cushion = new THREE.Mesh(this.roundedBox(0.54, 0.22, 0.9, 0.08), fabric)
-        cushion.position.set(-side * 0.03, -1.33, z)
+        cushion.position.set(-side * 0.03, -1.265, z)
         couch.add(cushion)
         const headrest = new THREE.Mesh(this.roundedBox(0.06, 0.42, 0.58, 0.026), pipingMat)
-        headrest.position.set(side * 0.45, -0.1, z)
+        headrest.position.set(side * 0.075, -0.1, z)
         couch.add(headrest)
       }
 
       for (const z of [-0.76, 0, 0.76]) {
         const seam = new THREE.Mesh(this.box(0.018, 1.28, 0.018), pipingMat)
-        seam.position.set(side * 0.45, -0.6, z)
+        seam.position.set(side * 0.075, -0.6, z)
         couch.add(seam)
       }
 
@@ -801,13 +808,13 @@ export class WindowFrame {
       new THREE.MeshStandardMaterial({ color: 0x1a2529, roughness: 0.62, metalness: 0.22 })
     )
     const lowerWall = new THREE.Mesh(this.box(WALL_W - 0.5, 0.24, 0.18), lowerMat)
-    lowerWall.position.set(0, -1.7, -0.02)
+    lowerWall.position.set(0, WINDOW_BOTTOM_Y - 0.32, -0.02)
     this.group.add(lowerWall)
     const sillLight = new THREE.Mesh(
       this.box(4.7, 0.026, 0.028),
       this.track(new THREE.MeshBasicMaterial({ color: 0x9cd9e1, transparent: true, opacity: 0.54 })),
     )
-    sillLight.position.set(0, -1.54, 0.15)
+    sillLight.position.set(0, WINDOW_BOTTOM_Y - 0.13, 0.15)
     this.group.add(sillLight)
 
     const rackMat = this.track(
@@ -965,6 +972,7 @@ export class WindowFrame {
         })
       )
     )
+    glass.position.y = WINDOW_CENTER_Y
     glass.renderOrder = 10
     this.group.add(glass)
 
@@ -988,7 +996,7 @@ export class WindowFrame {
     ]
     for (const [sx, sy, sw, sh] of smudges) {
       const patch = new THREE.Mesh(this.track(new THREE.CircleGeometry(0.5, 20)), smudgeMat)
-      patch.position.set(sx, sy, 0.002)
+      patch.position.set(sx, sy + WINDOW_CENTER_Y, 0.002)
       patch.scale.set(sw, sh, 1)
       patch.renderOrder = 13
       this.group.add(patch)
@@ -999,7 +1007,7 @@ export class WindowFrame {
     const dustPositions = new Float32Array(dustCount * 3)
     for (let i = 0; i < dustCount; i++) {
       dustPositions[i * 3] = (Math.random() - 0.5) * OPENING_W
-      dustPositions[i * 3 + 1] = (Math.random() - 0.5) * OPENING_H
+      dustPositions[i * 3 + 1] = WINDOW_CENTER_Y + (Math.random() - 0.5) * OPENING_H
       dustPositions[i * 3 + 2] = 0.003
     }
     const dustGeom = this.track(new THREE.BufferGeometry())
@@ -1275,6 +1283,7 @@ export class WindowFrame {
         depthWrite: false,
       }))
       const reflection = new THREE.Mesh(this.track(new THREE.PlaneGeometry(OPENING_W, OPENING_H)), material)
+      reflection.position.y = WINDOW_CENTER_Y
       reflection.position.z = z
       reflection.renderOrder = order
       this.group.add(reflection)
@@ -1286,7 +1295,7 @@ export class WindowFrame {
   }
 
   addSillObjects(accent: THREE.Material) {
-    const sillTop = -(OPENING_H / 2 + FRAME_T) - 0.03
+    const sillTop = WINDOW_BOTTOM_Y - FRAME_T - 0.03
 
     const bottleMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x7ca5b0, roughness: 0.3, metalness: 0.38 })
@@ -1364,7 +1373,7 @@ export class WindowFrame {
     for (let i = 0; i < RAIN_DROP_COUNT; i++) {
       const y = i * 3 + 1
       this.rainDropPositions[y] -= dt * speed * (0.7 + (i % 5) * 0.1)
-      if (this.rainDropPositions[y] < -OPENING_H / 2) this.resetRainDrop(i, false)
+      if (this.rainDropPositions[y] < WINDOW_BOTTOM_Y) this.resetRainDrop(i, false)
     }
     ;(this.rainDropGeometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
   }
@@ -1377,9 +1386,9 @@ export class WindowFrame {
     // their first fall update, which reads as weather inside the carriage.
     const top = RAIN_GLASS_TOP
     this.rainDropPositions[base] = (Math.random() - 0.5) * (OPENING_W - 0.12)
-    this.rainDropPositions[base + 1] = initial
+    this.rainDropPositions[base + 1] = WINDOW_CENTER_Y + (initial
       ? rainDropInitialY(Math.random())
-      : top
+      : top)
     this.rainDropPositions[base + 2] = 0.012
   }
 
