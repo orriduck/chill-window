@@ -10,7 +10,7 @@ import { FieldPlots } from './terrain/FieldPlots'
 import { SkyDome } from './sky/SkyDome'
 import { TimeOfDay } from './sky/TimeOfDay'
 import { WeatherSystem, WeatherType } from './weather/WeatherSystem'
-import { WindowFrame, type WindowHudReadout } from './interior/WindowFrame'
+import { WindowFrame, type WindowHudReadout, type WindowHudControlAnchor } from './interior/WindowFrame'
 import { TrackSystem } from './track/TrackSystem'
 import { LinesideProps } from './track/LinesideProps'
 import { StationManager } from './track/Station'
@@ -55,6 +55,8 @@ export interface TrainControl {
   getMotion: () => TrainMotionTelemetry
   /** Update the passive readouts mounted on the physical window surfaces. */
   setWindowHud: (readout: WindowHudReadout) => void
+  /** Screen projection of the physical journey HUD's upper-right corner. */
+  getWindowHudAnchor: () => WindowHudControlAnchor | null
   /** Show a station ahead of the camera. */
   showStation: (name: string, zCenter: number) => void
   /** Select the authored route station that this focus segment will reach. */
@@ -190,6 +192,7 @@ export default function ThreeCanvas({
           acceleration: paused ? 0 : camera.acceleration,
         }),
         setWindowHud: (readout: WindowHudReadout) => windowFrame.setHudReadout(readout),
+        getWindowHudAnchor: () => windowFrame.getHudControlAnchor(camera.getCamera()),
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
         planStation: (name: string, durationSeconds: number) => {
           const anchor = nearestStationAnchor(camera.z, CRUISE_SPEED * durationSeconds, routePlan)
