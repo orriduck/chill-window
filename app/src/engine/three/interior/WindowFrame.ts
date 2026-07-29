@@ -155,8 +155,6 @@ export class WindowFrame {
     this.buildRollerBlind(blindMat, accent)
     this.buildGlass()
     this.buildWindowHud()
-    this.buildLuggageRack(aluminium)
-    this.buildFoldedBunk(aluminium)
     this.buildReadingLamp(aluminium)
     this.buildSeat()
     this.buildCorridorDoor(aluminium)
@@ -334,7 +332,7 @@ export class WindowFrame {
   // ---- Sleeper fittings ----
 
   /** Aluminium luggage rail with a compact soft case. */
-  private buildLuggageRack(aluminium: THREE.Material) {
+  buildLuggageRack(aluminium: THREE.Material) {
     const rackY = OPENING_H / 2 + 0.15
     const rackZ = 0.3
 
@@ -377,7 +375,7 @@ export class WindowFrame {
 
   /** Folded upper berth with fitted linen, retaining straps and a positive
    * release pull. It sits beside the aperture instead of occupying its view. */
-  private buildFoldedBunk(aluminium: THREE.Material) {
+  buildFoldedBunk(aluminium: THREE.Material) {
     const bunk = new THREE.Group()
 
     const shellMat = this.track(
@@ -487,8 +485,12 @@ export class WindowFrame {
     this.group.add(lamp)
   }
 
-  /** Deep blue-grey lower berth with separated cushions and a cantilevered
-   * table. The volume lives beneath the lower HUD, not over it. */
+  /**
+   * Facing intercity seats frame the window like a real European day coach:
+   * two dark textile shells, pale headrests, shared armrests and a compact
+   * folding table. Their outer edges stay beyond the aperture while the
+   * foreground cushions make the carriage read as occupied space.
+   */
   private buildSeat() {
     const fabric = this.track(
       new THREE.MeshStandardMaterial({ map: this.makeSeatTextile(), roughness: 1.0, metalness: 0 })
@@ -496,65 +498,75 @@ export class WindowFrame {
     const baseMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x1b292f, roughness: 0.66, metalness: 0.22 })
     )
-    const base = new THREE.Mesh(this.box(4.3, 0.24, 0.42), baseMat)
-    base.position.set(0.25, -2.18, 0.52)
-    base.rotation.x = 0.12
-    this.group.add(base)
-
-    const seat = new THREE.Mesh(this.box(4.24, 0.3, 0.5), fabric)
-    seat.position.set(0.25, -1.96, 0.66)
-    seat.rotation.x = 0.12
-    this.group.add(seat)
-
-    const backrest = new THREE.Mesh(this.box(4.24, 0.24, 0.16), fabric)
-    backrest.position.set(0.25, -1.71, 0.47)
-    backrest.rotation.x = 0.12
-    this.group.add(backrest)
-
     const edgeMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x9fc8d5, roughness: 0.42, metalness: 0.42 })
     )
-    const topPiping = new THREE.Mesh(this.box(4.34, 0.03, 0.035), edgeMat)
-    topPiping.position.set(0.25, -1.79, 0.92)
-    topPiping.rotation.x = 0.12
-    this.group.add(topPiping)
-    for (const seamX of [-1.1, 0.25, 1.6]) {
-      const seam = new THREE.Mesh(this.box(0.025, 0.25, 0.025), edgeMat)
-      seam.position.set(seamX, -1.95, 0.93)
-      seam.rotation.x = 0.12
-      this.group.add(seam)
-    }
+    const headrestMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xd9ddd8, roughness: 0.9, metalness: 0 })
+    )
+    const headrestInsetMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xb9c1bf, roughness: 0.78, metalness: 0 })
+    )
+
     for (const side of [-1, 1]) {
-      const arm = new THREE.Mesh(this.box(0.12, 0.34, 0.4), edgeMat)
-      arm.position.set(0.25 + side * 2.05, -1.98, 0.65)
-      arm.rotation.x = 0.12
-      this.group.add(arm)
+      const seat = new THREE.Group()
+      const x = side * 2.12
+      const base = new THREE.Mesh(this.box(0.92, 0.3, 0.58), baseMat)
+      base.position.set(0, -1.97, 0.54)
+      base.rotation.x = 0.1
+      seat.add(base)
+      const cushion = new THREE.Mesh(this.box(0.86, 0.25, 0.54), fabric)
+      cushion.position.set(0, -1.78, 0.7)
+      cushion.rotation.x = 0.1
+      seat.add(cushion)
+      const back = new THREE.Mesh(this.box(0.88, 1.35, 0.2), fabric)
+      back.position.set(0, -1.05, 0.46)
+      back.rotation.x = 0.1
+      seat.add(back)
+      const shoulder = new THREE.Mesh(this.box(0.94, 0.38, 0.23), fabric)
+      shoulder.position.set(0, -0.28, 0.43)
+      shoulder.rotation.x = 0.1
+      seat.add(shoulder)
+      const headrest = new THREE.Mesh(this.box(0.72, 0.42, 0.08), headrestMat)
+      headrest.position.set(0, 0.03, 0.32)
+      headrest.rotation.x = 0.1
+      seat.add(headrest)
+      const headrestInset = new THREE.Mesh(this.box(0.54, 0.23, 0.087), headrestInsetMat)
+      headrestInset.position.set(0, 0.03, 0.275)
+      headrestInset.rotation.x = 0.1
+      seat.add(headrestInset)
+      const outerArm = new THREE.Mesh(this.box(0.12, 0.34, 0.52), edgeMat)
+      outerArm.position.set(side * 0.47, -1.58, 0.66)
+      outerArm.rotation.x = 0.1
+      seat.add(outerArm)
+      const innerArm = new THREE.Mesh(this.box(0.1, 0.28, 0.44), edgeMat)
+      innerArm.position.set(-side * 0.38, -1.61, 0.65)
+      innerArm.rotation.x = 0.1
+      seat.add(innerArm)
+      const support = new THREE.Mesh(this.box(0.34, 0.82, 0.34), baseMat)
+      support.position.set(0, -2.38, 0.48)
+      seat.add(support)
+      seat.position.x = x
+      this.group.add(seat)
     }
 
     const tableMat = this.track(
       new THREE.MeshStandardMaterial({ map: this.makeCabinPanelTexture(), roughness: 0.58, metalness: 0.08 })
     )
-    const table = new THREE.Mesh(this.box(1.45, 0.05, 0.58), tableMat)
-    table.position.set(-0.55, -1.69, 0.48)
+    const table = new THREE.Mesh(this.box(1.08, 0.05, 0.5), tableMat)
+    table.position.set(0, -1.45, 0.48)
     table.rotation.x = -0.05
     this.group.add(table)
 
-    const tableEdge = new THREE.Mesh(this.box(1.46, 0.035, 0.025), edgeMat)
-    tableEdge.position.set(-0.55, -1.7, 0.77)
+    const tableEdge = new THREE.Mesh(this.box(1.1, 0.035, 0.025), edgeMat)
+    tableEdge.position.set(0, -1.46, 0.73)
     tableEdge.rotation.x = -0.05
     this.group.add(tableEdge)
-    const tableSupport = new THREE.Mesh(this.box(0.045, 0.3, 0.045), edgeMat)
-    tableSupport.position.set(0.07, -1.88, 0.49)
+    const tableSupport = new THREE.Mesh(this.box(0.08, 0.55, 0.08), edgeMat)
+    tableSupport.position.set(0, -1.75, 0.49)
     tableSupport.rotation.x = -0.28
     this.group.add(tableSupport)
 
-    const blanketMat = this.track(
-      new THREE.MeshStandardMaterial({ map: this.makeBeddingTexture(), roughness: 0.98 })
-    )
-    const blanket = new THREE.Mesh(this.box(1.35, 0.06, 0.35), blanketMat)
-    blanket.position.set(1.25, -1.68, 0.82)
-    blanket.rotation.x = 0.12
-    this.group.add(blanket)
   }
 
   /** Neutral warm fills keep the modern interior readable at night. */
