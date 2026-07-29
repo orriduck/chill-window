@@ -111,61 +111,70 @@ export class TrainCamera {
     this.applyViewPose(z, 0)
   }
 
-  update(dt: number) {
-    this.time += dt
+  /**
+   * Update train motion and the passenger's view. A paused journey keeps its
+   * physical state frozen while still allowing the user to pan the camera.
+   */
+  update(dt: number, advance = true) {
+    let z = this.camera.position.z
+    let amp = Math.min(1, this.currentSpeed / CRUISE_SPEED) ** 2
 
-    const currentZ = this.camera.position.z
-    if (this.stationStopZ !== null) {
-      const remaining = this.stationStopZ - currentZ
-      if (remaining <= 0.02) {
+    if (advance) {
+      this.time += dt
+
+      const currentZ = this.camera.position.z
+      if (this.stationStopZ !== null) {
+        const remaining = this.stationStopZ - currentZ
+        if (remaining <= 0.02) {
+          this.currentSpeed = 0
+        } else {
+          const brakingSpeed = Math.sqrt(2 * STATION_BRAKE_DECEL * remaining)
+          this.currentSpeed = Math.min(this.currentSpeed, brakingSpeed)
+        }
+      } else {
+        // --- Speed smoothing ---
+        const diff = this.targetSpeed - this.currentSpeed
+        if (Math.abs(diff) > 0.01) {
+          const rate = diff > 0
+            ? (this.departingStation ? STATION_DEPART_ACCEL : ACCEL_RATE)
+            : DECEL_RATE
+          this.currentSpeed += Math.sign(diff) * Math.min(rate * dt, Math.abs(diff))
+        } else {
+          this.currentSpeed = this.targetSpeed
+          this.departingStation = false
+        }
+      }
+
+      // --- Position ---
+      z = this.stationStopZ === null
+        ? currentZ + this.currentSpeed * dt
+        : Math.min(this.stationStopZ, currentZ + this.currentSpeed * dt)
+      if (this.stationStopZ !== null && z >= this.stationStopZ) {
         this.currentSpeed = 0
-      } else {
-        const brakingSpeed = Math.sqrt(2 * STATION_BRAKE_DECEL * remaining)
-        this.currentSpeed = Math.min(this.currentSpeed, brakingSpeed)
       }
-    } else {
-      // --- Speed smoothing ---
-      const diff = this.targetSpeed - this.currentSpeed
-      if (Math.abs(diff) > 0.01) {
-        const rate = diff > 0
-          ? (this.departingStation ? STATION_DEPART_ACCEL : ACCEL_RATE)
-          : DECEL_RATE
-        this.currentSpeed += Math.sign(diff) * Math.min(rate * dt, Math.abs(diff))
-      } else {
-        this.currentSpeed = this.targetSpeed
-        this.departingStation = false
-      }
+
+      // --- Speed-scaled vibration ---
+      // Normalize speed 0..1 and square the factor so low speeds stay calm.
+      const speedT = Math.min(1, this.currentSpeed / CRUISE_SPEED)
+      amp = speedT * speedT
+
+      // Raw oscillation at several incommensurate frequencies
+      const t = this.time
+      const rawY =
+        Math.sin(t * 8.2) * 0.008 +
+        Math.sin(t * 13.7 + 1.3) * 0.005 +
+        Math.sin(t * 5.1 + 0.7) * 0.003
+      const rawX =
+        Math.sin(t * 9.4 + 0.7) * 0.005 +
+        Math.sin(t * 6.3 + 2.1) * 0.003
+      const rawRoll = Math.sin(t * 7.1) * 0.001
+
+      // Low-pass filter: exponential moving average (smooths out high-freq jitter)
+      const alpha = 1 - Math.exp(-dt * 12)
+      this.vibY += (rawY - this.vibY) * alpha
+      this.vibX += (rawX - this.vibX) * alpha
+      this.vibRoll += (rawRoll - this.vibRoll) * alpha
     }
-
-    // --- Position ---
-    const z = this.stationStopZ === null
-      ? currentZ + this.currentSpeed * dt
-      : Math.min(this.stationStopZ, currentZ + this.currentSpeed * dt)
-    if (this.stationStopZ !== null && z >= this.stationStopZ) {
-      this.currentSpeed = 0
-    }
-    // --- Speed-scaled vibration ---
-    // Normalize speed 0..1 for amplitude scaling
-    const speedT = Math.min(1, this.currentSpeed / CRUISE_SPEED)
-    // Square the factor so low speeds are very calm
-    const amp = speedT * speedT
-
-    // Raw oscillation at several incommensurate frequencies
-    const t = this.time
-    const rawY =
-      Math.sin(t * 8.2) * 0.008 +
-      Math.sin(t * 13.7 + 1.3) * 0.005 +
-      Math.sin(t * 5.1 + 0.7) * 0.003
-    const rawX =
-      Math.sin(t * 9.4 + 0.7) * 0.005 +
-      Math.sin(t * 6.3 + 2.1) * 0.003
-    const rawRoll = Math.sin(t * 7.1) * 0.001
-
-    // Low-pass filter: exponential moving average (smooths out high-freq jitter)
-    const alpha = 1 - Math.exp(-dt * 12)
-    this.vibY += (rawY - this.vibY) * alpha
-    this.vibX += (rawX - this.vibX) * alpha
-    this.vibRoll += (rawRoll - this.vibRoll) * alpha
 
     const viewAlpha = 1 - Math.exp(-dt * 14)
     this.viewYaw += (this.targetViewYaw - this.viewYaw) * viewAlpha
