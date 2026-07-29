@@ -389,32 +389,32 @@ export default function Home() {
       {/* ================= 行驶 HUD ================= */}
       {riding && (
         <>
-          <div className="absolute left-1/2 top-8 z-20 -translate-x-1/2 text-center text-white">
-            <div className="font-mono text-5xl font-bold tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]">
+          <div className="absolute left-1/2 top-8 z-20 -translate-x-1/2 text-center text-white max-[520px]:top-14">
+            <div className="font-mono text-5xl font-bold tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)] max-[520px]:text-4xl">
               {formatTime(hud.focusLeft)}
             </div>
-            <div className="mt-1 text-xs tracking-widest text-white/70 drop-shadow">
+            <div className="mt-1 text-xs tracking-widest text-white/70 drop-shadow max-[520px]:mt-0.5 max-[520px]:text-[10px]">
               {isPaused ? '行程已暂停' : hud.phase === 'dwell' ? '列车经停中' : `开往 ${hud.nextStation}站`}
             </div>
           </div>
 
-          <div className="absolute right-8 top-8 z-20 flex gap-2">
-            <button onClick={togglePause} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isPaused ? '继续行程' : '暂停行程'} aria-label={isPaused ? '继续行程' : '暂停行程'}>
+          <div className="absolute right-8 top-8 z-20 flex gap-2 max-[520px]:right-3 max-[520px]:top-3 max-[520px]:gap-1.5">
+            <button onClick={togglePause} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title={isPaused ? '继续行程' : '暂停行程'} aria-label={isPaused ? '继续行程' : '暂停行程'}>
               {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </button>
             <button onClick={() => {
               const control = trainControlRef.current;
               if (typeof control?.resetView === 'function') control.resetView();
-            }} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="复位观察方向" aria-label="复位观察方向">
+            }} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title="复位观察方向" aria-label="复位观察方向">
               <RotateCcw className="h-4 w-4" />
             </button>
-            <button onClick={toggleSound} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={sound ? '关闭声音' : '开启声音'} aria-label={sound ? '关闭声音' : '开启声音'}>
+            <button onClick={toggleSound} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title={sound ? '关闭声音' : '开启声音'} aria-label={sound ? '关闭声音' : '开启声音'}>
               {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
-            <button onClick={toggleFullscreen} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isFullscreen ? '退出全屏' : '进入全屏'} aria-label={isFullscreen ? '退出全屏' : '进入全屏'}>
+            <button onClick={toggleFullscreen} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title={isFullscreen ? '退出全屏' : '进入全屏'} aria-label={isFullscreen ? '退出全屏' : '进入全屏'}>
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
-            <button onClick={() => setConfirmAbort(true)} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="中途下车">
+            <button onClick={() => setConfirmAbort(true)} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title="中途下车">
               <Flag className="h-4 w-4" />
             </button>
           </div>
