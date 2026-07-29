@@ -7,13 +7,13 @@ describe('compact viewport camera', () => {
     expect(cameraFovForAspect(16 / 9)).toBeCloseTo(70)
   })
 
-  it('widens the real camera projection for a narrow portrait viewport', () => {
+  it('widens the real camera projection for a narrow portrait viewport without shrinking the window away', () => {
     expect(compactViewportFactor(393 / 852)).toBe(1)
-    expect(cameraFovForAspect(393 / 852)).toBeCloseTo(90)
+    expect(cameraFovForAspect(393 / 852)).toBeCloseTo(78)
   })
 
   it('interpolates smoothly through tablet-sized aspect ratios', () => {
     expect(cameraFovForAspect(0.75)).toBeGreaterThan(70)
-    expect(cameraFovForAspect(0.75)).toBeLessThan(90)
+    expect(cameraFovForAspect(0.75)).toBeLessThan(78)
   })
 })

@@ -42,15 +42,15 @@ export type WindowFrameViewportLayout = {
   forwardOffset: number
 }
 
-/** Preserve the complete physical aperture at every viewport by keeping the
- * cabin plane behind the camera's near view, then adding distance for phones. */
+/** Preserve the complete physical aperture at every viewport. Portrait keeps
+ * the frame close enough to feel like a window rather than a miniature cabin. */
 export function windowFrameViewportLayout(aspect: number): WindowFrameViewportLayout {
   const compactness = compactViewportFactor(aspect)
   return {
-    frameDistance: THREE.MathUtils.lerp(FRAME_DISTANCE, 3.85, compactness),
-    scale: THREE.MathUtils.lerp(1, 0.95, compactness),
-    yOffset: THREE.MathUtils.lerp(GROUP_Y_OFFSET, -0.04, compactness),
-    forwardOffset: compactness,
+    frameDistance: THREE.MathUtils.lerp(FRAME_DISTANCE, 3.05, compactness),
+    scale: 1,
+    yOffset: THREE.MathUtils.lerp(GROUP_Y_OFFSET, -0.02, compactness),
+    forwardOffset: THREE.MathUtils.lerp(0, 0.08, compactness),
   }
 }
 
@@ -59,7 +59,7 @@ export function windowFrameViewportLayout(aspect: number): WindowFrameViewportLa
  * CSS approximation. Keeping it low leaves the upper aperture for scenery. */
 export function windowHudSurfaceLayout(): WindowHudSurfaceLayout {
   return {
-    rail: { x: -0.02, y: -1.08, z: 0.035, width: 3.08, height: 0.66 },
+    rail: { x: -0.02, y: -1.18, z: 0.035, width: 2.82, height: 0.46 },
   }
 }
 
@@ -709,7 +709,7 @@ export class WindowFrame {
    * a real cabin surface instead of fighting the 3D projection in screen space. */
   private buildWindowHud() {
     const layout = windowHudSurfaceLayout()
-    const rail = this.createHudSurface(1280, 320, layout.rail, 17)
+    const rail = this.createHudSurface(1280, 190, layout.rail, 17)
     this.journeyHudCanvas = rail.canvas
     this.journeyHudTexture = rail.texture
     this.journeyHudPlane = rail.plane
@@ -755,7 +755,7 @@ export class WindowFrame {
     const { width, height } = canvas
     const left = 64
     const right = width - 64
-    const railY = 142
+    const railY = 104
     const railWidth = right - left
     context.clearRect(0, 0, width, height)
     context.fillStyle = 'rgba(8, 13, 16, 0.42)'
@@ -767,20 +767,20 @@ export class WindowFrame {
     context.textBaseline = 'middle'
     context.textAlign = 'left'
     context.fillStyle = '#f4f7f5'
-    context.font = '700 48px ui-monospace, SFMono-Regular, Menlo, monospace'
-    context.fillText(this.windowHud.time, left, 54)
+    context.font = '700 42px ui-monospace, SFMono-Regular, Menlo, monospace'
+    context.fillText(this.windowHud.time, left, 42)
     context.fillStyle = 'rgba(220, 231, 232, 0.82)'
-    context.font = '500 24px system-ui, sans-serif'
-    context.fillText(this.windowHud.journey, left + 194, 54)
+    context.font = '500 20px system-ui, sans-serif'
+    context.fillText(this.windowHud.journey, left + 174, 42)
 
     context.strokeStyle = 'rgba(234, 241, 239, 0.52)'
-    context.lineWidth = 5
+    context.lineWidth = 4
     context.beginPath()
     context.moveTo(left, railY)
     context.lineTo(right, railY)
     context.stroke()
     context.strokeStyle = '#e4ae43'
-    context.lineWidth = 7
+    context.lineWidth = 6
     context.beginPath()
     context.moveTo(left, railY)
     context.lineTo(left + railWidth * this.windowHud.progress, railY)
@@ -792,36 +792,32 @@ export class WindowFrame {
       const reached = index < this.windowHud.currentSegment
       context.fillStyle = reached ? '#e4ae43' : 'rgba(12, 18, 20, 0.84)'
       context.strokeStyle = reached ? '#e4ae43' : 'rgba(236, 243, 242, 0.7)'
-      context.lineWidth = 4
+      context.lineWidth = 3
       context.beginPath()
-      context.arc(x, railY, 12, 0, Math.PI * 2)
+      context.arc(x, railY, 9, 0, Math.PI * 2)
       context.fill()
       context.stroke()
       context.fillStyle = 'rgba(233, 241, 240, 0.82)'
-      context.font = '500 20px system-ui, sans-serif'
+      context.font = '500 16px system-ui, sans-serif'
       context.textAlign = 'center'
       context.textBaseline = 'top'
-      context.fillText(this.windowHud.stationNames[index], x, railY + 18)
+      context.fillText(this.windowHud.stationNames[index], x, railY + 14)
     }
 
     context.textBaseline = 'middle'
-    context.font = '500 22px system-ui, sans-serif'
-    context.fillStyle = 'rgba(235, 242, 241, 0.78)'
-    context.textAlign = 'left'
-    const nextStop = this.windowHud.stationNames[this.windowHud.currentSegment] ?? this.windowHud.journey
-    context.fillText(`Next: ${nextStop}`, left, 262)
+    context.font = '500 18px system-ui, sans-serif'
     context.textAlign = 'right'
     context.fillStyle = 'rgba(235, 242, 241, 0.8)'
     const motion = this.windowHud.motionLabel.split('•').slice(0, 2).join(' • ').trim()
-    context.fillText(motion, right, 262)
+    context.fillText(motion, right, 168)
     const motionWidth = context.measureText(motion).width
     const gradeX = right - motionWidth - 48
     const gradeAngle = THREE.MathUtils.clamp(this.windowHud.grade, -0.02, 0.02) * 360
     context.strokeStyle = '#e4ae43'
     context.lineWidth = 3
     context.beginPath()
-    context.moveTo(gradeX, 262)
-    context.lineTo(gradeX + 34, 262 - gradeAngle)
+    context.moveTo(gradeX, 168)
+    context.lineTo(gradeX + 34, 168 - gradeAngle)
     context.stroke()
   }
 

@@ -48,6 +48,7 @@ describe('window HUD surfaces', () => {
     expect(layout.rail.y - layout.rail.height / 2).toBeGreaterThan(-1.45)
     expect(layout.rail.y + layout.rail.height / 2).toBeLessThan(1.45)
     expect(layout.rail.y).toBeLessThan(-0.9)
+    expect(layout.rail.height).toBeLessThan(0.6)
   })
 
   it('clamps physical progress to the drawable rail', () => {
@@ -67,11 +68,11 @@ describe('window frame viewport layout', () => {
     expect(layout.forwardOffset).toBeCloseTo(0)
   })
 
-  it('steps the real cabin plane back on compact portrait viewports', () => {
+  it('keeps the real cabin plane near its authored distance on compact portrait viewports', () => {
     const layout = windowFrameViewportLayout(393 / 852)
 
-    expect(layout.frameDistance).toBeGreaterThan(3.1)
-    expect(layout.scale).toBeLessThan(1)
+    expect(layout.frameDistance).toBeLessThan(3.1)
+    expect(layout.scale).toBeCloseTo(1)
     expect(layout.yOffset).toBeLessThan(0)
     expect(layout.forwardOffset).toBeGreaterThan(0)
   })
