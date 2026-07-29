@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { compactViewportFactor } from '../core/Camera'
 
 // Keep both physical HUD rails inside the viewport while giving the view more
@@ -16,6 +17,14 @@ const WALL_W = 24
 const WALL_H = 10
 const RAIN_DROP_COUNT = 96
 const RAIN_GLASS_TOP = OPENING_H / 2 - 0.05
+const WINDOW_BAY = {
+  seatCenterX: 2.72,
+  seatWidth: 1.34,
+  tableY: -1.57,
+  tableWidth: 0.9,
+  tableDepth: 0.42,
+  tableHeight: 0.065,
+} as const
 
 export interface WindowHudReadout {
   visible: boolean
@@ -62,6 +71,21 @@ export type WindowFrameViewportLayout = {
   scale: number
   yOffset: number
   forwardOffset: number
+}
+
+export type WindowBayLayout = {
+  seatCenterX: number
+  seatWidth: number
+  tableY: number
+  tableWidth: number
+  tableDepth: number
+  tableHeight: number
+}
+
+/** The coach bay is deliberately authored around the glazed view: seats enter
+ * from the edges while the compact table stays below the physical journey rail. */
+export function windowBayLayout(): WindowBayLayout {
+  return { ...WINDOW_BAY }
 }
 
 /** Preserve the complete physical aperture at every viewport. Portrait keeps
@@ -194,7 +218,8 @@ export class WindowFrame {
     this.buildGlass()
     this.buildWindowHud()
     this.buildWindowSconces(aluminium)
-    this.buildSeat()
+    this.buildCompartmentLounge(aluminium, accent)
+    this.buildCabinFittings(aluminium, accent)
     this.buildCabinLighting()
     this.promoteToForeground()
   }
@@ -495,125 +520,270 @@ export class WindowFrame {
     this.group.add(bunk)
   }
 
-  /** Small flush reading lamps keep the bay usable without filling the view
-   * with period-style wall hardware. */
+  /** Flush reading pods sit above the armrests, with a separate physical
+   * switch plate instead of floating decorative lights. */
   private buildWindowSconces(aluminium: THREE.Material) {
     const housingMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x252c2f, roughness: 0.48, metalness: 0.42 })
     )
     const glowMat = this.track(
-      new THREE.MeshBasicMaterial({ color: 0xe8f4ee, transparent: true, opacity: 0.76 })
+      new THREE.MeshBasicMaterial({ color: 0xffe5bd, transparent: true, opacity: 0.9 })
     )
     for (const side of [-1, 1]) {
-      const housing = new THREE.Mesh(this.box(0.24, 0.14, 0.06), housingMat)
-      housing.position.set(side * (OPENING_W / 2 + 0.34), 0.72, 0.06)
-      this.group.add(housing)
-      const lens = new THREE.Mesh(this.box(0.12, 0.028, 0.018), glowMat)
-      lens.position.set(side * (OPENING_W / 2 + 0.34), 0.72, 0.1)
-      this.group.add(lens)
-      const switchPlate = new THREE.Mesh(this.box(0.08, 0.12, 0.018), aluminium)
-      switchPlate.position.set(side * (OPENING_W / 2 + 0.34), 0.48, 0.07)
-      this.group.add(switchPlate)
+      const pod = new THREE.Group()
+      const mount = new THREE.Mesh(this.box(0.29, 0.45, 0.045), housingMat)
+      pod.add(mount)
+      const housing = new THREE.Mesh(this.box(0.29, 0.15, 0.12), housingMat)
+      housing.position.set(0, 0.12, 0.07)
+      pod.add(housing)
+      const lens = new THREE.Mesh(this.box(0.16, 0.035, 0.02), glowMat)
+      lens.position.set(0, 0.09, 0.135)
+      pod.add(lens)
+      const switchPlate = new THREE.Mesh(this.box(0.12, 0.14, 0.024), aluminium)
+      switchPlate.position.set(0, -0.11, 0.03)
+      pod.add(switchPlate)
+      const switchDot = new THREE.Mesh(this.track(new THREE.CircleGeometry(0.018, 10)), glowMat)
+      switchDot.position.set(0, -0.11, 0.046)
+      pod.add(switchDot)
+      pod.position.set(side * (OPENING_W / 2 + 0.36), 0.62, 0.07)
+      this.group.add(pod)
     }
   }
 
   /**
-   * The window bay is composed around the reference photos: a pair of dark
-   * high-back intercity seats enters from the near left and right, leaving a
-   * broad centered view outside. The small fixed table bridges the two seats
-   * instead of leaving unrelated cabin props in front of the glass.
+   * Modern compartment seating follows the shared reference composition: deep
+   * upholstered lounge couches enter from both sides, while their headrest
+   * covers, piping, arms and reservation plates make them read as real train
+   * seats rather than untextured boxes.
    */
-  private buildSeat() {
+  private buildCompartmentLounge(aluminium: THREE.Material, accent: THREE.Material) {
     const fabric = this.track(
       new THREE.MeshStandardMaterial({ map: this.makeSeatTextile(), roughness: 1.0, metalness: 0 })
     )
     const shellMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x151c21, roughness: 0.62, metalness: 0.18 })
+      new THREE.MeshStandardMaterial({ color: 0x182930, roughness: 0.62, metalness: 0.18 })
     )
     const edgeMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xb4bab8, roughness: 0.42, metalness: 0.38 })
+      new THREE.MeshStandardMaterial({ color: 0x8ba3aa, roughness: 0.42, metalness: 0.38 })
     )
     const headrestMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xd9ddd8, roughness: 0.9, metalness: 0 })
+      new THREE.MeshStandardMaterial({ color: 0xe3e5df, roughness: 0.9, metalness: 0 })
     )
     const headrestInsetMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xb9c1bf, roughness: 0.78, metalness: 0 })
+      new THREE.MeshStandardMaterial({ color: 0xced7d4, roughness: 0.78, metalness: 0 })
+    )
+    const pipingMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xbfcdd0, roughness: 0.52, metalness: 0.24 })
     )
 
-    for (const side of [-1, 1]) {
+    for (const [index, side] of [-1, 1].entries()) {
       const seat = new THREE.Group()
-      const x = side * 2.46
-      const outerShell = new THREE.Mesh(this.box(1.18, 2.2, 0.38), shellMat)
-      outerShell.position.set(0, -0.38, 0.36)
+      const outerShell = new THREE.Mesh(this.roundedBox(WINDOW_BAY.seatWidth, 2.16, 0.42, 0.09), shellMat)
+      outerShell.position.set(0, -0.36, 0.35)
       outerShell.rotation.x = 0.08
       seat.add(outerShell)
-      const back = new THREE.Mesh(this.box(1.02, 1.62, 0.16), fabric)
-      back.position.set(0, -0.3, 0.58)
+      const back = new THREE.Mesh(this.roundedBox(1.14, 1.58, 0.16, 0.07), fabric)
+      back.position.set(0, -0.26, 0.62)
       back.rotation.x = 0.08
       seat.add(back)
-      const shoulder = new THREE.Mesh(this.box(1.08, 0.38, 0.22), fabric)
-      shoulder.position.set(0, 0.48, 0.55)
+      const shoulder = new THREE.Mesh(this.roundedBox(1.2, 0.34, 0.22, 0.07), fabric)
+      shoulder.position.set(0, 0.47, 0.61)
       shoulder.rotation.x = 0.08
       seat.add(shoulder)
-      const headrest = new THREE.Mesh(this.box(0.78, 0.48, 0.075), headrestMat)
-      headrest.position.set(0, 0.72, 0.5)
+      const headrest = new THREE.Mesh(this.roundedBox(0.86, 0.42, 0.075, 0.035), headrestMat)
+      headrest.position.set(0, 0.72, 0.72)
       headrest.rotation.x = 0.08
       seat.add(headrest)
-      const headrestInset = new THREE.Mesh(this.box(0.58, 0.26, 0.082), headrestInsetMat)
-      headrestInset.position.set(0, 0.72, 0.455)
+      const headrestInset = new THREE.Mesh(this.roundedBox(0.65, 0.2, 0.082, 0.028), headrestInsetMat)
+      headrestInset.position.set(0, 0.72, 0.78)
       headrestInset.rotation.x = 0.08
       seat.add(headrestInset)
-      const cushionShell = new THREE.Mesh(this.box(1.12, 0.36, 0.72), shellMat)
-      cushionShell.position.set(0, -1.42, 0.52)
+      const cushionShell = new THREE.Mesh(this.roundedBox(1.24, 0.34, 0.74, 0.08), shellMat)
+      cushionShell.position.set(0, -1.4, 0.53)
       cushionShell.rotation.x = 0.12
       seat.add(cushionShell)
-      const cushion = new THREE.Mesh(this.box(1.0, 0.22, 0.62), fabric)
-      cushion.position.set(0, -1.24, 0.72)
+      const cushion = new THREE.Mesh(this.roundedBox(1.12, 0.22, 0.64, 0.08), fabric)
+      cushion.position.set(0, -1.23, 0.76)
       cushion.rotation.x = 0.12
       seat.add(cushion)
-      const outerArm = new THREE.Mesh(this.box(0.14, 0.38, 0.62), shellMat)
-      outerArm.position.set(side * 0.54, -1.15, 0.68)
+
+      for (const x of [-0.36, 0, 0.36]) {
+        const seam = new THREE.Mesh(this.box(0.018, 1.24, 0.012), pipingMat)
+        seam.position.set(x, -0.27, 0.712)
+        seam.rotation.x = 0.08
+        seat.add(seam)
+      }
+
+      const outerArm = new THREE.Mesh(this.roundedBox(0.16, 0.4, 0.64, 0.045), shellMat)
+      outerArm.position.set(side * 0.59, -1.15, 0.7)
       outerArm.rotation.x = 0.12
       seat.add(outerArm)
-      const innerArm = new THREE.Mesh(this.box(0.12, 0.3, 0.5), edgeMat)
-      innerArm.position.set(-side * 0.46, -1.18, 0.7)
+      const innerArm = new THREE.Mesh(this.roundedBox(0.12, 0.3, 0.5, 0.035), edgeMat)
+      innerArm.position.set(-side * 0.5, -1.18, 0.77)
       innerArm.rotation.x = 0.12
       seat.add(innerArm)
-      const support = new THREE.Mesh(this.box(0.48, 0.7, 0.4), shellMat)
-      support.position.set(0, -1.92, 0.44)
-      seat.add(support)
-      seat.position.x = x
+      for (const legX of [-0.38, 0.38]) {
+        const leg = new THREE.Mesh(this.box(0.12, 0.55, 0.13), shellMat)
+        leg.position.set(legX, -1.9, 0.46)
+        seat.add(leg)
+      }
+
+      const labelTexture = this.makeSeatReservationTexture(index === 0 ? '21 A' : '21 B')
+      const label = new THREE.Mesh(
+        this.track(new THREE.PlaneGeometry(0.56, 0.16)),
+        this.track(new THREE.MeshBasicMaterial({ map: labelTexture, transparent: true })),
+      )
+      label.position.set(0, 0.72, 0.832)
+      label.rotation.x = 0.08
+      seat.add(label)
+
+      seat.position.x = side * WINDOW_BAY.seatCenterX
       this.group.add(seat)
     }
 
+    this.buildShortTable(shellMat, edgeMat, accent, aluminium)
+  }
+
+  /** A compact shared table stays below the journey rail, with rounded end
+   * caps, cup recesses and a folding pedestal rather than a broad slab. */
+  private buildShortTable(
+    shellMat: THREE.Material,
+    edgeMat: THREE.Material,
+    accent: THREE.Material,
+    aluminium: THREE.Material,
+  ) {
     const tableMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xd6d0c4, roughness: 0.7, metalness: 0.06 })
+      new THREE.MeshStandardMaterial({ color: 0xd9d3c8, roughness: 0.68, metalness: 0.08 })
     )
-    const table = new THREE.Mesh(this.box(1.22, 0.055, 0.56), tableMat)
-    table.position.set(0, -1.2, 0.76)
+    const table = new THREE.Mesh(this.roundedBox(WINDOW_BAY.tableWidth, WINDOW_BAY.tableHeight, WINDOW_BAY.tableDepth, 0.045), tableMat)
+    table.position.set(0, WINDOW_BAY.tableY, 0.68)
     table.rotation.x = -0.03
     this.group.add(table)
 
-    const tableEdge = new THREE.Mesh(this.box(1.24, 0.04, 0.03), edgeMat)
-    tableEdge.position.set(0, -1.22, 1.03)
+    const tableEdge = new THREE.Mesh(this.box(WINDOW_BAY.tableWidth - 0.06, 0.038, 0.03), edgeMat)
+    tableEdge.position.set(0, WINDOW_BAY.tableY - 0.035, 0.905)
     tableEdge.rotation.x = -0.03
     this.group.add(tableEdge)
-    const tableSupport = new THREE.Mesh(this.box(0.1, 0.78, 0.11), shellMat)
-    tableSupport.position.set(0, -1.6, 0.58)
+
+    for (const x of [-0.405, 0.405]) {
+      const endCap = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.036, 0.036, WINDOW_BAY.tableHeight, 12)), tableMat)
+      endCap.position.set(x, WINDOW_BAY.tableY, 0.68)
+      this.group.add(endCap)
+    }
+
+    const cupMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x5f6b6b, roughness: 0.45, metalness: 0.48 })
+    )
+    for (const x of [-0.22, 0.22]) {
+      const cupInset = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.055, 0.055, 0.008, 16)), cupMat)
+      cupInset.position.set(x, WINDOW_BAY.tableY + 0.038, 0.69)
+      this.group.add(cupInset)
+    }
+
+    const tableSupport = new THREE.Mesh(this.box(0.11, 0.58, 0.12), shellMat)
+    tableSupport.position.set(0, -1.98, 0.55)
     tableSupport.rotation.x = -0.16
     this.group.add(tableSupport)
-
+    const hinge = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.045, 0.045, 0.54, 12)), aluminium)
+    hinge.rotation.z = Math.PI / 2
+    hinge.position.set(0, -1.92, 0.48)
+    this.group.add(hinge)
+    const usb = new THREE.Mesh(this.box(0.11, 0.05, 0.026), accent)
+    usb.position.set(0.25, -1.68, 0.28)
+    this.group.add(usb)
   }
 
-  /** Neutral warm fills keep the modern interior readable at night. */
+  /** Lower wainscot, luggage rail and hooks give the furniture an authored
+   * place in the carriage instead of making it float in front of the view. */
+  private buildCabinFittings(aluminium: THREE.Material, accent: THREE.Material) {
+    const lowerMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x1a2529, roughness: 0.62, metalness: 0.22 })
+    )
+    const lowerWall = new THREE.Mesh(this.box(5.35, 0.48, 0.18), lowerMat)
+    lowerWall.position.set(0, -1.82, -0.02)
+    this.group.add(lowerWall)
+    const sillLight = new THREE.Mesh(
+      this.box(4.7, 0.026, 0.028),
+      this.track(new THREE.MeshBasicMaterial({ color: 0x9cd9e1, transparent: true, opacity: 0.54 })),
+    )
+    sillLight.position.set(0, -1.54, 0.15)
+    this.group.add(sillLight)
+
+    const rackMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x2b383c, roughness: 0.44, metalness: 0.56 })
+    )
+    const luggageRail = new THREE.Mesh(this.box(5.1, 0.05, 0.28), rackMat)
+    luggageRail.position.set(0, 1.84, 0.18)
+    this.group.add(luggageRail)
+    const railPipeGeometry = this.track(new THREE.CylinderGeometry(0.018, 0.018, 4.92, 10))
+    railPipeGeometry.rotateZ(Math.PI / 2)
+    const railPipe = new THREE.Mesh(railPipeGeometry, aluminium)
+    railPipe.position.set(0, 1.72, 0.34)
+    this.group.add(railPipe)
+    for (const x of [-1.82, 0, 1.82]) {
+      const bracket = new THREE.Mesh(this.box(0.03, 0.24, 0.04), aluminium)
+      bracket.position.set(x, 1.73, 0.27)
+      this.group.add(bracket)
+    }
+
+    const hookMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xb8c3c4, roughness: 0.31, metalness: 0.76 })
+    )
+    for (const side of [-1, 1]) {
+      for (const y of [0.98, 0.6]) {
+        const hook = new THREE.Group()
+        const plate = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.09, 0.09, 0.02, 16)), hookMat)
+        plate.rotation.x = Math.PI / 2
+        hook.add(plate)
+        const stem = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.022, 0.022, 0.14, 10)), hookMat)
+        stem.rotation.z = side * 0.6
+        stem.position.set(side * 0.045, -0.035, 0.06)
+        hook.add(stem)
+        const tip = new THREE.Mesh(this.track(new THREE.SphereGeometry(0.038, 10, 8)), hookMat)
+        tip.position.set(side * 0.085, -0.1, 0.1)
+        hook.add(tip)
+        hook.position.set(side * 2.72, y, 0.1)
+        this.group.add(hook)
+      }
+    }
+
+    const socketMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x111a1e, roughness: 0.42, metalness: 0.44 })
+    )
+    for (const side of [-1, 1]) {
+      const socketPanel = new THREE.Mesh(this.box(0.34, 0.14, 0.03), socketMat)
+      socketPanel.position.set(side * 1.77, -1.66, 0.15)
+      this.group.add(socketPanel)
+      const port = new THREE.Mesh(this.box(0.07, 0.036, 0.012), accent)
+      port.position.set(side * 1.77, -1.66, 0.17)
+      this.group.add(port)
+    }
+  }
+
+  /** Layered diffused ceiling, reading and footwell light avoids the flat
+   * orange wash of the former cabin while retaining a calm evening feel. */
   private buildCabinLighting() {
-    const overhead = new THREE.PointLight(0xffc98e, 0.72, 4.6, 2)
-    overhead.position.set(-0.15, 1.95, 0.48)
+    const ceilingMat = this.track(
+      new THREE.MeshBasicMaterial({ color: 0xffecd0, transparent: true, opacity: 0.92 })
+    )
+    for (const x of [-1.68, 0, 1.68]) {
+      const panel = new THREE.Mesh(this.box(0.98, 0.07, 0.026), ceilingMat)
+      panel.position.set(x, 1.94, 0.34)
+      this.group.add(panel)
+    }
+
+    const overhead = new THREE.PointLight(0xffe1b7, 0.78, 4.8, 2)
+    overhead.position.set(0, 1.78, 0.72)
     this.group.add(overhead)
 
-    const berthFill = new THREE.PointLight(0xffd7a2, 0.24, 2.6, 2)
-    berthFill.position.set(-1.2, -0.45, 0.48)
-    this.group.add(berthFill)
+    const tableFill = new THREE.PointLight(0xffd8a3, 0.26, 2.4, 2)
+    tableFill.position.set(0, -1.22, 0.72)
+    this.group.add(tableFill)
+    for (const side of [-1, 1]) {
+      const readingFill = new THREE.PointLight(0xffe6c7, 0.18, 1.8, 2)
+      readingFill.position.set(side * 2.28, 0.64, 0.48)
+      this.group.add(readingFill)
+    }
   }
 
   /** Flush corridor door with a cool frosted-glass insert. */
@@ -1163,15 +1333,15 @@ export class WindowFrame {
     canvas.width = size
     canvas.height = size
     const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#1b252d'
+    ctx.fillStyle = '#1d3445'
     ctx.fillRect(0, 0, size, size)
 
     for (let x = 0; x < size; x += 4) {
-      ctx.fillStyle = x % 8 === 0 ? 'rgba(142, 164, 171, 0.14)' : 'rgba(4, 10, 15, 0.18)'
+      ctx.fillStyle = x % 8 === 0 ? 'rgba(159, 192, 205, 0.2)' : 'rgba(4, 10, 15, 0.14)'
       ctx.fillRect(x, 0, 1, size)
     }
     for (let y = 0; y < size; y += 5) {
-      ctx.fillStyle = y % 10 === 0 ? 'rgba(164, 183, 188, 0.1)' : 'rgba(6, 13, 18, 0.17)'
+      ctx.fillStyle = y % 10 === 0 ? 'rgba(177, 202, 211, 0.14)' : 'rgba(6, 13, 18, 0.12)'
       ctx.fillRect(0, y, size, 1)
     }
 
@@ -1192,6 +1362,34 @@ export class WindowFrame {
     tex.repeat.set(6, 3)
     tex.colorSpace = THREE.SRGBColorSpace
     return this.track(tex)
+  }
+
+  /** Seat cards are part of the upholstery, so they need stronger contrast
+   * than the decorative weave while remaining small enough to feel printed. */
+  private makeSeatReservationTexture(seat: string): THREE.Texture {
+    const width = 240
+    const height = 88
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#ecf0eb'
+    ctx.fillRect(0, 0, width, height)
+    ctx.fillStyle = '#2b3d42'
+    ctx.fillRect(0, 0, width, 7)
+    ctx.fillStyle = '#17252a'
+    ctx.font = '700 37px Manrope, ui-sans-serif, system-ui, sans-serif'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(seat, 16, 42)
+    ctx.fillStyle = '#557076'
+    ctx.font = '600 14px Manrope, ui-sans-serif, system-ui, sans-serif'
+    ctx.fillText('WINDOW', 18, 68)
+    ctx.strokeStyle = 'rgba(25, 47, 52, 0.24)'
+    ctx.lineWidth = 2
+    ctx.strokeRect(1, 1, width - 2, height - 2)
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return this.track(texture)
   }
 
   /** Navy duvet cover with fine cool pinstripes. */
@@ -1331,6 +1529,10 @@ export class WindowFrame {
 
   private box(w: number, h: number, d: number): THREE.BoxGeometry {
     return this.track(new THREE.BoxGeometry(w, h, d))
+  }
+
+  private roundedBox(w: number, h: number, d: number, radius: number): RoundedBoxGeometry {
+    return this.track(new RoundedBoxGeometry(w, h, d, 5, radius))
   }
 
   private track<T extends THREE.BufferGeometry | THREE.Material | THREE.Texture>(resource: T): T {

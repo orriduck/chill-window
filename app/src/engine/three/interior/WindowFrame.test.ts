@@ -7,6 +7,7 @@ import {
   windowFrameViewportLayout,
   windowHudControlCanvasRects,
   windowHudControlLayout,
+  windowBayLayout,
   windowHudSurfaceLayout,
 } from './WindowFrame'
 
@@ -95,5 +96,22 @@ describe('window frame viewport layout', () => {
     expect(layout.scale).toBeCloseTo(1)
     expect(layout.yOffset).toBeLessThan(0)
     expect(layout.forwardOffset).toBeGreaterThan(0)
+  })
+})
+
+describe('modern coach bay layout', () => {
+  it('keeps the shared table below the physical journey rail', () => {
+    const bay = windowBayLayout()
+    const hud = windowHudSurfaceLayout().rail
+
+    expect(bay.tableY + bay.tableHeight / 2).toBeLessThan(hud.y - hud.height / 2 - 0.1)
+  })
+
+  it('lets the lounge seating frame the aperture without crossing the HUD', () => {
+    const bay = windowBayLayout()
+    const hud = windowHudSurfaceLayout().rail
+    const seatInnerEdge = bay.seatCenterX - bay.seatWidth / 2
+
+    expect(seatInnerEdge).toBeGreaterThan(Math.abs(hud.x) + hud.width / 2 + 0.5)
   })
 })
