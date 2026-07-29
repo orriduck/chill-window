@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { SceneryEngine, type TimeOfDay } from '@/engine/scenery';
 import { TrainAudio } from '@/engine/audio';
-import { PencilRenderer } from '@/engine/pencil';
 import {
   buildFreeJourney, buildPomodoroJourney, suggestStops,
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
-import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, Palette, Pencil, Settings2 } from 'lucide-react';
+import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, Settings2 } from 'lucide-react';
 import ThreeCanvas, { type TrainControl } from '@/engine/three/ThreeCanvas';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
@@ -32,13 +31,9 @@ interface HudState {
 }
 
 export default function Home() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<SceneryEngine | null>(null);
   const trainControlRef = useRef<TrainControl | null>(null);
-  const pencilRef = useRef<PencilRenderer | null>(null);
-  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
-  const styleRef = useRef<'color' | 'pencil'>('pencil');
   const audioRef = useRef<TrainAudio | null>(null);
   const planRef = useRef<JourneyPlan | null>(null);
   const originRef = useRef<string>('');
@@ -59,7 +54,6 @@ export default function Home() {
   const [rounds, setRounds] = useState(4);
   const [tod, setTod] = useState<TimeOfDay>(detectTimeOfDay);
   const [sound, setSound] = useState(true);
-  const [artStyle, setArtStyle] = useState<'color' | 'pencil'>('pencil');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmAbort, setConfirmAbort] = useState(false);
 
@@ -84,47 +78,8 @@ export default function Home() {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const eng = engineRef.current;
-      const cv = canvasRef.current;
-      if (!eng || !cv) return;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      const w = cv.clientWidth || 1, h = cv.clientHeight || 1;
-      const pw = Math.max(2, Math.round(w * dpr)), ph = Math.max(2, Math.round(h * dpr));
-
+      if (!eng) return;
       eng.update(dt);
-
-      // 2D 画布隐藏时跳过绘制（3D 场景由 ThreeCanvas 渲染），引擎仍驱动旅程状态
-      if (cv.style.visibility !== 'hidden') {
-      // 场景先绘制到离屏画布
-      if (!offscreenRef.current) offscreenRef.current = document.createElement('canvas');
-      const off = offscreenRef.current;
-      if (off.width !== pw || off.height !== ph) { off.width = pw; off.height = ph; }
-      const octx = off.getContext('2d');
-      if (!octx) return;
-      octx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      eng.draw(octx, w, h);
-
-      if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
-
-      if (styleRef.current === 'pencil') {
-        if (!pencilRef.current) {
-          try { pencilRef.current = new PencilRenderer(); } catch { styleRef.current = 'color'; }
-        }
-        if (pencilRef.current) {
-          const night = eng.pal.night;
-          pencilRef.current.render(off, cv, {
-            paperColor: night ? [0.13, 0.13, 0.15] : [0.925, 0.905, 0.855],
-            pencilColor: night ? [0.82, 0.8, 0.74] : [0.16, 0.15, 0.17],
-            time: eng.t,
-            strength: night ? 0.9 : 0.82,
-          });
-        }
-      } else {
-        const ctx = cv.getContext('2d');
-        if (!ctx) return;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.drawImage(off, 0, 0);
-      }
-      }
 
       const plan = planRef.current;
       const phase = phaseRef.current;
@@ -289,7 +244,6 @@ export default function Home() {
 
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
-      <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" style={{ zIndex: 1, visibility: 'hidden' }} />
       <ThreeCanvas className="absolute inset-0" controlRef={trainControlRef} />
 
       {/* 车窗框（橡胶密封条 + 内框 + 车身壁板，加厚） */}
@@ -440,19 +394,6 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
-                {/* 画面风格 */}
-                <div>
-                  <div className="mb-1 text-xs text-white/50">画面风格</div>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {([['pencil', '铅笔素描'], ['color', '彩色']] as const).map(([v, label]) => (
-                      <button key={v} onClick={() => { setArtStyle(v); styleRef.current = v; }}
-                        className={`flex items-center justify-center gap-1 rounded-md border py-1 text-[11px] transition ${artStyle === v ? 'border-amber-400/60 bg-amber-400/15 text-amber-200' : 'border-white/10 text-white/40 hover:text-white/70'}`}>
-                        {v === 'pencil' ? <Pencil className="h-3 w-3" /> : <Palette className="h-3 w-3" />}
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             </details>
           </div>
@@ -472,10 +413,6 @@ export default function Home() {
           </div>
 
           <div className="absolute right-8 top-8 z-20 flex gap-2">
-            <button onClick={() => { const v = artStyle === 'pencil' ? 'color' : 'pencil'; setArtStyle(v); styleRef.current = v; }}
-              className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="切换画风">
-              {artStyle === 'pencil' ? <Palette className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-            </button>
             <button onClick={toggleSound} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65">
               {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
