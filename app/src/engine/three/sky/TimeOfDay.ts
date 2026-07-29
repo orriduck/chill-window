@@ -9,7 +9,10 @@ export const Phase = {
 } as const
 export type Phase = (typeof Phase)[keyof typeof Phase]
 
-export const FULL_CYCLE_SECONDS = 900 // 15 minutes real time
+// A focus block is a short train journey, not a compressed 24-hour loop.
+// Six hours lets light progress gently on longer runs without invalidating
+// the user's chosen departure period a few minutes after boarding.
+export const FULL_CYCLE_SECONDS = 6 * 60 * 60
 
 interface PhaseKeyframe {
   horizon: number
@@ -83,10 +86,10 @@ const KEYS: Record<Phase, PhaseKeyframe> = {
 const PHASE_COUNT = 4
 
 const PRESET_CYCLE_POSITION: Record<TimeOfDayPreset, number> = {
-  morning: 0.1,
-  day: 0.32,
-  dusk: 0.56,
-  night: 0.82,
+  morning: 0,
+  day: 0.25,
+  dusk: 0.5,
+  night: 0.75,
 }
 
 /** Everything a frame needs to know about the current time of day. */
@@ -124,7 +127,9 @@ export class TimeOfDay {
   }
 
   update(dt: number) {
-    this.elapsed = (this.elapsed + dt) % FULL_CYCLE_SECONDS
+    // Do not wrap from night to dawn during one focus session. A selected
+    // departure period must remain legible and transitions may only advance.
+    this.elapsed = Math.min(this.elapsed + dt, FULL_CYCLE_SECONDS - Number.EPSILON)
 
     const cycleT = this.elapsed / FULL_CYCLE_SECONDS
     const phaseF = cycleT * PHASE_COUNT
