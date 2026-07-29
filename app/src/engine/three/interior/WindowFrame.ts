@@ -258,30 +258,41 @@ export class WindowFrame {
   }
 
   private buildFrame(frame: THREE.Material, metal: THREE.Material, halfW: number, halfH: number) {
-    const roundedPoints = (inset: number) => {
+    const roundedPath = (inset: number) => {
       const radius = 0.26 - inset * 0.35
       const width = OPENING_W - inset * 2
       const height = OPENING_H - inset * 2
-      const points: THREE.Vector3[] = []
-      const corners: [number, number, number][] = [
-        [width / 2 - radius, height / 2 - radius, 0],
-        [-width / 2 + radius, height / 2 - radius, Math.PI / 2],
-        [-width / 2 + radius, -height / 2 + radius, Math.PI],
-        [width / 2 - radius, -height / 2 + radius, Math.PI * 1.5],
-      ]
-      for (const [cx, cy, start] of corners) {
-        for (let index = 0; index < 8; index++) {
-          const angle = start - index * (Math.PI / 14)
-          points.push(new THREE.Vector3(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius, 0.05))
-        }
-      }
-      return points
+      const right = width / 2
+      const left = -right
+      const top = height / 2
+      const bottom = -top
+      const z = 0.05
+      const path = new THREE.CurvePath<THREE.Vector3>()
+      const point = (x: number, y: number) => new THREE.Vector3(x, y, z)
+      const topLeft = point(left + radius, top)
+      const topRight = point(right - radius, top)
+      const rightTop = point(right, top - radius)
+      const rightBottom = point(right, bottom + radius)
+      const bottomRight = point(right - radius, bottom)
+      const bottomLeft = point(left + radius, bottom)
+      const leftBottom = point(left, bottom + radius)
+      const leftTop = point(left, top - radius)
+
+      path.add(new THREE.LineCurve3(topLeft, topRight))
+      path.add(new THREE.QuadraticBezierCurve3(topRight, point(right, top), rightTop))
+      path.add(new THREE.LineCurve3(rightTop, rightBottom))
+      path.add(new THREE.QuadraticBezierCurve3(rightBottom, point(right, bottom), bottomRight))
+      path.add(new THREE.LineCurve3(bottomRight, bottomLeft))
+      path.add(new THREE.QuadraticBezierCurve3(bottomLeft, point(left, bottom), leftBottom))
+      path.add(new THREE.LineCurve3(leftBottom, leftTop))
+      path.add(new THREE.QuadraticBezierCurve3(leftTop, point(left, top), topLeft))
+      return path
     }
 
-    const outerCurve = new THREE.CatmullRomCurve3(roundedPoints(0), true, 'centripetal')
+    const outerCurve = roundedPath(0)
     const outerFrame = new THREE.Mesh(this.track(new THREE.TubeGeometry(outerCurve, 96, FRAME_T * 0.86, 8, true)), frame)
     this.group.add(outerFrame)
-    const innerCurve = new THREE.CatmullRomCurve3(roundedPoints(0.11), true, 'centripetal')
+    const innerCurve = roundedPath(0.11)
     const innerTrim = new THREE.Mesh(this.track(new THREE.TubeGeometry(innerCurve, 96, 0.022, 6, true)), metal)
     this.group.add(innerTrim)
 
