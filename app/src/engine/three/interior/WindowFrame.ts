@@ -15,6 +15,12 @@ const FRAME_D = 0.08
 // so nothing outside the window opening leaks through at the screen edges.
 const WALL_W = 12
 const WALL_H = 7
+const RAIN_DROP_COUNT = 96
+
+/** A stopped train leaves water to creep; speed creates a shorter, faster streak. */
+export function rainDropFallSpeed(speedRatio: number): number {
+  return 0.14 + THREE.MathUtils.clamp(speedRatio, 0, 1) * 0.75
+}
 
 /**
  * Modern European sleeper compartment: a body-aligned panoramic window,
@@ -25,6 +31,12 @@ export class WindowFrame {
   readonly group = new THREE.Group()
   private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
   private wobblers: { obj: THREE.Object3D; baseY: number; phase: number }[] = []
+  private rainDrops: THREE.Points | null = null
+  private rainDropPositions: Float32Array | null = null
+  private rainDropGeometry: THREE.BufferGeometry | null = null
+  private rainDropMaterial: THREE.PointsMaterial | null = null
+  private rainOpacity = 0
+  private lastUpdateTime = 0
 
   constructor() {
     const frame = this.track(
@@ -487,6 +499,29 @@ export class WindowFrame {
     const dust = new THREE.Points(dustGeom, dustMat)
     dust.renderOrder = 11
     this.group.add(dust)
+
+    // Rain belongs to the glass plane, not to the exterior precipitation
+    // volume. It is intentionally sparse so the side-window view stays open.
+    const rainPositions = new Float32Array(RAIN_DROP_COUNT * 3)
+    this.rainDropPositions = rainPositions
+    for (let i = 0; i < RAIN_DROP_COUNT; i++) this.resetRainDrop(i, true)
+    const rainGeom = this.track(new THREE.BufferGeometry())
+    rainGeom.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3))
+    const rainMat = this.track(new THREE.PointsMaterial({
+      color: 0xcce2e9,
+      size: 0.028,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      sizeAttenuation: false,
+    }))
+    const rain = new THREE.Points(rainGeom, rainMat)
+    rain.renderOrder = 12
+    rain.visible = false
+    this.rainDrops = rain
+    this.rainDropGeometry = rainGeom
+    this.rainDropMaterial = rainMat
+    this.group.add(rain)
   }
 
   private addSillObjects(accent: THREE.Material) {
@@ -520,7 +555,13 @@ export class WindowFrame {
   /** Keep a real side-window plane beside the moving camera. It does not
    * follow the look direction: turning the camera must reveal the same
    * perspective skew in the frame and the exterior world. */
-  update(camera: THREE.PerspectiveCamera, time = 0) {
+  update(
+    camera: THREE.PerspectiveCamera,
+    time = 0,
+    raining = false,
+    speedRatio = 0,
+    shelter = 0,
+  ) {
     this.group.position.set(
       camera.position.x + FRAME_DISTANCE,
       camera.position.y + GROUP_Y_OFFSET,
@@ -532,6 +573,38 @@ export class WindowFrame {
       w.obj.position.y = w.baseY + Math.sin(time * 23 + w.phase) * 0.004
       w.obj.rotation.z = Math.sin(time * 17 + w.phase) * 0.02
     }
+
+    const dt = Math.min(0.1, Math.max(0, time - this.lastUpdateTime))
+    this.lastUpdateTime = time
+    this.updateRainDrops(dt, raining, speedRatio, shelter)
+  }
+
+  private updateRainDrops(dt: number, raining: boolean, speedRatio: number, shelter: number) {
+    if (!this.rainDrops || !this.rainDropPositions || !this.rainDropGeometry || !this.rainDropMaterial) return
+
+    const targetOpacity = raining ? 0.52 * (1 - THREE.MathUtils.clamp(shelter, 0, 1)) : 0
+    this.rainOpacity += (targetOpacity - this.rainOpacity) * Math.min(1, dt * 4)
+    this.rainDropMaterial.opacity = this.rainOpacity
+    this.rainDrops.visible = this.rainOpacity > 0.01
+    if (!this.rainDrops.visible) return
+
+    const speed = rainDropFallSpeed(speedRatio)
+    for (let i = 0; i < RAIN_DROP_COUNT; i++) {
+      const y = i * 3 + 1
+      this.rainDropPositions[y] -= dt * speed * (0.7 + (i % 5) * 0.1)
+      if (this.rainDropPositions[y] < -OPENING_H / 2) this.resetRainDrop(i, false)
+    }
+    ;(this.rainDropGeometry.attributes.position as THREE.BufferAttribute).needsUpdate = true
+  }
+
+  private resetRainDrop(index: number, initial: boolean) {
+    if (!this.rainDropPositions) return
+    const base = index * 3
+    this.rainDropPositions[base] = (Math.random() - 0.5) * (OPENING_W - 0.12)
+    this.rainDropPositions[base + 1] = initial
+      ? (Math.random() - 0.5) * OPENING_H
+      : OPENING_H / 2 + Math.random() * 0.28
+    this.rainDropPositions[base + 2] = 0.012
   }
 
   // ---- Canvas textures ----

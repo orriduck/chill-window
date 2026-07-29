@@ -9,7 +9,7 @@ import { WaterSystem } from './terrain/WaterSystem'
 import { FieldPlots } from './terrain/FieldPlots'
 import { SkyDome } from './sky/SkyDome'
 import { TimeOfDay } from './sky/TimeOfDay'
-import { WeatherSystem } from './weather/WeatherSystem'
+import { WeatherSystem, WeatherType } from './weather/WeatherSystem'
 import { WindowFrame } from './interior/WindowFrame'
 import { TrackSystem } from './track/TrackSystem'
 import { LinesideProps } from './track/LinesideProps'
@@ -21,6 +21,7 @@ import { PerfMonitor } from './core/PerfMonitor'
 import { DebugMode } from './core/DebugMode'
 
 const MAX_DT = 0.1 // clamp delta time to avoid spiral of death on lag
+export type WeatherPreset = WeatherType | 'auto'
 export interface TrainMotionTelemetry {
   /** Current physical speed translated for the passenger HUD. */
   speedKmh: number
@@ -60,9 +61,16 @@ interface ThreeCanvasProps {
   controlRef?: RefObject<TrainControl | null>
   /** Applies the setup-screen departure time to the 3D sky and lighting. */
   timePreset?: TimeOfDayPreset
+  /** A concrete departure weather or the normal ambient weather cycle. */
+  weatherPreset?: WeatherPreset
 }
 
-export default function ThreeCanvas({ className, controlRef, timePreset = 'day' }: ThreeCanvasProps) {
+export default function ThreeCanvas({
+  className,
+  controlRef,
+  timePreset = 'day',
+  weatherPreset = 'auto',
+}: ThreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
 
@@ -89,6 +97,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
     const skyDome = new SkyDome()
     const timeOfDay = new TimeOfDay(timePreset)
     const weather = new WeatherSystem()
+    weather.setOverride(weatherPreset === 'auto' ? null : weatherPreset)
     const windowFrame = new WindowFrame()
     const trackSystem = new TrackSystem()
     const lineside = new LinesideProps((x, z) => terrain.sampleHeight(x, z))
@@ -331,7 +340,13 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
       valleyBridges.update(camPos.z)
       mountainRoadworks.update(camPos.z)
       fields.update(camPos.z, (z) => terrain.isBiomeAt(z, 'field'))
-      windowFrame.update(cam, elapsedTime)
+      windowFrame.update(
+        cam,
+        elapsedTime,
+        weather.current === WeatherType.RAIN,
+        Math.min(1, camera.currentSpeed / CRUISE_SPEED),
+        tunnelD,
+      )
 
       // Push fog back in top-down mode so terrain is visible from above
       const savedFogNear = fog.near
@@ -431,7 +446,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
         canvas.parentNode.removeChild(canvas)
       }
     }
-  }, [controlRef, timePreset])
+  }, [controlRef, timePreset, weatherPreset])
 
   return (
     <div
