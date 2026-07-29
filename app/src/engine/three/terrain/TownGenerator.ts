@@ -48,6 +48,45 @@ function pick<T>(arr: T[], random: RandomSource): T {
   return arr[Math.floor(random() * arr.length)]
 }
 
+/** Fine aggregate, repair patches and quiet wheel polish prevent town roads
+ * from reading as a single grey strip when they pass close to the window. */
+function makeStreetTexture(random: RandomSource): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 192
+  canvas.height = 192
+  const context = canvas.getContext('2d')!
+  context.fillStyle = '#5b5953'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+
+  for (let index = 0; index < 1300; index++) {
+    const tone = 72 + Math.floor(random() * 34)
+    context.fillStyle = `rgba(${tone}, ${tone}, ${tone - 5}, ${0.12 + random() * 0.18})`
+    const size = 0.45 + random() * 1.35
+    context.fillRect(random() * canvas.width, random() * canvas.height, size, size)
+  }
+  context.strokeStyle = 'rgba(32, 31, 29, 0.16)'
+  context.lineWidth = 1.2
+  for (const x of [canvas.width * 0.3, canvas.width * 0.7]) {
+    context.beginPath()
+    context.moveTo(x, 0)
+    context.bezierCurveTo(x - 3, 48, x + 4, 118, x - 2, canvas.height)
+    context.stroke()
+  }
+  context.fillStyle = 'rgba(93, 88, 80, 0.3)'
+  for (let index = 0; index < 7; index++) {
+    const width = 12 + random() * 24
+    const height = 3 + random() * 7
+    context.fillRect(random() * (canvas.width - width), random() * canvas.height, width, height)
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.repeat.set(1.45, 15)
+  return texture
+}
+
 /** Gabled roof: triangular prism via ExtrudeGeometry, ridge along local Z. */
 function makeGableRoof(w: number, d: number, h: number, mat: THREE.Material): THREE.Mesh {
   const shape = new THREE.Shape()
@@ -366,7 +405,12 @@ export function createTownCluster(
   if (hasChurch) tryPlace(createChurch, 6, 8, 20)
 
   // Main street: paved strip parallel to the track through the town centre
-  const streetMat = new THREE.MeshStandardMaterial({ color: 0x55524c, roughness: 0.95 })
+  const streetMat = new THREE.MeshStandardMaterial({
+    color: 0x6c6962,
+    map: makeStreetTexture(random),
+    roughness: 0.93,
+    metalness: 0.02,
+  })
   const streetGeom = new THREE.PlaneGeometry(streetWidth, streetLength, 1, 24)
   streetGeom.rotateX(-Math.PI / 2)
   const pos = streetGeom.attributes.position.array as Float32Array
