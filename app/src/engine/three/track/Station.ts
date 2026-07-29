@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
+import { roadCenterX } from '../terrain/TerrainGen'
 
 // Platform dimensions — long enough to feel like a real station
 const PLATFORM_LENGTH = 180
@@ -86,7 +87,16 @@ export class Station {
     this.buildBenches(benchWoodMat, benchMetalMat)
     this.buildLights(lightMat, lightBulbMat)
     this.buildSigns(name, signMat, signTextMat)
-    this.buildDistrict(name, asphaltMat, facadeMat, facadeTrimMat, facadeGlassMat, lightMat, lightBulbMat)
+    this.buildDistrict(
+      name,
+      roadCenterX(zCenter),
+      asphaltMat,
+      facadeMat,
+      facadeTrimMat,
+      facadeGlassMat,
+      lightMat,
+      lightBulbMat,
+    )
   }
 
   /** Platform surface + safety edge line */
@@ -240,6 +250,7 @@ export class Station {
   /** The station frontage is intentionally separate from the platform: it reads as a place, not a prop beside the rails. */
   private buildDistrict(
     name: string,
+    roadX: number,
     asphaltMat: THREE.Material,
     facadeMat: THREE.Material,
     trimMat: THREE.Material,
@@ -258,24 +269,24 @@ export class Station {
     )
 
     const road = new THREE.Mesh(this.box(7.2, 0.08, PLATFORM_LENGTH + 96), asphaltMat)
-    road.position.set(18, 0.05, 0)
+    road.position.set(roadX, 0.05, 0)
     road.receiveShadow = true
     this.group.add(road)
 
     for (const side of [-1, 1]) {
       const curb = new THREE.Mesh(this.box(0.22, 0.16, PLATFORM_LENGTH + 96), curbMat)
-      curb.position.set(18 + side * 3.7, 0.1, 0)
+      curb.position.set(roadX + side * 3.7, 0.1, 0)
       this.group.add(curb)
     }
 
     const forecourt = new THREE.Mesh(this.box(17, 0.09, 38), pavingMat)
-    forecourt.position.set(18.5, 0.07, 0)
+    forecourt.position.set(roadX + 0.5, 0.07, 0)
     forecourt.receiveShadow = true
     this.group.add(forecourt)
 
     for (const z of [-112, 112]) {
       const crossing = new THREE.Mesh(this.box(13, 0.1, 5.6), pavingMat)
-      crossing.position.set(12.5, 0.08, z)
+      crossing.position.set(roadX - 5.5, 0.08, z)
       this.group.add(crossing)
     }
 
@@ -315,13 +326,13 @@ export class Station {
     sign.rotation.y = -Math.PI / 2
     hall.add(sign)
 
-    hall.position.set(26, 0, 0)
+    hall.position.set(roadX + 8, 0, 0)
     this.group.add(hall)
 
-    this.addStreetBuilding(34, -78, 8.5, 12, 4.1, facadeMat, roofMat, glassMat)
-    this.addStreetBuilding(34, 74, 7.2, 10, 3.5, trimMat, roofMat, glassMat)
-    this.addStreetBuilding(28, 126, 9.5, 13, 4.5, facadeMat, roofMat, glassMat)
-    this.addStreetBuilding(29, -128, 8, 11, 3.8, trimMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 16, -78, 8.5, 12, 4.1, facadeMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 16, 74, 7.2, 10, 3.5, trimMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 10, 126, 9.5, 13, 4.5, facadeMat, roofMat, glassMat)
+    this.addStreetBuilding(roadX + 11, -128, 8, 11, 3.8, trimMat, roofMat, glassMat)
 
     const shelter = new THREE.Group()
     const shelterRoof = new THREE.Mesh(this.box(3.5, 0.16, 6.2), roofMat)
@@ -335,17 +346,52 @@ export class Station {
       post.position.set(-1.55, 1.45, z)
       shelter.add(post)
     }
-    shelter.position.set(14.1, 0.02, 20)
+    shelter.position.set(roadX - 3.9, 0.02, 20)
     this.group.add(shelter)
+
+    const bayMat = this.track(new THREE.MeshStandardMaterial({ color: 0xdad6ce, roughness: 0.72 }))
+    for (const z of [-13, 0, 13]) {
+      const divider = new THREE.Mesh(this.box(0.08, 0.015, 8.2), bayMat)
+      divider.position.set(roadX - 5.1, 0.14, z)
+      this.group.add(divider)
+    }
+    this.addParkedCar(roadX - 5.5, -6.5, 0x536f82, glassMat)
+    this.addParkedCar(roadX - 5.5, 6.5, 0x83907d, glassMat)
 
     for (const z of [-190, -142, -94, -46, 46, 94, 142, 190]) {
       const pole = new THREE.Mesh(this.box(0.13, 4.2, 0.13), lightMat)
-      pole.position.set(13.4, 2.1, z)
+      pole.position.set(roadX - 4.6, 2.1, z)
       this.group.add(pole)
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), bulbMat)
-      bulb.position.set(13.4, 4.2, z)
+      bulb.position.set(roadX - 4.6, 4.2, z)
       this.group.add(bulb)
     }
+  }
+
+  /** Parked cars give the forecourt an arrival function without crowding the platform. */
+  private addParkedCar(x: number, z: number, color: number, glassMat: THREE.Material) {
+    const bodyMat = this.track(new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.18 }))
+    const car = new THREE.Group()
+    const body = new THREE.Mesh(this.box(1.9, 0.48, 3.7), bodyMat)
+    body.position.y = 0.38
+    body.castShadow = true
+    car.add(body)
+    const cabin = new THREE.Mesh(this.box(1.42, 0.42, 1.8), glassMat)
+    cabin.position.set(0, 0.78, -0.16)
+    car.add(cabin)
+    for (const side of [-1, 1]) {
+      for (const front of [-1, 1]) {
+        const wheel = new THREE.Mesh(
+          this.track(new THREE.CylinderGeometry(0.22, 0.22, 0.13, 10)),
+          this.track(new THREE.MeshStandardMaterial({ color: 0x202326, roughness: 0.88 })),
+        )
+        wheel.rotation.z = Math.PI / 2
+        wheel.position.set(side * 0.87, 0.23, front * 1.18)
+        car.add(wheel)
+      }
+    }
+    car.position.set(x, 0, z)
+    this.group.add(car)
   }
 
   private addStreetBuilding(
