@@ -28,6 +28,9 @@ export interface WindowHudReadout {
   grade: number
   stationNames: string[]
   currentSegment: number
+  paused: boolean
+  soundEnabled: boolean
+  fullscreen: boolean
 }
 
 export interface WindowHudControlAnchor {
@@ -131,6 +134,9 @@ export class WindowFrame {
     grade: 0,
     stationNames: [],
     currentSegment: 0,
+    paused: false,
+    soundEnabled: true,
+    fullscreen: false,
   }
   private journeyHudCanvas: HTMLCanvasElement | null = null
   private journeyHudTexture: THREE.CanvasTexture | null = null
@@ -868,12 +874,21 @@ export class WindowFrame {
     context.lineJoin = 'round'
     const cy = y + layout.size / 2
 
-    // pause
-    for (const offset of [-4, 4]) {
+    // pause / resume
+    if (this.windowHud.paused) {
       context.beginPath()
-      context.moveTo(center(0) + offset, cy - 7)
-      context.lineTo(center(0) + offset, cy + 7)
-      context.stroke()
+      context.moveTo(center(0) - 5, cy - 8)
+      context.lineTo(center(0) + 8, cy)
+      context.lineTo(center(0) - 5, cy + 8)
+      context.closePath()
+      context.fill()
+    } else {
+      for (const offset of [-4, 4]) {
+        context.beginPath()
+        context.moveTo(center(0) + offset, cy - 7)
+        context.lineTo(center(0) + offset, cy + 7)
+        context.stroke()
+      }
     }
     // reset-view
     context.beginPath()
@@ -895,9 +910,16 @@ export class WindowFrame {
     context.lineTo(speakerX, cy + 3)
     context.closePath()
     context.stroke()
-    for (const radius of [6, 10]) {
+    if (this.windowHud.soundEnabled) {
+      for (const radius of [6, 10]) {
+        context.beginPath()
+        context.arc(center(2) + 6, cy, radius, -0.72, 0.72)
+        context.stroke()
+      }
+    } else {
       context.beginPath()
-      context.arc(center(2) + 6, cy, radius, -0.72, 0.72)
+      context.moveTo(center(2) - 8, cy - 9)
+      context.lineTo(center(2) + 9, cy + 9)
       context.stroke()
     }
     // fullscreen corners
@@ -905,10 +927,11 @@ export class WindowFrame {
     for (const [dx, dy] of [[-7, -7], [7, -7], [-7, 7], [7, 7]]) {
       const sx = fullX + dx
       const sy = cy + dy
+      const inset = this.windowHud.fullscreen ? 4 : 0
       context.beginPath()
-      context.moveTo(sx, sy + (dy < 0 ? 5 : -5))
-      context.lineTo(sx, sy)
-      context.lineTo(sx + (dx < 0 ? 5 : -5), sy)
+      context.moveTo(sx - (dx < 0 ? inset : -inset), sy + (dy < 0 ? 5 - inset : -5 + inset))
+      context.lineTo(sx - (dx < 0 ? inset : -inset), sy - (dy < 0 ? inset : -inset))
+      context.lineTo(sx + (dx < 0 ? 5 - inset : -5 + inset), sy - (dy < 0 ? inset : -inset))
       context.stroke()
     }
     // end-journey flag

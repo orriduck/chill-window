@@ -320,8 +320,11 @@ export default function Home() {
       grade: hud.grade,
       stationNames: plan?.segments.map((segment) => segment.name) ?? [],
       currentSegment: hud.segIdx,
+      paused: isPaused,
+      soundEnabled: sound,
+      fullscreen: isFullscreen,
     });
-  }, [focusDone, gradeLabel, gradePercent, hud, journeyBanner, plan, riding]);
+  }, [focusDone, gradeLabel, gradePercent, hud, isFullscreen, isPaused, journeyBanner, plan, riding, sound]);
 
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
