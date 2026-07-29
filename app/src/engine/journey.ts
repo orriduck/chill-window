@@ -17,6 +17,33 @@ export interface JourneyBannerState {
   stationName: string;
 }
 
+/**
+ * Keeps the short departure beat at the origin station owned by the active
+ * journey. Cancelling also invalidates an already-queued callback, so ending
+ * a journey cannot later restart the train from stale UI state.
+ */
+export class DepartureScheduler {
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private version = 0;
+
+  schedule(onDeparture: () => void, delayMs: number) {
+    this.cancel();
+    const version = ++this.version;
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      if (version === this.version) onDeparture();
+    }, delayMs);
+  }
+
+  cancel() {
+    this.version += 1;
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+  }
+}
+
 const STATION_NAMES = [
   '青川', '雾岭', '禾木', '白鹭洲', '松溪', '望舒', '栖云', '南浦', '折柳',
   '听澜', '鹿鸣', '星野', '霜降', '半山', '竹里', '临皋', '石桥', '杏坛',

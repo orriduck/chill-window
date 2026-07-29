@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { TimeOfDay } from '@/engine/time';
 import { TrainAudio } from '@/engine/audio';
 import {
-  buildFreeJourney, buildPomodoroJourney, journeyBannerText, suggestStops,
+  DepartureScheduler, buildFreeJourney, buildPomodoroJourney, journeyBannerText, suggestStops,
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
@@ -61,6 +61,8 @@ export default function Home() {
   const soundRef = useRef(true);
   const hudTimerRef = useRef(0);
   const pausedRef = useRef(false);
+  const departureSchedulerRef = useRef<DepartureScheduler | null>(null);
+  if (departureSchedulerRef.current === null) departureSchedulerRef.current = new DepartureScheduler();
 
   // 设置项
   const [mode, setMode] = useState<Mode>('free');
@@ -74,6 +76,8 @@ export default function Home() {
   const [confirmAbort, setConfirmAbort] = useState(false);
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => () => departureSchedulerRef.current?.cancel(), []);
 
   const [hud, setHud] = useState<HudState>({
     phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: '田野', nextRouteLabel: '林地', approaching: false,
@@ -166,6 +170,7 @@ export default function Home() {
   }, []);
 
   const startJourney = useCallback(() => {
+    departureSchedulerRef.current?.cancel();
     const plan = mode === 'free' ? buildFreeJourney(focusMin, stops) : buildPomodoroJourney(rounds);
     planRef.current = plan;
     setPlan(plan);
@@ -182,7 +187,8 @@ export default function Home() {
     // The Three.js station manager owns the visible dwell/departure sequence.
     const camZ = trainControlRef.current?.getZ() ?? 0;
     trainControlRef.current?.showStation(originRef.current, camZ);
-    window.setTimeout(() => {
+    departureSchedulerRef.current?.schedule(() => {
+      if (phaseRef.current !== 'ride') return;
       trainControlRef.current?.departStation();
       // The station is hidden by StationManager only after it has left view.
     }, 2600);
@@ -196,6 +202,7 @@ export default function Home() {
   }, [mode, focusMin, stops, rounds]);
 
   const doAbort = useCallback(() => {
+    departureSchedulerRef.current?.cancel();
     phaseRef.current = 'abort';
     setConfirmAbort(false);
     pausedRef.current = false;
@@ -210,6 +217,7 @@ export default function Home() {
   }, []);
 
   const backToSetup = useCallback(() => {
+    departureSchedulerRef.current?.cancel();
     planRef.current = null;
     setPlan(null);
     phaseRef.current = 'setup';
