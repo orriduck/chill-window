@@ -10,6 +10,8 @@ const GROUP_Y_OFFSET = 0
 const OPENING_W = 4.45
 const OPENING_H = 2.85
 const FRAME_T = 0.14
+const COACH_CEILING_Y = 2.06
+const COACH_WINDOW_CENTERS = [-5.3, 0, 5.3] as const
 
 // The physical cabin wall extends past the widened view volume, so the exterior
 // can only be visible through the glazed opening at every supported aspect.
@@ -84,10 +86,26 @@ export type WindowBayLayout = {
   tableHeight: number
 }
 
+export type CoachCabinLayout = {
+  windowCenters: number[]
+  ceilingY: number
+  seatBackrestTop: number
+}
+
 /** The coach bay is deliberately authored around the glazed view: seats enter
  * from the edges while the compact table stays below the physical journey rail. */
 export function windowBayLayout(): WindowBayLayout {
   return { ...WINDOW_BAY }
+}
+
+/** The passenger sits at the centre bay. The two neighbouring apertures turn
+ * a fixed side-window view into a coach section when the user looks along it. */
+export function coachCabinLayout(): CoachCabinLayout {
+  return {
+    windowCenters: [...COACH_WINDOW_CENTERS],
+    ceilingY: COACH_CEILING_Y,
+    seatBackrestTop: 0.2,
+  }
 }
 
 /** Preserve the complete physical aperture at every viewport. Portrait keeps
@@ -215,8 +233,11 @@ export class WindowFrame {
     const halfH = OPENING_H / 2 + FRAME_T / 2
 
     this.buildWall(wallMat)
-    this.buildFrame(frame, aluminium, halfW, halfH)
-    this.buildWindowHeader(frame, blindMat, accent)
+    this.buildCabinCeiling(aluminium, accent)
+    for (const centerX of COACH_WINDOW_CENTERS) {
+      this.buildFrame(frame, aluminium, halfW, halfH, centerX)
+      this.buildWindowHeader(frame, blindMat, accent, centerX)
+    }
     this.buildGlass()
     this.buildWindowHud()
     this.buildCabinFloor()
@@ -315,12 +336,13 @@ export class WindowFrame {
 
   // ---- Structure ----
 
-  /** Cabin wall panels surrounding the window opening (behind the frame). */
+  /** Cabin wall panels surrounding three connected bays. The centre aperture
+   * is the passenger's window; the adjacent bays become visible on a head turn. */
   private buildWall(mat: THREE.Material) {
     const z = -0.06
 
-    // A single wall surface with a rounded aperture prevents square corner
-    // leaks and gives the window the deep gasket profile of modern coaches.
+    // One continuous wall keeps the pillars and panel joints physically
+    // consistent rather than reading as a floating, single-window set.
     const wall = new THREE.Shape()
     wall.moveTo(-WALL_W / 2, -WALL_H / 2)
     wall.lineTo(WALL_W / 2, -WALL_H / 2)
@@ -328,18 +350,20 @@ export class WindowFrame {
     wall.lineTo(-WALL_W / 2, WALL_H / 2)
     wall.closePath()
     const radius = 0.26
-    const hole = new THREE.Path()
-    hole.moveTo(-OPENING_W / 2 + radius, -OPENING_H / 2)
-    hole.lineTo(OPENING_W / 2 - radius, -OPENING_H / 2)
-    hole.absarc(OPENING_W / 2 - radius, -OPENING_H / 2 + radius, radius, -Math.PI / 2, 0, false)
-    hole.lineTo(OPENING_W / 2, OPENING_H / 2 - radius)
-    hole.absarc(OPENING_W / 2 - radius, OPENING_H / 2 - radius, radius, 0, Math.PI / 2, false)
-    hole.lineTo(-OPENING_W / 2 + radius, OPENING_H / 2)
-    hole.absarc(-OPENING_W / 2 + radius, OPENING_H / 2 - radius, radius, Math.PI / 2, Math.PI, false)
-    hole.lineTo(-OPENING_W / 2, -OPENING_H / 2 + radius)
-    hole.absarc(-OPENING_W / 2 + radius, -OPENING_H / 2 + radius, radius, Math.PI, Math.PI * 1.5, false)
-    hole.closePath()
-    wall.holes.push(hole)
+    for (const centerX of COACH_WINDOW_CENTERS) {
+      const hole = new THREE.Path()
+      hole.moveTo(centerX - OPENING_W / 2 + radius, -OPENING_H / 2)
+      hole.lineTo(centerX + OPENING_W / 2 - radius, -OPENING_H / 2)
+      hole.absarc(centerX + OPENING_W / 2 - radius, -OPENING_H / 2 + radius, radius, -Math.PI / 2, 0, false)
+      hole.lineTo(centerX + OPENING_W / 2, OPENING_H / 2 - radius)
+      hole.absarc(centerX + OPENING_W / 2 - radius, OPENING_H / 2 - radius, radius, 0, Math.PI / 2, false)
+      hole.lineTo(centerX - OPENING_W / 2 + radius, OPENING_H / 2)
+      hole.absarc(centerX - OPENING_W / 2 + radius, OPENING_H / 2 - radius, radius, Math.PI / 2, Math.PI, false)
+      hole.lineTo(centerX - OPENING_W / 2, -OPENING_H / 2 + radius)
+      hole.absarc(centerX - OPENING_W / 2 + radius, -OPENING_H / 2 + radius, radius, Math.PI, Math.PI * 1.5, false)
+      hole.closePath()
+      wall.holes.push(hole)
+    }
     const wallMesh = new THREE.Mesh(this.track(new THREE.ShapeGeometry(wall)), mat)
     wallMesh.position.z = z
     this.group.add(wallMesh)
@@ -350,24 +374,75 @@ export class WindowFrame {
       new THREE.MeshStandardMaterial({ color: 0x9daab0, roughness: 0.62, metalness: 0.28 })
     )
     const trim = new THREE.Mesh(this.box(WALL_W, 0.1, 0.06), trimMat)
-    trim.position.set(0, OPENING_H / 2 + 0.45, z + 0.01)
+    trim.position.set(0, COACH_CEILING_Y - 0.08, z + 0.01)
     this.group.add(trim)
 
     const coveMat = this.track(
       new THREE.MeshBasicMaterial({ color: 0xe8ebdf, transparent: true, opacity: 0.48 })
     )
-    const cove = new THREE.Mesh(this.track(new THREE.PlaneGeometry(WALL_W * 0.7, 0.06)), coveMat)
-    cove.position.set(0, WALL_H / 2 - 0.35, z + 0.04)
+    const cove = new THREE.Mesh(this.track(new THREE.PlaneGeometry(WALL_W * 0.92, 0.06)), coveMat)
+    cove.position.set(0, COACH_CEILING_Y - 0.18, z + 0.04)
     this.group.add(cove)
   }
 
-  private buildFrame(frame: THREE.Material, metal: THREE.Material, halfW: number, halfH: number) {
+  /** A low, finished roof plane closes the cabin volume above the window and
+   * repeats its lighting at each bay, instead of leaving a tall void overhead. */
+  private buildCabinCeiling(aluminium: THREE.Material, accent: THREE.Material) {
+    const ceilingMat = this.track(
+      new THREE.MeshStandardMaterial({
+        map: this.makeCabinPanelTexture(),
+        color: 0xd6d4cd,
+        roughness: 0.82,
+        metalness: 0.08,
+      }),
+    )
+    const ceiling = new THREE.Mesh(this.track(new THREE.PlaneGeometry(WALL_W, 5.8)), ceilingMat)
+    ceiling.rotation.x = Math.PI / 2
+    ceiling.position.set(0, COACH_CEILING_Y, 2.72)
+    this.group.add(ceiling)
+
+    const seamMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x9faeb1, roughness: 0.42, metalness: 0.58 }),
+    )
+    for (const z of [0.08, 1.46, 2.84, 4.22]) {
+      const seam = new THREE.Mesh(this.box(WALL_W - 0.35, 0.028, 0.045), seamMat)
+      seam.position.set(0, COACH_CEILING_Y - 0.018, z)
+      this.group.add(seam)
+    }
+
+    const lightHousing = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x273438, roughness: 0.4, metalness: 0.64 }),
+    )
+    const lightLens = this.track(
+      new THREE.MeshBasicMaterial({ color: 0xffefd5, transparent: true, opacity: 0.9 }),
+    )
+    for (const x of COACH_WINDOW_CENTERS) {
+      const housing = new THREE.Mesh(this.box(2.5, 0.055, 0.2), lightHousing)
+      housing.position.set(x, COACH_CEILING_Y - 0.045, 1.1)
+      this.group.add(housing)
+      const lens = new THREE.Mesh(this.box(2.24, 0.014, 0.075), lightLens)
+      lens.position.set(x, COACH_CEILING_Y - 0.078, 1.1)
+      this.group.add(lens)
+      const ceilingLight = new THREE.PointLight(0xffe7c5, 0.34, 3.4, 2)
+      ceilingLight.position.set(x, COACH_CEILING_Y - 0.22, 0.92)
+      this.group.add(ceilingLight)
+    }
+
+    const coveRail = new THREE.Mesh(this.box(WALL_W - 0.5, 0.035, 0.055), aluminium)
+    coveRail.position.set(0, COACH_CEILING_Y - 0.11, 0.04)
+    this.group.add(coveRail)
+    const coveAccent = new THREE.Mesh(this.box(WALL_W - 0.9, 0.015, 0.018), accent)
+    coveAccent.position.set(0, COACH_CEILING_Y - 0.14, 0.085)
+    this.group.add(coveAccent)
+  }
+
+  private buildFrame(frame: THREE.Material, metal: THREE.Material, halfW: number, halfH: number, centerX: number) {
     const roundedPath = (inset: number) => {
       const radius = 0.26 - inset * 0.35
       const width = OPENING_W - inset * 2
       const height = OPENING_H - inset * 2
-      const right = width / 2
-      const left = -right
+      const right = centerX + width / 2
+      const left = centerX - width / 2
       const top = height / 2
       const bottom = -top
       const z = 0.05
@@ -401,26 +476,26 @@ export class WindowFrame {
     this.group.add(innerTrim)
 
     const sill = new THREE.Mesh(this.box(OPENING_W - 0.18, 0.1, 0.3), frame)
-    sill.position.set(0, -halfH + 0.02, 0.17)
+    sill.position.set(centerX, -halfH + 0.02, 0.17)
     this.group.add(sill)
     const latch = new THREE.Mesh(this.box(0.12, 0.04, 0.06), metal)
-    latch.position.set(halfW - 0.34, -halfH + 0.12, 0.11)
+    latch.position.set(centerX + halfW - 0.34, -halfH + 0.12, 0.11)
     this.group.add(latch)
   }
 
   /** Flush blind cassette and indicator strip, matching a current intercity
    * coach rather than a divided, older carriage window. */
-  private buildWindowHeader(frame: THREE.Material, blindMat: THREE.Material, accent: THREE.Material) {
+  private buildWindowHeader(frame: THREE.Material, blindMat: THREE.Material, accent: THREE.Material, centerX: number) {
     const cassette = new THREE.Mesh(this.box(OPENING_W - 0.24, 0.16, 0.13), blindMat)
-    cassette.position.set(0, OPENING_H / 2 - 0.02, 0.09)
+    cassette.position.set(centerX, OPENING_H / 2 - 0.02, 0.09)
     this.group.add(cassette)
     const lowerEdge = new THREE.Mesh(this.box(OPENING_W - 0.46, 0.018, 0.02), accent)
-    lowerEdge.position.set(0, OPENING_H / 2 - 0.115, 0.17)
+    lowerEdge.position.set(centerX, OPENING_H / 2 - 0.115, 0.17)
     this.group.add(lowerEdge)
     for (const side of [-1, 1]) {
       const fixing = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.028, 0.028, 0.025, 10)), frame)
       fixing.rotation.x = Math.PI / 2
-      fixing.position.set(side * (OPENING_W / 2 - 0.28), OPENING_H / 2 + 0.08, 0.12)
+      fixing.position.set(centerX + side * (OPENING_W / 2 - 0.28), OPENING_H / 2 + 0.08, 0.12)
       this.group.add(fixing)
     }
   }
@@ -566,7 +641,7 @@ export class WindowFrame {
         metalness: 0.04,
       }),
     )
-    const floor = new THREE.Mesh(this.track(new THREE.PlaneGeometry(10, 6.4)), floorMat)
+    const floor = new THREE.Mesh(this.track(new THREE.PlaneGeometry(WALL_W - 1.2, 6.4)), floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.set(0, -2.03, 1.32)
     this.group.add(floor)
@@ -582,7 +657,7 @@ export class WindowFrame {
       new THREE.MeshStandardMaterial({ color: 0x91a6aa, roughness: 0.38, metalness: 0.64 }),
     )
     for (const z of [-0.72, 0.72, 2.16]) {
-      const threshold = new THREE.Mesh(this.box(5.1, 0.025, 0.035), thresholdMat)
+      const threshold = new THREE.Mesh(this.box(WALL_W - 1.45, 0.025, 0.035), thresholdMat)
       threshold.position.set(0, -1.995, z)
       this.group.add(threshold)
     }
@@ -611,56 +686,56 @@ export class WindowFrame {
         this.roundedBox(WINDOW_BAY.seatWidth, 0.34, WINDOW_BAY.seatLength, 0.1),
         shellMat,
       )
-      base.position.set(0, -1.62, 0)
+      base.position.set(0, -1.55, 0)
       couch.add(base)
       const backShell = new THREE.Mesh(
-        this.roundedBox(0.22, 1.38, WINDOW_BAY.seatLength, 0.09),
+        this.roundedBox(0.22, 1.65, WINDOW_BAY.seatLength, 0.09),
         shellMat,
       )
-      backShell.position.set(side * 0.26, -0.9, 0)
+      backShell.position.set(side * 0.26, -0.62, 0)
       couch.add(backShell)
       const back = new THREE.Mesh(
-        this.roundedBox(0.14, 1.18, WINDOW_BAY.seatLength - 0.14, 0.07),
+        this.roundedBox(0.14, 1.42, WINDOW_BAY.seatLength - 0.14, 0.07),
         fabric,
       )
-      back.position.set(side * 0.37, -0.86, 0)
+      back.position.set(side * 0.37, -0.59, 0)
       couch.add(back)
 
       for (const z of [-0.5, 0.5]) {
         const cushion = new THREE.Mesh(this.roundedBox(0.54, 0.22, 0.9, 0.08), fabric)
-        cushion.position.set(-side * 0.03, -1.38, z)
+        cushion.position.set(-side * 0.03, -1.33, z)
         couch.add(cushion)
         const headrest = new THREE.Mesh(this.roundedBox(0.06, 0.42, 0.58, 0.026), pipingMat)
-        headrest.position.set(side * 0.45, -0.42, z)
+        headrest.position.set(side * 0.45, -0.1, z)
         couch.add(headrest)
       }
 
       for (const z of [-0.76, 0, 0.76]) {
-        const seam = new THREE.Mesh(this.box(0.018, 1.04, 0.018), pipingMat)
-        seam.position.set(side * 0.45, -0.85, z)
+        const seam = new THREE.Mesh(this.box(0.018, 1.28, 0.018), pipingMat)
+        seam.position.set(side * 0.45, -0.6, z)
         couch.add(seam)
       }
 
       for (const z of [-WINDOW_BAY.seatLength / 2 + 0.1, WINDOW_BAY.seatLength / 2 - 0.1]) {
         const arm = new THREE.Mesh(this.roundedBox(WINDOW_BAY.seatWidth, 0.4, 0.18, 0.045), shellMat)
-        arm.position.set(-side * 0.02, -1.22, z)
+        arm.position.set(-side * 0.02, -1.16, z)
         couch.add(arm)
       }
       for (const z of [-0.72, 0.72]) {
-        const leg = new THREE.Mesh(this.box(0.42, 0.56, 0.14), shellMat)
-        leg.position.set(0, -1.98, z)
+        const leg = new THREE.Mesh(this.box(0.42, 0.48, 0.14), shellMat)
+        leg.position.set(0, -1.79, z)
         couch.add(leg)
       }
 
       const labelTexture = this.makeSeatReservationTexture(index === 0 ? '21 A' : '21 B')
       const labelBack = new THREE.Mesh(this.roundedBox(0.66, 0.24, 0.05, 0.025), edgeMat)
-      labelBack.position.set(0, -0.55, WINDOW_BAY.seatLength / 2 + 0.1)
+      labelBack.position.set(0, -0.24, WINDOW_BAY.seatLength / 2 + 0.1)
       couch.add(labelBack)
       const label = new THREE.Mesh(
         this.track(new THREE.PlaneGeometry(0.56, 0.16)),
         this.track(new THREE.MeshBasicMaterial({ map: labelTexture, transparent: true })),
       )
-      label.position.set(0, -0.55, WINDOW_BAY.seatLength / 2 + 0.13)
+      label.position.set(0, -0.24, WINDOW_BAY.seatLength / 2 + 0.13)
       couch.add(label)
 
       couch.position.set(side * WINDOW_BAY.seatCenterX, 0, 0.72)
@@ -725,7 +800,7 @@ export class WindowFrame {
     const lowerMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x1a2529, roughness: 0.62, metalness: 0.22 })
     )
-    const lowerWall = new THREE.Mesh(this.box(5.35, 0.24, 0.18), lowerMat)
+    const lowerWall = new THREE.Mesh(this.box(WALL_W - 0.5, 0.24, 0.18), lowerMat)
     lowerWall.position.set(0, -1.7, -0.02)
     this.group.add(lowerWall)
     const sillLight = new THREE.Mesh(
@@ -738,18 +813,20 @@ export class WindowFrame {
     const rackMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x2b383c, roughness: 0.44, metalness: 0.56 })
     )
-    const luggageRail = new THREE.Mesh(this.box(5.1, 0.05, 0.28), rackMat)
-    luggageRail.position.set(0, 1.84, 0.18)
-    this.group.add(luggageRail)
     const railPipeGeometry = this.track(new THREE.CylinderGeometry(0.018, 0.018, 4.92, 10))
     railPipeGeometry.rotateZ(Math.PI / 2)
-    const railPipe = new THREE.Mesh(railPipeGeometry, aluminium)
-    railPipe.position.set(0, 1.72, 0.34)
-    this.group.add(railPipe)
-    for (const x of [-1.82, 0, 1.82]) {
-      const bracket = new THREE.Mesh(this.box(0.03, 0.24, 0.04), aluminium)
-      bracket.position.set(x, 1.73, 0.27)
-      this.group.add(bracket)
+    for (const centerX of COACH_WINDOW_CENTERS) {
+      const luggageRail = new THREE.Mesh(this.box(5.1, 0.05, 0.28), rackMat)
+      luggageRail.position.set(centerX, 1.84, 0.18)
+      this.group.add(luggageRail)
+      const railPipe = new THREE.Mesh(railPipeGeometry, aluminium)
+      railPipe.position.set(centerX, 1.72, 0.34)
+      this.group.add(railPipe)
+      for (const x of [-1.82, 0, 1.82]) {
+        const bracket = new THREE.Mesh(this.box(0.03, 0.24, 0.04), aluminium)
+        bracket.position.set(centerX + x, 1.73, 0.27)
+        this.group.add(bracket)
+      }
     }
 
     const hookMat = this.track(
@@ -786,20 +863,11 @@ export class WindowFrame {
     }
   }
 
-  /** Layered diffused ceiling, reading and footwell light avoids the flat
-   * orange wash of the former cabin while retaining a calm evening feel. */
+  /** Reading and table fill remain local to the passenger's bay. The repeated
+   * ceiling luminaires are authored with the enclosed roof above. */
   private buildCabinLighting() {
-    const ceilingMat = this.track(
-      new THREE.MeshBasicMaterial({ color: 0xffecd0, transparent: true, opacity: 0.92 })
-    )
-    for (const x of [-1.68, 0, 1.68]) {
-      const panel = new THREE.Mesh(this.box(0.98, 0.07, 0.026), ceilingMat)
-      panel.position.set(x, 1.94, 0.34)
-      this.group.add(panel)
-    }
-
-    const overhead = new THREE.PointLight(0xffe1b7, 0.78, 4.8, 2)
-    overhead.position.set(0, 1.78, 0.72)
+    const overhead = new THREE.PointLight(0xffe1b7, 0.52, 4.8, 2)
+    overhead.position.set(0, 1.72, 0.72)
     this.group.add(overhead)
 
     const tableFill = new THREE.PointLight(0xffd8a3, 0.26, 2.4, 2)
