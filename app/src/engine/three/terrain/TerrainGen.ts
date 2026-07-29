@@ -137,6 +137,21 @@ export class TerrainGen {
       }
     }
 
+    // Roads are engineered surfaces, not painted stripes following every
+    // meadow ripple. A narrow, eased roadbed ties the access lane to station
+    // forecourts and bridge approaches while leaving the surrounding terrain
+    // naturally irregular. The road mesh samples this exact height function.
+    const road = params.road ?? 0
+    if (road > 0.01) {
+      const roadDistance = Math.abs(x - roadCenterX(z))
+      if (roadDistance < ROAD_VERGE) {
+        const edge = (roadDistance - ROAD_HALF_WIDTH) / (ROAD_VERGE - ROAD_HALF_WIDTH)
+        const roadWeight = (1 - smoothstep(Math.min(Math.max(edge, 0), 1))) * Math.min(1, road * 2)
+        const roadbed = trackElevationAt(z) - 0.12
+        height = height * (1 - roadWeight) + roadbed * roadWeight
+      }
+    }
+
     return height
   }
 
