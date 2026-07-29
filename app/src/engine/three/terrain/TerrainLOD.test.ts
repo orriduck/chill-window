@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DECORATION_EDGE_CLEARANCE, isDecorationInsideChunk } from './DecorationPlacement'
-import { grassWindProfile } from './VegetationWind'
+import { grassSpacingForLod, grassWindProfile } from './VegetationWind'
 
 describe('streamed decoration ownership', () => {
   it('keeps large props out of independently generated chunk seams', () => {
@@ -21,5 +21,13 @@ describe('near grass wind profile', () => {
   it('clamps malformed authored heights before applying wind', () => {
     expect(grassWindProfile(-1)).toBe(0)
     expect(grassWindProfile(2)).toBe(1)
+  })
+})
+
+describe('near grass density budget', () => {
+  it('reserves the dense field treatment for only the nearest LOD', () => {
+    expect(grassSpacingForLod(1)).toBeCloseTo(1.55)
+    expect(grassSpacingForLod(0.55)).toBeCloseTo(3.6)
+    expect(grassSpacingForLod(0.25)).toBeCloseTo(6)
   })
 })
