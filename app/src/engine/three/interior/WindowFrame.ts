@@ -1024,23 +1024,35 @@ export class WindowFrame {
     return this.track(tex)
   }
 
-  /** Blue-grey upholstery with crossing warp and weft threads. */
+  /** Dark woven upholstery with the small pale ring pattern common on
+   * European intercity seats. The dots remain restrained at window distance. */
   private makeSeatTextile(): THREE.Texture {
     const size = 128
     const canvas = document.createElement('canvas')
     canvas.width = size
     canvas.height = size
     const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#334b5c'
+    ctx.fillStyle = '#1b252d'
     ctx.fillRect(0, 0, size, size)
 
     for (let x = 0; x < size; x += 4) {
-      ctx.fillStyle = x % 8 === 0 ? 'rgba(201, 224, 225, 0.18)' : 'rgba(15, 27, 37, 0.16)'
+      ctx.fillStyle = x % 8 === 0 ? 'rgba(142, 164, 171, 0.14)' : 'rgba(4, 10, 15, 0.18)'
       ctx.fillRect(x, 0, 1, size)
     }
     for (let y = 0; y < size; y += 5) {
-      ctx.fillStyle = y % 10 === 0 ? 'rgba(216, 235, 235, 0.14)' : 'rgba(18, 31, 41, 0.15)'
+      ctx.fillStyle = y % 10 === 0 ? 'rgba(164, 183, 188, 0.1)' : 'rgba(6, 13, 18, 0.17)'
       ctx.fillRect(0, y, size, 1)
+    }
+
+    ctx.strokeStyle = 'rgba(223, 232, 229, 0.74)'
+    ctx.lineWidth = 1.2
+    for (let row = 10; row < size; row += 17) {
+      const offset = Math.floor(row / 17) % 2 === 0 ? 11 : 20
+      for (let x = offset; x < size; x += 18) {
+        ctx.beginPath()
+        ctx.ellipse(x, row, 2.2, 1.45, 0, 0, Math.PI * 2)
+        ctx.stroke()
+      }
     }
 
     const tex = new THREE.CanvasTexture(canvas)
