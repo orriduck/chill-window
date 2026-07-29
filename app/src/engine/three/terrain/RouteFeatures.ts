@@ -25,7 +25,10 @@ const ROUTE_FEATURES: readonly RouteFeature[] = [
   { biome: 'forest', road: 0.18, tunnel: false },
   { biome: 'town', road: 1, tunnel: false },
   { biome: 'river', road: 1, tunnel: false },
-  { biome: 'mountain', road: 0.08, tunnel: true },
+  // A maintained mountain service road is deliberately less finished than
+  // town asphalt, but prominent enough to establish the approach before the
+  // railway disappears into the tunnel.
+  { biome: 'mountain', road: 0.68, tunnel: true },
 ]
 
 export interface RouteFeatureSample {
