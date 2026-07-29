@@ -1,10 +1,15 @@
 import * as THREE from 'three'
 import { createSeededRandom, seedFromGrid } from '../core/procedural'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
-import { ROUTE_SEGMENT_LENGTH, routeFeatureForSegment } from '../terrain/RouteFeatures'
+import {
+  MOUNTAIN_TUNNEL_LENGTH,
+  MOUNTAIN_TUNNEL_OFFSET,
+  ROUTE_SEGMENT_LENGTH,
+  routeFeatureForSegment,
+} from '../terrain/RouteFeatures'
 
 // Tunnel geometry
-const TUNNEL_LENGTH = 280
+const TUNNEL_LENGTH = MOUNTAIN_TUNNEL_LENGTH
 const TUNNEL_RADIUS = 5.2
 const MOUND_RADIUS = 11
 const PORTAL_W = 14
@@ -13,7 +18,7 @@ const PORTAL_DEPTH = 1.4
 const ARCH_R = 4.3
 const ARCH_SPRING = 2.6 // height where the arch curve starts
 
-const TUNNEL_OFFSET = ROUTE_SEGMENT_LENGTH * 0.72 // centre of a mountain segment
+const TUNNEL_OFFSET = MOUNTAIN_TUNNEL_OFFSET
 const BUILD_AHEAD = 900 // build when the camera gets this close
 const DISPOSE_BEHIND = 600 // dispose once this far past the exit
 
