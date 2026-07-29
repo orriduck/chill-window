@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { stationDistrictLayout, stationHallFacadeLayout, stationNightLightLevel } from './Station'
+import {
+  stationDistrictLayout,
+  stationHallFacadeLayout,
+  stationNightLightLevel,
+  stationVisualKindAt,
+} from './Station'
+import { createRoutePlan } from '../terrain/RouteFeatures'
 
 describe('stationNightLightLevel', () => {
   it('keeps platform lighting restrained by day and readable at night', () => {
@@ -36,5 +42,13 @@ describe('stationHallFacadeLayout', () => {
     expect(layout.eaveY).toBeGreaterThan(4.6)
     expect(layout.ridgeY).toBeGreaterThan(layout.eaveY)
     expect(layout.windowCenters.every((center) => Math.abs(center) > layout.entranceWidth / 2)).toBe(true)
+  })
+})
+
+describe('station route typology', () => {
+  it('maps route beats to visible station types without leaving an untyped stop', () => {
+    expect(stationVisualKindAt(0)).toBe('rural-halt')
+    expect(stationVisualKindAt(2 * 1500)).toBe('regional')
+    expect(stationVisualKindAt(2 * 1500, createRoutePlan(3))).toBe('urban-through')
   })
 })
