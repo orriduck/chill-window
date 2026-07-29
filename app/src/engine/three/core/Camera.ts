@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 
-const CRUISE_SPEED = 15 // units/sec, matches original
+export const CRUISE_SPEED = 15 // units/sec, matches original
+export const CRUISE_SPEED_KMH = 120
 const ACCEL_RATE = 3.5 // speed units/sec² — gentle departure
 const DECEL_RATE = 4.5 // slightly faster braking
 const STATION_BRAKE_DECEL = 0.94
