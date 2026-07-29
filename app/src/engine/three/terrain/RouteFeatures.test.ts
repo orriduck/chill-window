@@ -4,24 +4,72 @@ import { getBiomeConfig } from './Biome'
 import { trackElevationAt } from './RouteProfile'
 import { farBankRoadCenterX, RIVER_HALF_WIDTH, TerrainGen, waterChannelAt } from './TerrainGen'
 import {
+  DEFAULT_ROUTE_PLAN,
   MOUNTAIN_TUNNEL_LENGTH,
   MOUNTAIN_TUNNEL_OFFSET,
+  MIN_ROUTE_ANCHOR_SPACING,
   RIVER_LAKE_FADE_LENGTH,
   RIVER_LAKE_HALF_LENGTH,
   RIVER_LAKE_OFFSET,
   RIVER_BRIDGE_OFFSET,
   RIVER_VILLAGE_OFFSET,
+  createRoutePlan,
   lakeBasinStrengthAt,
   ROUTE_BLEND_LENGTH,
   ROUTE_SEGMENT_LENGTH,
+  routeAnchorsForSegment,
+  routeBeatForSegment,
+  routeBeatIssues,
   routeContextAt,
   routeFeatureForSegment,
+  routePlanIssues,
   sampleRouteFeature,
 } from './RouteFeatures'
 
 const ROUTE_PERIOD = 5
 
 describe('route features', () => {
+  it('keeps the default route programme compatible with the existing scenery sequence', () => {
+    expect(DEFAULT_ROUTE_PLAN.beats.map((beat) => beat.id)).toEqual([
+      'open-country', 'woodland', 'regional-town', 'river-valley', 'mountain-pass',
+    ])
+    expect(routeBeatForSegment(0).station).toBe('none')
+    expect(routeBeatForSegment(2).station).toBe('regional')
+  })
+
+  it('auto-curates a deterministic, coherent route programme from a seed', () => {
+    expect(createRoutePlan(7)).toEqual(createRoutePlan(7))
+    expect(createRoutePlan(-1).beats.map((beat) => beat.id)).toEqual([
+      'open-country', 'woodland', 'urban-edge', 'river-valley', 'mountain-pass',
+    ])
+
+    for (const seed of [-8, -1, 0, 1, 17]) {
+      expect(routePlanIssues(createRoutePlan(seed))).toEqual([])
+    }
+  })
+
+  it('rejects impossible railway geography before a route can render it', () => {
+    const mountain = routeBeatForSegment(4)
+    expect(routeBeatIssues({ ...mountain, landform: 'rolling' })).toContain('tunnels require mountain landform')
+
+    const regional = routeBeatForSegment(2)
+    expect(routeBeatIssues({ ...regional, station: 'none' })).toContain('station engineering requires a station kind')
+    expect(routeBeatIssues({ ...regional, roadRelation: 'valley-access' })).toContain('valley access roads require a valley bridge')
+  })
+
+  it('keeps bridge, village, lake and tunnel anchors inside their authored beats', () => {
+    const valleyAnchors = routeAnchorsForSegment(3)
+    expect(valleyAnchors.map((anchor) => anchor.kind)).toEqual(['road-bridge', 'river-village', 'lakeshore'])
+    expect(routeAnchorsForSegment(4).map((anchor) => anchor.kind)).toEqual(['tunnel'])
+
+    for (let index = 1; index < valleyAnchors.length; index++) {
+      const previous = valleyAnchors[index - 1]
+      const current = valleyAnchors[index]
+      const separation = current.z - current.halfLength - (previous.z + previous.halfLength)
+      expect(separation).toBeGreaterThanOrEqual(MIN_ROUTE_ANCHOR_SPACING)
+    }
+  })
+
   it('repeats its planned features in both positive and negative world coordinates', () => {
     for (let segment = -30; segment <= 30; segment++) {
       expect(routeFeatureForSegment(segment)).toEqual(routeFeatureForSegment(segment + ROUTE_PERIOD))
