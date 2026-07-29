@@ -17,6 +17,21 @@ const APARTMENT_COLORS = [0xc8b8a0, 0xb8a890, 0xa89888, 0xd0c0a8]
 
 type HeightSampler = (x: number, z: number) => number
 
+// The settlement's roads and building lots occupy this fixed, rail-side-aware
+// envelope. Terrain streaming uses the same bounds to keep natural foliage
+// out of planned urban space when a chunk is rebuilt.
+const TOWN_FOOTPRINT_RAIL_SIDE = 4
+const TOWN_FOOTPRINT_OUTER_SIDE = 44
+const TOWN_FOOTPRINT_HALF_LENGTH = 100
+
+export function isTownPlannedFootprint(x: number, z: number, cx: number, cz: number): boolean {
+  return (
+    x >= cx - TOWN_FOOTPRINT_RAIL_SIDE &&
+    x <= cx + TOWN_FOOTPRINT_OUTER_SIDE &&
+    Math.abs(z - cz) <= TOWN_FOOTPRINT_HALF_LENGTH
+  )
+}
+
 function pick<T>(arr: T[], random: RandomSource): T {
   return arr[Math.floor(random() * arr.length)]
 }
