@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { SceneryEngine, type TimeOfDay } from '@/engine/scenery';
+import type { TimeOfDay } from '@/engine/time';
 import { TrainAudio } from '@/engine/audio';
 import {
   buildFreeJourney, buildPomodoroJourney, suggestStops,
@@ -34,7 +34,6 @@ interface HudState {
 
 export default function Home() {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const engineRef = useRef<SceneryEngine | null>(null);
   const trainControlRef = useRef<TrainControl | null>(null);
   const audioRef = useRef<TrainAudio | null>(null);
   const planRef = useRef<JourneyPlan | null>(null);
@@ -67,14 +66,6 @@ export default function Home() {
     phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0,
   });
 
-  // 初始化 / 切换时段时重建引擎：列车停靠在始发站等待发车
-  useEffect(() => {
-    const eng = new SceneryEngine(tod);
-    eng.arrive(pickStations(1)[0]);
-    eng.platformMode = 'dwell';
-    engineRef.current = eng;
-  }, [tod]);
-
   // 主循环
   useEffect(() => {
     let raf = 0;
@@ -83,10 +74,7 @@ export default function Home() {
       raf = requestAnimationFrame(loop);
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      const eng = engineRef.current;
-      if (!eng) return;
       const paused = pausedRef.current;
-      if (!paused) eng.update(dt);
 
       const plan = planRef.current;
       const phase = phaseRef.current;
@@ -108,7 +96,6 @@ export default function Home() {
           }
           if (!arrivingRef.current && left <= 16) {
             arrivingRef.current = true;
-            eng.arrive(seg.name);
             trainControlRef.current?.approachStation(seg.name);
             if (audioRef.current?.isRunning) audioRef.current.chime();
           }
@@ -132,7 +119,6 @@ export default function Home() {
             arrivingRef.current = false;
             stationPreparedRef.current = false;
             phaseRef.current = 'ride';
-            eng.depart();
             trainControlRef.current?.departStation();
           }
         }
@@ -174,20 +160,13 @@ export default function Home() {
     pausedRef.current = false;
     setIsPaused(false);
     trainControlRef.current?.setPaused(false);
-    const eng = engineRef.current;
-    if (eng) {
-      // 列车已在始发站停稳，检票上车后稍候发车（关门-启动的节奏）
-      eng.arrive(originRef.current);
-      eng.platformMode = 'dwell';
-      // 已经停在站台上了，不需要再 setSpeed(0)
-      const camZ = trainControlRef.current?.getZ() ?? 0;
-      trainControlRef.current?.showStation(originRef.current, camZ);
-      window.setTimeout(() => {
-        eng.depart();
-        trainControlRef.current?.departStation();
-        // 车站会在完全离开视野后由 StationManager 自动隐藏（0.8s 缓冲）
-      }, 2600);
-    }
+    // The Three.js station manager owns the visible dwell/departure sequence.
+    const camZ = trainControlRef.current?.getZ() ?? 0;
+    trainControlRef.current?.showStation(originRef.current, camZ);
+    window.setTimeout(() => {
+      trainControlRef.current?.departStation();
+      // The station is hidden by StationManager only after it has left view.
+    }, 2600);
     if (soundRef.current) {
       const au = new TrainAudio();
       audioRef.current = au;
@@ -208,7 +187,6 @@ export default function Home() {
     trainControlRef.current?.setSpeed(0);
     const camZ = trainControlRef.current?.getZ() ?? 0;
     trainControlRef.current?.showStation('临时停车', camZ);
-    engineRef.current?.setCruising();
     setHud((p) => ({ ...p, phase: 'abort' }));
   }, []);
 
@@ -220,17 +198,13 @@ export default function Home() {
     setIsPaused(false);
     audioRef.current?.stop();
     audioRef.current = null;
-    const eng = new SceneryEngine(tod);
-    eng.arrive(pickStations(1)[0]);
-    eng.platformMode = 'dwell';
-    engineRef.current = eng;
     // Return to stopped-at-station state
     trainControlRef.current?.setPaused(false);
     trainControlRef.current?.setSpeed(0);
     const camZ = trainControlRef.current?.getZ() ?? 0;
     trainControlRef.current?.showStation(pickStations(1)[0], camZ);
     setHud((p) => ({ ...p, phase: 'setup' }));
-  }, [tod]);
+  }, []);
 
   const toggleSound = useCallback(() => {
     setSound((s) => {

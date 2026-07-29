@@ -1,5 +1,5 @@
 // 旅程规划：站点、区间、停靠
-import type { TimeOfDay } from './scenery';
+import type { TimeOfDay } from './time';
 
 export type Mode = 'free' | 'pomodoro';
 
