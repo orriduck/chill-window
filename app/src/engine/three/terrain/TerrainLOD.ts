@@ -25,7 +25,7 @@ import {
   treeNearTex, treeNearBTex, treeFarTex, treeFarBTex,
   applyAtlasUV,
 } from '../textures'
-import { treeStyleForBiome, type TreeStyle } from './Vegetation'
+import { treeSpriteCell, treeSpriteVariantCount, treeStyleForBiome, type TreeStyle } from './Vegetation'
 
 interface Chunk {
   mesh: THREE.Mesh
@@ -119,8 +119,8 @@ export class TerrainLOD {
   private grassMat!: THREE.MeshStandardMaterial
   private bushGeoms: THREE.BufferGeometry[] = []    // 4 atlas variants, crossed
   private bushMat!: THREE.MeshStandardMaterial
-  private treeGeomsNear: THREE.BufferGeometry[] = [] // 8 variants, crossed
-  private treeGeomsFar: THREE.BufferGeometry[] = []  // 8 variants, crossed
+  private treeGeomsNear: THREE.BufferGeometry[] = []
+  private treeGeomsFar: THREE.BufferGeometry[] = []
   private treeMatNear!: THREE.MeshStandardMaterial
   private treeMatNearB!: THREE.MeshStandardMaterial
   private treeMatFar!: THREE.MeshStandardMaterial
@@ -245,7 +245,8 @@ if ( terrainDebugView > 0.5 ) {
       this.bushGeoms.push(this.makeCrossedSprite(1.6, 0.8, v % 2, Math.floor(v / 2), 2, 2))
     }
 
-    // Tree sprites: crossed quads, near + far atlases (4x1 each, two sheets)
+    // Tree sprites: crossed quads. Near trees use an 4x2 atlas, while the
+    // far source is 2x2; using a shared 4x1 mapping overlays tree cells.
     const treeMatOpts: THREE.MeshStandardMaterialParameters = {
       alphaTest: 0.45,
       side: THREE.DoubleSide,
@@ -256,9 +257,13 @@ if ( terrainDebugView > 0.5 ) {
     this.treeMatNearB = new THREE.MeshStandardMaterial({ ...treeMatOpts, map: treeNearBTex })
     this.treeMatFar = new THREE.MeshStandardMaterial({ ...treeMatOpts, map: treeFarTex })
     this.treeMatFarB = new THREE.MeshStandardMaterial({ ...treeMatOpts, map: treeFarBTex })
-    for (let v = 0; v < 8; v++) {
-      this.treeGeomsNear.push(this.makeCrossedSprite(2.4, 4.8, v % 4, 0, 4, 1))
-      this.treeGeomsFar.push(this.makeCrossedSprite(2.4, 4.8, v % 4, 0, 4, 1))
+    for (let v = 0; v < treeSpriteVariantCount('near'); v++) {
+      const cell = treeSpriteCell('near', v)
+      this.treeGeomsNear.push(this.makeCrossedSprite(2.4, 4.8, cell.col, cell.row, cell.columns, cell.rows))
+    }
+    for (let v = 0; v < treeSpriteVariantCount('far'); v++) {
+      const cell = treeSpriteCell('far', v)
+      this.treeGeomsFar.push(this.makeCrossedSprite(2.4, 4.8, cell.col, cell.row, cell.columns, cell.rows))
     }
     this.bareTreeTrunkGeom = new THREE.CylinderGeometry(0.12, 0.18, 3.4, 6)
     this.bareTreeBranchGeom = new THREE.CylinderGeometry(0.045, 0.085, 1.55, 5)
@@ -1045,8 +1050,9 @@ if ( terrainDebugView > 0.5 ) {
     const tree = new THREE.Group()
     const near = densityScale >= 0.5
     const pine = style === 'pine'
-    const variant = Math.floor(random() * 4)
-    const geom = near ? this.treeGeomsNear[variant] : this.treeGeomsFar[variant]
+    const variants = near ? this.treeGeomsNear : this.treeGeomsFar
+    const variant = Math.floor(random() * variants.length)
+    const geom = variants[variant]
     const mat = near
       ? (pine ? this.treeMatNearB : this.treeMatNear)
       : (pine ? this.treeMatFarB : this.treeMatFar)
