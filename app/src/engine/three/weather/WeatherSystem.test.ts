@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   automaticWeatherCandidates,
   isAutomaticWeatherAllowed,
+  precipitationKindFor,
   weatherForRoute,
   WeatherType,
 } from './WeatherSystem'
@@ -30,5 +31,13 @@ describe('automatic weather', () => {
     expect(weatherForRoute(WeatherType.SNOW, null, 'river')).toBe(WeatherType.CLEAR)
     expect(weatherForRoute(WeatherType.SNOW, null, 'mountain')).toBe(WeatherType.SNOW)
     expect(weatherForRoute(WeatherType.SNOW, WeatherType.SNOW, 'river')).toBe(WeatherType.SNOW)
+  })
+
+  it('uses a precipitation sprite only for weather that needs one', () => {
+    expect(precipitationKindFor(WeatherType.RAIN)).toBe('rain')
+    expect(precipitationKindFor(WeatherType.SNOW)).toBe('snow')
+    expect(precipitationKindFor(WeatherType.CLEAR)).toBeNull()
+    expect(precipitationKindFor(WeatherType.CLOUDY)).toBeNull()
+    expect(precipitationKindFor(WeatherType.FOGGY)).toBeNull()
   })
 })
