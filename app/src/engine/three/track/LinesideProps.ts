@@ -29,17 +29,11 @@ const FENCE_POST_SPACING = 4
 const FENCE_WINDOW = 600
 const FENCE_POST_COUNT = Math.ceil(FENCE_WINDOW / FENCE_POST_SPACING)
 
-// Mid-distance tree band (parallax layer between corridor and mountains)
-const TREE_COUNT = 70
-const TREE_WINDOW = 900
-const TREE_X_MIN = 100
-const TREE_X_MAX = 300
-
 type HeightSampler = (x: number, z: number) => number
 
 /**
  * Lineside props that scroll past the side window: catenary poles with the
- * contact wire, grass tufts near the corridor, and a mid-distance tree band.
+ * contact wire, grass tufts near the corridor, and a fence.
  * Everything recycles along Z with a modulo window — infinite, no popping.
  */
 export class LinesideProps {
@@ -63,11 +57,6 @@ export class LinesideProps {
   private fenceRailsLow: THREE.InstancedMesh
   private fenceRailsHigh: THREE.InstancedMesh
   private fenceZ: number[] = []
-
-  private trunks: THREE.InstancedMesh
-  private foliage: THREE.InstancedMesh
-  private foliageTop: THREE.InstancedMesh
-  private treeData: { x: number; z: number; s: number; rot: number }[] = []
 
   constructor(sampleHeight: HeightSampler) {
     this.sampleHeight = sampleHeight
@@ -182,40 +171,6 @@ export class LinesideProps {
     this.fenceRailsHigh.instanceMatrix.needsUpdate = true
     this.group.add(this.fencePosts, this.fenceRailsLow, this.fenceRailsHigh)
 
-    // ---- Mid-distance tree band: trunk + two-tier foliage ----
-    const trunkGeom = this.track(new THREE.CylinderGeometry(0.3, 0.4, 2, 6))
-    trunkGeom.translate(0, 1, 0)
-    const trunkMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.9 })
-    )
-    // Low-poly broadleaf crowns keep the middle distance readable without
-    // the repeated Christmas-tree silhouette of the old cone band.
-    const foliageGeom = this.track(new THREE.IcosahedronGeometry(2.15, 1))
-    foliageGeom.scale(0.9, 1.18, 0.9)
-    foliageGeom.translate(0, 3.9, 0)
-    const foliageMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x2e6b47, roughness: 0.85, flatShading: true })
-    )
-    const foliageTopGeom = this.track(new THREE.DodecahedronGeometry(1.22, 0))
-    foliageTopGeom.scale(0.92, 1.18, 0.92)
-    foliageTopGeom.translate(0, 5.85, 0)
-    const foliageTopMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x35794f, roughness: 0.85, flatShading: true })
-    )
-    this.trunks = new THREE.InstancedMesh(trunkGeom, trunkMat, TREE_COUNT)
-    this.foliage = new THREE.InstancedMesh(foliageGeom, foliageMat, TREE_COUNT)
-    this.foliageTop = new THREE.InstancedMesh(foliageTopGeom, foliageTopMat, TREE_COUNT)
-    this.trunks.frustumCulled = false
-    this.foliage.frustumCulled = false
-    this.foliageTop.frustumCulled = false
-    for (let i = 0; i < TREE_COUNT; i++) {
-      this.treeData.push({ x: 0, z: 0, s: 1, rot: 0 })
-      this.resetTree(i, -150 + hash01(i, 0, 3) * TREE_WINDOW)
-    }
-    this.trunks.instanceMatrix.needsUpdate = true
-    this.foliage.instanceMatrix.needsUpdate = true
-    this.foliageTop.instanceMatrix.needsUpdate = true
-    this.group.add(this.trunks, this.foliage, this.foliageTop)
   }
 
   update(camZ: number) {
@@ -278,19 +233,6 @@ export class LinesideProps {
       this.fenceRailsHigh.instanceMatrix.needsUpdate = true
     }
 
-    let treesChanged = false
-    for (let i = 0; i < TREE_COUNT; i++) {
-      const t = this.treeData[i]
-      if (t.z < camZ - 150) {
-        this.resetTree(i, t.z + TREE_WINDOW)
-        treesChanged = true
-      }
-    }
-    if (treesChanged) {
-      this.trunks.instanceMatrix.needsUpdate = true
-      this.foliage.instanceMatrix.needsUpdate = true
-      this.foliageTop.instanceMatrix.needsUpdate = true
-    }
   }
 
   private writePole(i: number) {
@@ -343,21 +285,6 @@ export class LinesideProps {
     this.fencePosts.setMatrixAt(i, this.dummy.matrix)
     this.fenceRailsLow.setMatrixAt(i, this.dummy.matrix)
     this.fenceRailsHigh.setMatrixAt(i, this.dummy.matrix)
-  }
-
-  private resetTree(i: number, z: number) {
-    const tree = this.treeData[i]
-    tree.z = z
-    tree.x = TREE_X_MIN + hash01(i, z, 31) * (TREE_X_MAX - TREE_X_MIN)
-    tree.s = 1.2 + hash01(i, z, 32) * 1.8
-    tree.rot = hash01(i, z, 33) * Math.PI * 2
-    this.dummy.position.set(tree.x, this.sampleHeight(tree.x, z) - 0.15, z)
-    this.dummy.rotation.set(0, tree.rot, 0)
-    this.dummy.scale.setScalar(tree.s)
-    this.dummy.updateMatrix()
-    this.trunks.setMatrixAt(i, this.dummy.matrix)
-    this.foliage.setMatrixAt(i, this.dummy.matrix)
-    this.foliageTop.setMatrixAt(i, this.dummy.matrix)
   }
 
   /** Two intersecting quads (X shape) for camera-facing grass volume. */
@@ -429,8 +356,5 @@ export class LinesideProps {
     this.fencePosts.dispose()
     this.fenceRailsLow.dispose()
     this.fenceRailsHigh.dispose()
-    this.trunks.dispose()
-    this.foliage.dispose()
-    this.foliageTop.dispose()
   }
 }

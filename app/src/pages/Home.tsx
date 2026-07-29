@@ -12,12 +12,12 @@ import ThreeCanvas, { type TrainControl, type WeatherPreset } from '@/engine/thr
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
 
 const WEATHER_OPTIONS: { value: WeatherPreset; label: string }[] = [
-  { value: 'auto', label: '自动' },
-  { value: 'clear', label: '晴' },
-  { value: 'cloudy', label: '阴' },
-  { value: 'rain', label: '雨' },
-  { value: 'snow', label: '雪' },
-  { value: 'foggy', label: '雾' },
+  { value: 'auto', label: 'Auto' },
+  { value: 'clear', label: 'Clear' },
+  { value: 'cloudy', label: 'Overcast' },
+  { value: 'rain', label: 'Rain' },
+  { value: 'snow', label: 'Snow' },
+  { value: 'foggy', label: 'Fog' },
 ]
 
 // 根据真实时间自动选择出发时段
@@ -80,7 +80,7 @@ export default function Home() {
   useEffect(() => () => departureSchedulerRef.current?.cancel(), []);
 
   const [hud, setHud] = useState<HudState>({
-    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: '田野', nextRouteLabel: '林地', approaching: false,
+    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: 'Open fields', nextRouteLabel: 'Woodland', approaching: false,
   });
 
   // 主循环
@@ -148,7 +148,7 @@ export default function Home() {
         const p = planRef.current;
         const routeContext = typeof trainControl?.getRouteContext === 'function'
           ? trainControl.getRouteContext()
-          : { currentLabel: '田野', nextLabel: '林地' };
+          : { currentLabel: 'Open fields', nextLabel: 'Woodland' };
         setHud({
           phase: phaseRef.current,
           focusLeft: p ? Math.max(0, p.totalFocusSec - focusDoneRef.current) : 0,
@@ -280,7 +280,7 @@ export default function Home() {
   const riding = hud.phase === 'ride' || hud.phase === 'dwell';
   const focusDone = plan ? plan.totalFocusSec - hud.focusLeft : 0;
   const gradePercent = Math.abs(hud.grade * 100);
-  const gradeLabel = gradePercent < 0.05 ? '平坡' : hud.grade > 0 ? '上坡' : '下坡';
+  const gradeLabel = gradePercent < 0.05 ? 'Level' : hud.grade > 0 ? 'Uphill' : 'Downhill';
   const journeyBanner = journeyBannerText({
     paused: isPaused,
     dwelling: hud.phase === 'dwell',
@@ -294,9 +294,9 @@ export default function Home() {
       time: formatTime(hud.focusLeft),
       journey: journeyBanner,
       progress: plan ? focusDone / plan.totalFocusSec : 0,
-      segmentLabel: `第 ${Math.min(hud.segIdx + 1, hud.segCount)} / ${hud.segCount} 区间`,
-      routeLabel: `${hud.routeLabel} · 前方 ${hud.nextRouteLabel}`,
-      motionLabel: `${Math.round(hud.speedKmh)} km/h · ${gradeLabel} ${gradePercent.toFixed(1)}% · 已行驶 ${hud.distance.toFixed(1)} km`,
+      segmentLabel: `Segment ${Math.min(hud.segIdx + 1, hud.segCount)} of ${hud.segCount}`,
+      routeLabel: `${hud.routeLabel} · ahead ${hud.nextRouteLabel}`,
+      motionLabel: `${Math.round(hud.speedKmh)} km/h · ${gradeLabel} ${gradePercent.toFixed(1)}% · ${hud.distance.toFixed(1)} km travelled`,
       grade: hud.grade,
       stationNames: plan?.segments.map((segment) => segment.name) ?? [],
       currentSegment: hud.segIdx,
@@ -316,18 +316,18 @@ export default function Home() {
 
       {/* ================= 设置页 ================= */}
       {hud.phase === 'setup' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-black/60 p-6 text-white shadow-2xl backdrop-blur-xl">
+        <div className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-4">
+          <div className="max-h-[calc(100svh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-black/60 p-4 text-white shadow-2xl backdrop-blur-xl sm:p-6">
             {/* 标题 */}
             <div className="mb-1 flex items-center gap-2 text-lg font-bold tracking-wide">
               <TrainFront className="h-5 w-5 text-amber-300" />
-              窗景 · 专注列车
+              Window Seat · Focus Train
             </div>
-            <p className="mb-5 text-xs text-white/40">买一张车票，让窗外的风景陪你抵达目的地。</p>
+            <p className="mb-5 text-xs text-white/40">Board a train and let the view carry you to your destination.</p>
 
             {/* 模式 */}
             <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-lg bg-white/8 p-1">
-              {([['free', '自由旅程'], ['pomodoro', '番茄钟']] as [Mode, string][]).map(([m, label]) => (
+              {([['free', 'Free ride'], ['pomodoro', 'Pomodoro']] as [Mode, string][]).map(([m, label]) => (
                 <button key={m} onClick={() => setMode(m)}
                   className={`rounded-md py-1.5 text-sm font-medium transition ${mode === m ? 'bg-amber-400 text-black' : 'text-white/60 hover:text-white'}`}>
                   {label}
@@ -339,8 +339,8 @@ export default function Home() {
             {mode === 'free' ? (
               <div className="mb-6">
                 <div className="mb-1.5 flex justify-between text-sm">
-                  <span className="text-white/70">专注时长</span>
-                  <span className="font-mono text-amber-300">{focusMin} 分钟</span>
+                  <span className="text-white/70">Focus duration</span>
+                  <span className="font-mono text-amber-300">{focusMin} min</span>
                 </div>
                 <input type="range" min={10} max={120} step={5} value={focusMin}
                   onChange={(e) => { const v = +e.target.value; setFocusMin(v); setStops(suggestStops(v)); }}
@@ -352,36 +352,36 @@ export default function Home() {
             ) : (
               <div className="mb-6">
                 <div className="mb-1.5 flex justify-between text-sm">
-                  <span className="text-white/70">番茄轮次</span>
-                  <span className="font-mono text-amber-300">{rounds} 轮</span>
+                  <span className="text-white/70">Pomodoro rounds</span>
+                  <span className="font-mono text-amber-300">{rounds} rounds</span>
                 </div>
                 <input type="range" min={1} max={8} value={rounds} onChange={(e) => setRounds(+e.target.value)}
                   className="w-full accent-amber-400" />
                 <div className="mt-1 flex justify-between text-[10px] text-white/30">
                   <span>1</span><span>8</span>
                 </div>
-                <p className="mt-1 text-[11px] text-white/35">25 分钟专注 / 5 分钟休息</p>
+                <p className="mt-1 text-[11px] text-white/35">25 minutes focused / 5 minutes resting</p>
               </div>
             )}
 
             {/* 检票上车 */}
             <button onClick={startJourney}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-2.5 text-sm font-bold text-black transition hover:bg-amber-300 active:scale-[0.98]">
-              <Play className="h-4 w-4" /> 检票上车
+              <Play className="h-4 w-4" /> Board train
             </button>
 
             {/* 高级设置（折叠） */}
             <details className="mt-4">
               <summary className="flex cursor-pointer items-center gap-1 text-[11px] text-white/35 transition hover:text-white/55">
-                <Settings2 className="h-3 w-3" /> 高级设置
+                <Settings2 className="h-3 w-3" /> Advanced settings
               </summary>
               <div className="mt-3 space-y-3 border-t border-white/8 pt-3">
                 {/* 经停站 */}
                 {mode === 'free' && (
                   <div>
                     <div className="mb-1 flex justify-between text-xs">
-                      <span className="text-white/50">沿途经停站</span>
-                      <span className="font-mono text-amber-300/70">{stops} 站</span>
+                      <span className="text-white/50">Stops en route</span>
+                      <span className="font-mono text-amber-300/70">{stops} stop{stops === 1 ? '' : 's'}</span>
                     </div>
                     <input type="range" min={0} max={5} value={stops} onChange={(e) => setStops(+e.target.value)}
                       className="w-full accent-amber-400/60" />
@@ -389,7 +389,7 @@ export default function Home() {
                 )}
                 {/* 出发时段 */}
                 <div>
-                  <div className="mb-1 text-xs text-white/50">出发时段</div>
+                  <div className="mb-1 text-xs text-white/50">Departure time</div>
                   <div className="grid grid-cols-4 gap-1.5">
                     {TIME_OPTIONS.map((o) => (
                       <button key={o.value} onClick={() => setTod(o.value)}
@@ -400,7 +400,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div>
-                  <div className="mb-1 text-xs text-white/50">出发天气</div>
+                  <div className="mb-1 text-xs text-white/50">Weather at departure</div>
                   <div className="grid grid-cols-3 gap-1.5">
                     {WEATHER_OPTIONS.map((option) => (
                       <button key={option.value} onClick={() => setWeatherPreset(option.value)}
@@ -419,23 +419,23 @@ export default function Home() {
       {/* ================= 行驶 HUD ================= */}
       {riding && (
         <>
-          <div className="absolute right-8 top-8 z-20 flex gap-2 max-[520px]:right-3 max-[520px]:top-3 max-[520px]:gap-1.5">
-            <button onClick={togglePause} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title={isPaused ? '继续行程' : '暂停行程'} aria-label={isPaused ? '继续行程' : '暂停行程'}>
+          <div className="journey-controls absolute z-20 flex">
+            <button onClick={togglePause} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}>
               {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </button>
             <button onClick={() => {
               const control = trainControlRef.current;
               if (typeof control?.resetView === 'function') control.resetView();
-            }} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title="复位观察方向" aria-label="复位观察方向">
+            }} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="Reset view" aria-label="Reset view">
               <RotateCcw className="h-4 w-4" />
             </button>
-            <button onClick={toggleSound} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title={sound ? '关闭声音' : '开启声音'} aria-label={sound ? '关闭声音' : '开启声音'}>
+            <button onClick={toggleSound} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={sound ? 'Mute sound' : 'Enable sound'} aria-label={sound ? 'Mute sound' : 'Enable sound'}>
               {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
-            <button onClick={toggleFullscreen} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title={isFullscreen ? '退出全屏' : '进入全屏'} aria-label={isFullscreen ? '退出全屏' : '进入全屏'}>
+            <button onClick={toggleFullscreen} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
               {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
             </button>
-            <button onClick={() => setConfirmAbort(true)} className="rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65 max-[520px]:p-2" title="中途下车">
+            <button onClick={() => setConfirmAbort(true)} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title="End journey" aria-label="End journey">
               <Flag className="h-4 w-4" />
             </button>
           </div>
@@ -444,8 +444,8 @@ export default function Home() {
           {hud.phase === 'dwell' && (
             <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/15 bg-black/55 px-8 py-6 text-center text-white backdrop-blur-md">
               <Coffee className="mx-auto mb-2 h-6 w-6 text-amber-300" />
-              <div className="text-lg font-semibold">列车经停 {hud.nextStation}站</div>
-              <div className="mt-1 text-sm text-white/60">起身活动一下，{formatTime(hud.dwellLeft)} 后发车</div>
+              <div className="text-lg font-semibold">Now calling at {hud.nextStation}</div>
+              <div className="mt-1 text-sm text-white/60">Stretch your legs. Departing in {formatTime(hud.dwellLeft)}</div>
             </div>
           )}
 
@@ -455,11 +455,11 @@ export default function Home() {
       {/* ================= 到达终点 ================= */}
       {hud.phase === 'done' && (
         <EndCard
-          title={`列车已到达 ${plan?.terminal ?? ''}站`}
+          title={`Arrived at ${plan?.terminal ?? ''}`}
           lines={[
-            `本次旅程专注 ${Math.round((plan?.totalFocusSec ?? 0) / 60)} 分钟`,
-            `途经 ${hud.segCount} 个区间 · 行驶 ${hud.distance.toFixed(1)} km`,
-            '感谢乘坐，愿每一段专注都有风景相伴。',
+            `${Math.round((plan?.totalFocusSec ?? 0) / 60)} minutes focused`,
+            `${hud.segCount} segments · ${hud.distance.toFixed(1)} km travelled`,
+            'Thank you for travelling. May every focused stretch have a view.',
           ]}
           onAgain={backToSetup}
         />
@@ -468,10 +468,10 @@ export default function Home() {
       {/* ================= 中途下车 ================= */}
       {hud.phase === 'abort' && (
         <EndCard
-          title="你已在途中下车"
+          title="Journey ended early"
           lines={[
-            `本次专注了 ${Math.floor(focusDone / 60)} 分 ${Math.round(focusDone % 60)} 秒`,
-            '列车已在沿线停稳，准备下一趟行程。',
+            `${Math.floor(focusDone / 60)} min ${Math.round(focusDone % 60)} sec focused`,
+            'The train is stopped safely. Ready for your next journey.',
           ]}
           onAgain={backToSetup}
         />
@@ -480,12 +480,12 @@ export default function Home() {
       {/* 下车确认 */}
       {confirmAbort && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-xs rounded-2xl bg-neutral-900 p-6 text-white shadow-xl">
-            <div className="mb-2 text-lg font-semibold">确定中途下车？</div>
-            <p className="mb-5 text-sm text-white/60">本次旅程尚未到达终点，下车后行程将结束。</p>
+          <div className="max-h-[calc(100svh-2rem)] w-full max-w-xs overflow-y-auto rounded-2xl bg-neutral-900 p-6 text-white shadow-xl">
+            <div className="mb-2 text-lg font-semibold">End this journey?</div>
+            <p className="mb-5 text-sm text-white/60">You have not reached the terminal. Ending now stops this journey.</p>
             <div className="flex gap-3">
-              <button onClick={() => setConfirmAbort(false)} className="flex-1 rounded-lg border border-white/20 py-2 text-sm hover:bg-white/10">继续乘车</button>
-              <button onClick={doAbort} className="flex-1 rounded-lg bg-red-500/90 py-2 text-sm font-medium hover:bg-red-500">下车</button>
+              <button onClick={() => setConfirmAbort(false)} className="flex-1 rounded-lg border border-white/20 py-2 text-sm hover:bg-white/10">Keep riding</button>
+              <button onClick={doAbort} className="flex-1 rounded-lg bg-red-500/90 py-2 text-sm font-medium hover:bg-red-500">End journey</button>
             </div>
           </div>
         </div>
@@ -497,7 +497,7 @@ export default function Home() {
 function EndCard({ title, lines, onAgain }: { title: string; lines: string[]; onAgain: () => void }) {
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/15 bg-black/60 p-8 text-center text-white shadow-2xl backdrop-blur-md">
+      <div className="max-h-[calc(100svh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/15 bg-black/60 p-6 text-center text-white shadow-2xl backdrop-blur-md sm:p-8">
         <TrainFront className="mx-auto mb-3 h-8 w-8 text-amber-300" />
         <div className="mb-3 text-xl font-bold">{title}</div>
         {lines.map((l, i) => (
@@ -505,7 +505,7 @@ function EndCard({ title, lines, onAgain }: { title: string; lines: string[]; on
         ))}
         <button onClick={onAgain}
           className="mt-6 w-full rounded-xl bg-amber-400 py-3 font-bold text-black transition hover:bg-amber-300 active:scale-[0.98]">
-          再乘一班
+          Take another train
         </button>
       </div>
     </div>

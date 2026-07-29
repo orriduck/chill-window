@@ -143,7 +143,7 @@ export default function ThreeCanvas({
     debugMode.perfMonitor = perfMonitor
 
     // Show the origin station at the camera's starting position
-    stations.showStation('始发站', camera.z)
+    stations.showStation('Origin', camera.z)
 
     // Expose speed control to parent
     if (controlRef) {
@@ -275,7 +275,7 @@ export default function ThreeCanvas({
       if (jumpTarget !== null) camera.setZ(jumpTarget)
       if (debugMode.consumeStationProbe()) {
         const stopZ = camera.z + TrainCamera.STATION_PREPARE_DISTANCE
-        stations.showStation('调试站', stopZ + StationManager.APPROACH_STATION_LEAD)
+        stations.showStation('Test Station', stopZ + StationManager.APPROACH_STATION_LEAD)
         debugStationStopZ = stopZ
         debugStationStopTarget = stopZ
         debugStationDwellUntil = null

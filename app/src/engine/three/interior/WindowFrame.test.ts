@@ -4,6 +4,7 @@ import {
   glassReflectionOpacity,
   rainDropFallSpeed,
   rainDropInitialY,
+  windowFrameViewportLayout,
   windowHudSurfaceLayout,
 } from './WindowFrame'
 
@@ -54,5 +55,22 @@ describe('window HUD surfaces', () => {
     expect(clampWindowHudProgress(-0.2)).toBe(0)
     expect(clampWindowHudProgress(0.36)).toBeCloseTo(0.36)
     expect(clampWindowHudProgress(1.2)).toBe(1)
+  })
+})
+
+describe('window frame viewport layout', () => {
+  it('keeps the desktop cabin at its authored scale', () => {
+    const layout = windowFrameViewportLayout(16 / 9)
+
+    expect(layout.frameDistance).toBeCloseTo(2)
+    expect(layout.scale).toBeCloseTo(1)
+  })
+
+  it('steps the real cabin plane back on compact portrait viewports', () => {
+    const layout = windowFrameViewportLayout(393 / 852)
+
+    expect(layout.frameDistance).toBeGreaterThan(2)
+    expect(layout.scale).toBeLessThan(1)
+    expect(layout.yOffset).toBeLessThan(-0.1)
   })
 })

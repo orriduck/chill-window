@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { compactViewportFactor } from '../core/Camera'
 
 const FRAME_DISTANCE = 2
 const WINDOW_FORWARD_OFFSET = 0.5
@@ -34,6 +35,23 @@ export interface WindowHudReadout {
 export type WindowHudSurfaceLayout = {
   top: { x: number; y: number; z: number; width: number; height: number }
   bottom: { x: number; y: number; z: number; width: number; height: number }
+}
+
+export type WindowFrameViewportLayout = {
+  frameDistance: number
+  scale: number
+  yOffset: number
+}
+
+/** Preserve the complete physical aperture on a phone by widening the real camera
+ * and stepping the cabin plane back, rather than flattening it with CSS. */
+export function windowFrameViewportLayout(aspect: number): WindowFrameViewportLayout {
+  const compactness = compactViewportFactor(aspect)
+  return {
+    frameDistance: THREE.MathUtils.lerp(FRAME_DISTANCE, 3.25, compactness),
+    scale: THREE.MathUtils.lerp(1, 0.94, compactness),
+    yOffset: THREE.MathUtils.lerp(GROUP_Y_OFFSET, -0.14, compactness),
+  }
 }
 
 /** Passive rails occupy real cabin/window planes. Their perspective comes
@@ -814,12 +832,14 @@ export class WindowFrame {
     shelter = 0,
     ambientIntensity = 0.45,
   ) {
+    const viewport = windowFrameViewportLayout(camera.aspect)
     this.group.position.set(
-      camera.position.x + FRAME_DISTANCE,
-      camera.position.y + GROUP_Y_OFFSET,
+      camera.position.x + viewport.frameDistance,
+      camera.position.y + viewport.yOffset,
       camera.position.z + WINDOW_FORWARD_OFFSET,
     )
     this.group.rotation.set(0, -Math.PI / 2, 0)
+    this.group.scale.setScalar(viewport.scale)
 
     for (const w of this.wobblers) {
       w.obj.position.y = w.baseY + Math.sin(time * 23 + w.phase) * 0.004

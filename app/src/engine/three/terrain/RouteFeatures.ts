@@ -53,11 +53,11 @@ export interface RouteContext {
 }
 
 const BIOME_LABELS: Record<BiomeType, string> = {
-  field: '田野',
-  forest: '林地',
-  town: '城镇',
-  river: '河谷',
-  mountain: '山地',
+  field: 'Open fields',
+  forest: 'Woodland',
+  town: 'Town',
+  river: 'River valley',
+  mountain: 'Highlands',
 }
 
 function positiveModulo(value: number, divisor: number): number {
@@ -113,7 +113,7 @@ export function routeContextAt(z: number): RouteContext {
   const isLakeshore = lakeBasinStrengthAt(z) >= 0.12
 
   return {
-    currentLabel: isLakeshore ? '湖岸' : BIOME_LABELS[route.current.biome],
+    currentLabel: isLakeshore ? 'Lakeshore' : BIOME_LABELS[route.current.biome],
     nextLabel: BIOME_LABELS[route.next.biome],
   }
 }
