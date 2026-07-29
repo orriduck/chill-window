@@ -446,8 +446,8 @@ export default function Home() {
               top: `${hud.hudAnchor.y * 100}%`,
               right: 'auto',
               bottom: 'auto',
-              transform: `translate(-100%, calc(-100% - 0.35rem)) rotate(${hud.hudAnchor.angle}rad)`,
-              transformOrigin: 'bottom right',
+              transform: `translate(-100%, 0) rotate(${hud.hudAnchor.angle}rad)`,
+              transformOrigin: 'top right',
             } : undefined}
           >
             <button onClick={togglePause} className="journey-control rounded-full bg-black/45 p-2.5 text-white/85 backdrop-blur transition hover:bg-black/65" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}>

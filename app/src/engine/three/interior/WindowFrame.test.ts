@@ -21,8 +21,8 @@ describe('rainDropFallSpeed', () => {
   })
 
   it('spawns foreground rain inside the glass aperture', () => {
-    expect(rainDropInitialY(0)).toBeCloseTo(-1.4)
-    expect(rainDropInitialY(1)).toBeCloseTo(1.4)
+    expect(rainDropInitialY(0)).toBeCloseTo(-1.375)
+    expect(rainDropInitialY(1)).toBeCloseTo(1.375)
     expect(rainDropInitialY(-1)).toBeCloseTo(rainDropInitialY(0))
     expect(rainDropInitialY(2)).toBeCloseTo(rainDropInitialY(1))
   })
