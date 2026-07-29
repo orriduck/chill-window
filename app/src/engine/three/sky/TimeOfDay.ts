@@ -74,11 +74,13 @@ const KEYS: Record<Phase, PhaseKeyframe> = {
     sunColor: 0x000000,
     sunIntensity: 0,
     ambientColor: 0x8197c4,
-    ambientIntensity: 0.24,
+    // Keep close terrain and passing structures legible through the side
+    // window while retaining a distinctly moonlit exposure.
+    ambientIntensity: 0.3,
     dirColor: 0x9baad0,
-    dirIntensity: 0.35,
-    fogNear: 80,
-    fogFar: 520,
+    dirIntensity: 0.45,
+    fogNear: 105,
+    fogFar: 620,
     starOpacity: 1,
   },
 }
