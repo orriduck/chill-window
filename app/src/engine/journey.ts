@@ -45,10 +45,12 @@ export class DepartureScheduler {
 }
 
 const STATION_NAMES = [
-  '青川', '雾岭', '禾木', '白鹭洲', '松溪', '望舒', '栖云', '南浦', '折柳',
-  '听澜', '鹿鸣', '星野', '霜降', '半山', '竹里', '临皋', '石桥', '杏坛',
-  '梅坞', '桑梓', '渭城', '兰陵', '未央', '长乐', '栖霞', '漱玉', '枕流',
-  '晴川', '芳草', '连山', '归雁', '晓风', '残雪', '疏雨', '远浦', '平沙',
+  'Cedar Bay', 'Misty Ridge', 'Fernwood', 'Heron Point', 'Pine Creek', 'Moonvale',
+  'Cloud Rest', 'Southport', 'Willow Bend', 'Lakeview', 'Deerfield', 'Starfield',
+  'Frost Hill', 'Hillside', 'Birch Run', 'Highgate', 'Stonebridge', 'Orchard',
+  'Meadowbrook', 'Maplewood', 'Rivergate', 'Linden', 'Fairhaven', 'Sunset Ridge',
+  'Clearwater', 'Wildflower', 'Northpeak', 'Snowfield', 'Rainford', 'Far Harbor',
+  'Sandmere',
 ];
 
 export function pickStations(n: number, rng: () => number = Math.random): string[] {
@@ -99,17 +101,17 @@ export function journeyBannerText({
   approaching,
   stationName,
 }: JourneyBannerState): string {
-  if (paused) return '行程已暂停';
-  if (dwelling) return '列车经停中';
-  if (approaching) return `即将到达 ${stationName}站`;
-  return `开往 ${stationName}站`;
+  if (paused) return 'Journey paused';
+  if (dwelling) return 'At station';
+  if (approaching) return `Approaching ${stationName}`;
+  return `Towards ${stationName}`;
 }
 
 export const TIME_OPTIONS: { value: TimeOfDay; label: string }[] = [
-  { value: 'morning', label: '清晨' },
-  { value: 'day', label: '白天' },
-  { value: 'dusk', label: '黄昏' },
-  { value: 'night', label: '夜晚' },
+  { value: 'morning', label: 'Dawn' },
+  { value: 'day', label: 'Daylight' },
+  { value: 'dusk', label: 'Dusk' },
+  { value: 'night', label: 'Night' },
 ];
 
 export function formatTime(sec: number): string {

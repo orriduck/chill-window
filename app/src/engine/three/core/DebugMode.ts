@@ -309,30 +309,30 @@ export class DebugMode {
     const distToEnd = segEnd - info.camPos.z
 
     this.hudEl.textContent =
-      `[DEBUG]  F3 HUD  F5 ${info.topDown ? '下车' : '俯瞰'}  F6 无场景\n` +
-      `F7 ${info.terrainDebugView ? '材质权重' : '正常'}  F8 ${info.streamingFrozen ? '冻结流式' : '流式'}\n` +
-      `F4 车站  F9 城镇  F10 湖岸  F11 山地\n` +
+      `[DEBUG]  F3 HUD  F5 ${info.topDown ? 'Cabin view' : 'Aerial view'}  F6 Exterior\n` +
+      `F7 ${info.terrainDebugView ? 'Surface weights' : 'Normal'}  F8 ${info.streamingFrozen ? 'Stream frozen' : 'Streaming'}\n` +
+      `F4 Station  F9 Town  F10 Lakeshore  F11 Highlands\n` +
       `\n` +
       `Camera  x:${info.camPos.x.toFixed(2)}  y:${info.camPos.y.toFixed(2)}  z:${info.camPos.z.toFixed(1)}\n` +
-      `速度    ${info.camSpeed.toFixed(1)} → ${info.targetSpeed.toFixed(1)}  u/s\n` +
-      `纵坡    ${(info.routeGrade * 100).toFixed(2)}%  高程 ${info.routeElevation.toFixed(1)}  pitch ${(info.cameraPitch * 180 / Math.PI).toFixed(2)}°\n` +
+      `Speed   ${info.camSpeed.toFixed(1)} → ${info.targetSpeed.toFixed(1)}  u/s\n` +
+      `Grade   ${(info.routeGrade * 100).toFixed(2)}%  Elevation ${info.routeElevation.toFixed(1)}  pitch ${(info.cameraPitch * 180 / Math.PI).toFixed(2)}°\n` +
       `\n` +
-      `── 场景分块 (${CHUNK_SIZE}u) ──\n` +
-      `当前块  z:${(Math.floor(info.camPos.z / CHUNK_SIZE) * CHUNK_SIZE).toFixed(0)}  (${info.chunkCount} active)\n` +
-      `流式    active ${info.terrain.activeChunks}  queue ${info.terrain.pendingChunks}  +${info.terrain.createdChunks} / -${info.terrain.releasedChunks}\n` +
-      `LOD     ${info.terrain.lods}  城镇 ${info.terrain.cityClusters}\n` +
+      `── Terrain chunks (${CHUNK_SIZE}u) ──\n` +
+      `Chunk   z:${(Math.floor(info.camPos.z / CHUNK_SIZE) * CHUNK_SIZE).toFixed(0)}  (${info.chunkCount} active)\n` +
+      `Stream  active ${info.terrain.activeChunks}  queue ${info.terrain.pendingChunks}  +${info.terrain.createdChunks} / -${info.terrain.releasedChunks}\n` +
+      `LOD     ${info.terrain.lods}  Towns ${info.terrain.cityClusters}\n` +
       `\n` +
-      `── 生态区段 (${info.segmentLength}u) ──\n` +
+      `── Route segment (${info.segmentLength}u) ──\n` +
       `${info.currentBiome} → ${info.nextBiome}\n` +
-      `区段    ${info.segmentStartZ.toFixed(0)} → ${segEnd.toFixed(0)}\n` +
-      `过渡    ${blendStart.toFixed(0)} (${distToBlend.toFixed(0)}u ahead)\n` +
-      `距结束  ${distToEnd.toFixed(0)}u\n` +
+      `Segment ${info.segmentStartZ.toFixed(0)} → ${segEnd.toFixed(0)}\n` +
+      `Blend   ${blendStart.toFixed(0)} (${distToBlend.toFixed(0)}u ahead)\n` +
+      `To end  ${distToEnd.toFixed(0)}u\n` +
       `\n` +
-      `── 性能 ──\n` +
+      `── Performance ──\n` +
       `FPS  ${info.fps}  (${info.frameTime}ms)\n` +
       `Draw  ${info.drawCalls}  Tri  ${(info.triangles / 1000).toFixed(1)}k\n` +
       `\n` +
-      `俯瞰 ${info.topDown ? 'ON' : 'off'}  无场景 ${info.sceneHidden ? 'ON' : 'off'}  流式 ${info.streamingFrozen ? '冻结' : 'ON'}`
+      `Aerial ${info.topDown ? 'ON' : 'off'}  Exterior ${info.sceneHidden ? 'off' : 'ON'}  Streaming ${info.streamingFrozen ? 'frozen' : 'ON'}`
   }
 
   dispose() {

@@ -17,6 +17,23 @@ const BASE_VIEW_PITCH = Math.atan2(LOOK_Y - CAMERA_Y, LOOK_DISTANCE)
 const MAX_VIEW_YAW = 0.24
 const MAX_VIEW_PITCH = 0.1
 const VIEW_SENSITIVITY = 0.0028
+const DESKTOP_FOV = 70
+const COMPACT_FOV = 90
+const COMPACT_ASPECT_START = 0.9
+const COMPACT_ASPECT_FULL = 0.6
+
+/** Blend the cabin camera for portrait-sized viewports without distorting it. */
+export function compactViewportFactor(aspect: number): number {
+  return THREE.MathUtils.clamp(
+    (COMPACT_ASPECT_START - aspect) / (COMPACT_ASPECT_START - COMPACT_ASPECT_FULL),
+    0,
+    1,
+  )
+}
+
+export function cameraFovForAspect(aspect: number): number {
+  return THREE.MathUtils.lerp(DESKTOP_FOV, COMPACT_FOV, compactViewportFactor(aspect))
+}
 
 /**
  * Side-window train camera with speed-controlled vibration.
@@ -51,7 +68,7 @@ export class TrainCamera {
   private viewDirection = new THREE.Vector3()
 
   constructor() {
-    this.camera = new THREE.PerspectiveCamera(70, 1, 0.1, 2000)
+    this.camera = new THREE.PerspectiveCamera(DESKTOP_FOV, 1, 0.1, 2000)
     this.applyViewPose(5, 0)
     // Start stopped at the station — train departs when the journey begins
     this.currentSpeed = 0
@@ -59,7 +76,8 @@ export class TrainCamera {
   }
 
   updateAspect(width: number, height: number) {
-    this.camera.aspect = width / height
+    this.camera.aspect = width / Math.max(height, 1)
+    this.camera.fov = cameraFovForAspect(this.camera.aspect)
     this.camera.updateProjectionMatrix()
   }
 

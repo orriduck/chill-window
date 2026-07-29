@@ -2,16 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DepartureScheduler, journeyBannerText } from './journey'
 
 describe('journey passenger banner', () => {
-  const base = { paused: false, dwelling: false, approaching: false, stationName: '折柳' }
+  const base = { paused: false, dwelling: false, approaching: false, stationName: 'Willow Bend' }
 
   it('announces the next stop only once physical station braking has begun', () => {
-    expect(journeyBannerText(base)).toBe('开往 折柳站')
-    expect(journeyBannerText({ ...base, approaching: true })).toBe('即将到达 折柳站')
+    expect(journeyBannerText(base)).toBe('Towards Willow Bend')
+    expect(journeyBannerText({ ...base, approaching: true })).toBe('Approaching Willow Bend')
   })
 
   it('keeps dwell and pause states ahead of an old approach flag', () => {
-    expect(journeyBannerText({ ...base, approaching: true, dwelling: true })).toBe('列车经停中')
-    expect(journeyBannerText({ ...base, approaching: true, dwelling: true, paused: true })).toBe('行程已暂停')
+    expect(journeyBannerText({ ...base, approaching: true, dwelling: true })).toBe('At station')
+    expect(journeyBannerText({ ...base, approaching: true, dwelling: true, paused: true })).toBe('Journey paused')
   })
 })
 
