@@ -1,6 +1,7 @@
 import { createNoise2D } from 'simplex-noise'
 import type { HeightParams } from './Biome'
 import { trackElevationAt } from './RouteProfile'
+import { lakeBasinStrengthAt } from './RouteFeatures'
 
 /** Track runs along Z at x=0. Terrain is flattened to rail-bed level nearby,
  *  both to avoid clipping through the train and to mimic a real rail corridor. */
@@ -12,6 +13,9 @@ export const RIVER_HALF_WIDTH = 11 // flat water surface half-width
 export const RIVER_BANK = 22 // carve falls off over this distance
 export const RIVER_DEPTH = 2.6 // max carve depth at the channel center
 export const WATER_LEVEL = -0.85 // water surface height at full river strength
+export const LAKE_HALF_WIDTH_BONUS = 24
+export const LAKE_CENTER_SHIFT = 24
+export const MAX_WATER_HALF_WIDTH = RIVER_HALF_WIDTH + LAKE_HALF_WIDTH_BONUS
 
 /** Meandering river centerline, world x for a given z.
  *  Kept close enough that the water is visible over the corridor verge
@@ -20,11 +24,31 @@ export function riverCenterX(z: number): number {
   return 44 + Math.sin(z * 0.0032) * 9 + Math.sin(z * 0.0009 + 2.1) * 5
 }
 
+/** Water, terrain banks, and far-bank access use this one channel profile.
+ * The lakeshore widens away from the rail so the existing parallel road keeps
+ * a dry, believable verge instead of being swallowed by the water. */
+export function waterChannelAt(z: number): {
+  centerX: number
+  halfWidth: number
+  bankHalfWidth: number
+  lakeStrength: number
+} {
+  const lakeStrength = lakeBasinStrengthAt(z)
+  const halfWidth = RIVER_HALF_WIDTH + lakeStrength * LAKE_HALF_WIDTH_BONUS
+  return {
+    centerX: riverCenterX(z) + lakeStrength * LAKE_CENTER_SHIFT,
+    halfWidth,
+    bankHalfWidth: halfWidth + (RIVER_BANK - RIVER_HALF_WIDTH),
+    lakeStrength,
+  }
+}
+
 /** A small far-bank service road continues from the valley bridge to the
  * river village. Keeping it tied to the river prevents a settlement from
  * looking independently scattered across the valley. */
 export function farBankRoadCenterX(z: number): number {
-  return riverCenterX(z) + RIVER_HALF_WIDTH + 14
+  const channel = waterChannelAt(z)
+  return channel.centerX + channel.halfWidth + 14
 }
 
 /** River surface shares the route elevation so valley infrastructure and
@@ -81,12 +105,17 @@ export class TerrainGen {
     // Guards keep the carve off the rail bed and the parallel valley road.
     const river = params.river ?? 0
     if (river > 0.01) {
-      const dRiver = Math.abs(x - riverCenterX(z))
-      if (dRiver < RIVER_BANK) {
+      const channel = waterChannelAt(z)
+      const dRiver = Math.abs(x - channel.centerX)
+      if (dRiver < channel.bankHalfWidth) {
         const railGuard = smoothstep(Math.min(Math.max((dist - 12) / 8, 0), 1))
         const roadDistance = Math.abs(x - roadCenterX(z))
         const roadGuard = smoothstep(Math.min(Math.max((roadDistance - ROAD_HALF_WIDTH) / 3.5, 0), 1))
-        height -= smoothstep(1 - dRiver / RIVER_BANK) * RIVER_DEPTH * river * railGuard * roadGuard
+        const bankT = Math.min(Math.max((dRiver - channel.halfWidth) / (channel.bankHalfWidth - channel.halfWidth), 0), 1)
+        const bankCarve = 1 - smoothstep(bankT)
+        // The full water surface is a flat channel bed; the eased outer bank
+        // meets it continuously, so a widened lake cannot expose dry ridges.
+        height -= bankCarve * RIVER_DEPTH * river * railGuard * roadGuard
       }
     }
 

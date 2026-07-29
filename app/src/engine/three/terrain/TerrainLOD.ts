@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import {
   TerrainGen, TRACK_FLAT_HALF,
-  riverCenterX, RIVER_BANK, RIVER_HALF_WIDTH,
+  waterChannelAt,
   roadCenterX, ROAD_HALF_WIDTH, ROAD_VERGE,
   farBankRoadCenterX,
 } from './TerrainGen'
@@ -584,7 +584,8 @@ if ( terrainDebugView > 0.5 ) {
 
         if (Math.abs(x) < TRACK_FLAT_HALF + 5) continue
         if ((biome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
-        if (riverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 1.5) continue
+        const channel = waterChannelAt(z)
+        if (riverStrength > 0.2 && Math.abs(x - channel.centerX) < channel.bankHalfWidth + 1.5) continue
         if (this.isRiverVillageClearing(x, z)) continue
 
         // Reuse the terrain grid created for this chunk. This keeps every
@@ -730,9 +731,10 @@ if ( terrainDebugView > 0.5 ) {
       // River banks: sandy shore hugging the channel when the river is active
       const riverStrength = params.river ?? 0
       if (riverStrength > 0.05) {
-        const riverD = Math.abs(x - riverCenterX(z))
-        if (riverD < RIVER_BANK && riverD > RIVER_HALF_WIDTH * 0.7) {
-          const t = THREE.MathUtils.smoothstep((riverD - RIVER_HALF_WIDTH) / (RIVER_BANK - RIVER_HALF_WIDTH), 0, 1)
+        const channel = waterChannelAt(z)
+        const riverD = Math.abs(x - channel.centerX)
+        if (riverD < channel.bankHalfWidth && riverD > channel.halfWidth * 0.7) {
+          const t = THREE.MathUtils.smoothstep((riverD - channel.halfWidth) / (channel.bankHalfWidth - channel.halfWidth), 0, 1)
           const sandy = this.lerpColor(cols.sand, this.rgbToHex(color), t)
           color = { ...sandy, isGround: false }
         }
@@ -744,9 +746,10 @@ if ( terrainDebugView > 0.5 ) {
       const edgeNoise = (hash01(x * 0.23, z * 0.23) - 0.5) * 0.16
       const trackWeight = 1 - THREE.MathUtils.smoothstep(dist + edgeNoise, 5, 11)
       const roadWeight = roadStrength * (1 - THREE.MathUtils.smoothstep(roadD + edgeNoise, ROAD_HALF_WIDTH, ROAD_VERGE + 1.2))
-      const riverD = Math.abs(x - riverCenterX(z))
+      const channel = waterChannelAt(z)
+      const riverD = Math.abs(x - channel.centerX)
       const riverBankWeight = riverStrength > 0.05
-        ? 1 - THREE.MathUtils.smoothstep(riverD + edgeNoise, RIVER_HALF_WIDTH * 0.7, RIVER_BANK)
+        ? 1 - THREE.MathUtils.smoothstep(riverD + edgeNoise, channel.halfWidth * 0.7, channel.bankHalfWidth)
         : 0
       const gravelWeight = Math.max(trackWeight, roadWeight, riverBankWeight)
 
@@ -855,7 +858,8 @@ if ( terrainDebugView > 0.5 ) {
       // Keep the country road clear
       if ((localBiome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
       // Keep the river channel clear
-      if (localRiverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 2) continue
+      const channel = waterChannelAt(z)
+      if (localRiverStrength > 0.2 && Math.abs(x - channel.centerX) < channel.bankHalfWidth + 2) continue
       // Planned river access and house lots stay free of random vegetation.
       if (this.isRiverVillageClearing(x, z)) continue
 
@@ -952,7 +956,8 @@ if ( terrainDebugView > 0.5 ) {
     const villageZ = segmentStart + RIVER_VILLAGE_OFFSET
     const farRoadX = farBankRoadCenterX(z)
     if (z >= bridgeZ - 4 && z <= villageZ + 128 && Math.abs(x - farRoadX) < 5.5) return true
-    if (Math.abs(z - villageZ) < 110 && x > riverCenterX(z) + RIVER_HALF_WIDTH - 2 && x < farRoadX + 15) return true
+    const channel = waterChannelAt(z)
+    if (Math.abs(z - villageZ) < 110 && x > channel.centerX + channel.halfWidth - 2 && x < farRoadX + 15) return true
     return false
   }
 

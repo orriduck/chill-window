@@ -3,8 +3,12 @@ import { createSeededRandom, hash01, seedFromGrid } from '../core/procedural'
 import {
   MOUNTAIN_TUNNEL_LENGTH,
   MOUNTAIN_TUNNEL_OFFSET,
+  RIVER_LAKE_FADE_LENGTH,
+  RIVER_LAKE_HALF_LENGTH,
+  RIVER_LAKE_OFFSET,
   RIVER_BRIDGE_OFFSET,
   RIVER_VILLAGE_OFFSET,
+  lakeBasinStrengthAt,
   ROUTE_BLEND_LENGTH,
   ROUTE_SEGMENT_LENGTH,
   routeFeatureForSegment,
@@ -43,12 +47,18 @@ describe('route features', () => {
     const mountainStart = mountainSegment * ROUTE_SEGMENT_LENGTH
     const bridgeZ = riverStart + RIVER_BRIDGE_OFFSET
     const villageZ = riverStart + RIVER_VILLAGE_OFFSET
+    const lakeCenter = riverStart + RIVER_LAKE_OFFSET
     const tunnelCenter = mountainStart + MOUNTAIN_TUNNEL_OFFSET
 
     expect(routeFeatureForSegment(riverSegment).biome).toBe('river')
     expect(bridgeZ).toBeGreaterThan(riverStart)
     expect(villageZ).toBeGreaterThan(bridgeZ)
-    expect(villageZ).toBeLessThan(riverStart + ROUTE_SEGMENT_LENGTH)
+    expect(lakeCenter - RIVER_LAKE_HALF_LENGTH - RIVER_LAKE_FADE_LENGTH).toBeGreaterThan(villageZ)
+    expect(lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH).toBeLessThan(riverStart + ROUTE_SEGMENT_LENGTH)
+    expect(lakeBasinStrengthAt(lakeCenter)).toBe(1)
+    expect(lakeBasinStrengthAt(lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH)).toBe(0)
+    expect(lakeBasinStrengthAt(lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH / 2)).toBeGreaterThan(0)
+    expect(lakeBasinStrengthAt(mountainStart + 20)).toBe(0)
 
     expect(routeFeatureForSegment(mountainSegment).tunnel).toBe(true)
     expect(tunnelCenter).toBeGreaterThan(mountainStart)

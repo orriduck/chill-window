@@ -12,7 +12,7 @@ const CHUNK_SIZE = 256
  *   F6  — toggle scene-hidden mode (hide everything but window frame)
  *   F7  — toggle terrain surface-mask diagnostics
  *   F8  — freeze / resume terrain streaming
- *   F9/F10/F11 — jump to the planned town, river, or mountain debug probes
+ *   F9/F10/F11 — jump to the planned town, lakeshore, or mountain debug probes
  */
 export class DebugMode {
   // ---- HUD level ----
@@ -100,7 +100,7 @@ export class DebugMode {
         break
       case 'F10':
         e.preventDefault()
-        this.jumpTarget = 4900
+        this.jumpTarget = 5450
         break
       case 'F11':
         e.preventDefault()
@@ -311,7 +311,7 @@ export class DebugMode {
     this.hudEl.textContent =
       `[DEBUG]  F3 HUD  F5 ${info.topDown ? '下车' : '俯瞰'}  F6 无场景\n` +
       `F7 ${info.terrainDebugView ? '材质权重' : '正常'}  F8 ${info.streamingFrozen ? '冻结流式' : '流式'}\n` +
-      `F4 车站  F9 城镇  F10 河谷  F11 山地\n` +
+      `F4 车站  F9 城镇  F10 湖岸  F11 山地\n` +
       `\n` +
       `Camera  x:${info.camPos.x.toFixed(2)}  y:${info.camPos.y.toFixed(2)}  z:${info.camPos.z.toFixed(1)}\n` +
       `速度    ${info.camSpeed.toFixed(1)} → ${info.targetSpeed.toFixed(1)}  u/s\n` +

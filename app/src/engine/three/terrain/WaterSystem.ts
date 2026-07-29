@@ -1,10 +1,10 @@
 import * as THREE from 'three'
-import { riverCenterX, riverWaterElevationAt, RIVER_HALF_WIDTH } from './TerrainGen'
+import { MAX_WATER_HALF_WIDTH, riverWaterElevationAt, waterChannelAt } from './TerrainGen'
 
 const RIBBON_LENGTH = 700 // water follows the camera over this Z window
 const RIBBON_BEHIND = 140 // how far behind the camera the ribbon extends
 const SEGMENTS = 140 // lengthwise segments (~5 units each)
-const RIBBON_WIDTH = RIVER_HALF_WIDTH * 2 + 3
+const RIBBON_WIDTH = MAX_WATER_HALF_WIDTH * 2 + 3
 
 /** Slow-moving river water: a ribbon mesh that tracks the meandering
  *  channel centreline. Vertices are rebuilt in world space each update
@@ -68,8 +68,8 @@ export class WaterSystem {
     for (let v = 0; v < this.localX.length; v++) {
       const localX = this.localX[v]
       const worldZ = zStart + this.rowT[v] * RIBBON_LENGTH
-      const cx = riverCenterX(worldZ)
-      pos[v * 3] = cx + localX
+      const channel = waterChannelAt(worldZ)
+      pos[v * 3] = channel.centerX + localX * (channel.halfWidth / (RIBBON_WIDTH / 2))
       const waterY = riverWaterElevationAt(worldZ, strength)
       pos[v * 3 + 1] = waterY + Math.sin(time * 1.2 + worldZ * 0.35 + localX * 0.6) * 0.05
       pos[v * 3 + 2] = worldZ
