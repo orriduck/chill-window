@@ -5,7 +5,13 @@ import {
   riverWaterElevationAt,
   roadCenterX,
 } from '../terrain/TerrainGen'
-import { RIVER_BRIDGE_OFFSET, ROUTE_SEGMENT_LENGTH, routeFeatureForSegment } from '../terrain/RouteFeatures'
+import {
+  DEFAULT_ROUTE_PLAN,
+  RIVER_BRIDGE_OFFSET,
+  ROUTE_SEGMENT_LENGTH,
+  routeFeatureForSegment,
+  type RoutePlan,
+} from '../terrain/RouteFeatures'
 import { trackElevationAt } from '../terrain/RouteProfile'
 
 const BUILD_AHEAD = 900
@@ -107,11 +113,16 @@ export class ValleyBridgeManager {
   readonly group = new THREE.Group()
   private bridge: ValleyRoadBridge | null = null
   private bridgeZ = 0
+  private routePlan: RoutePlan
+
+  constructor(routePlan: RoutePlan = DEFAULT_ROUTE_PLAN) {
+    this.routePlan = routePlan
+  }
 
   private nextBridgeZ(camZ: number): number {
     const firstSegment = Math.floor((camZ - RIVER_BRIDGE_OFFSET) / ROUTE_SEGMENT_LENGTH)
     for (let segment = firstSegment; segment < firstSegment + 12; segment++) {
-      if (routeFeatureForSegment(segment).biome !== 'river') continue
+      if (routeFeatureForSegment(segment, this.routePlan).biome !== 'river') continue
       const z = segment * ROUTE_SEGMENT_LENGTH + RIVER_BRIDGE_OFFSET
       if (z > camZ - 50) return z
     }

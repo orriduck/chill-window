@@ -8,6 +8,7 @@ import {
 } from './TerrainGen'
 import { createTownRoadBridge } from './TownRoadBridge'
 import type { TownProfile } from './SettlementProfile'
+import { DEFAULT_ROUTE_PLAN, type RoutePlan } from './RouteFeatures'
 
 /** European-style building factories + town cluster generator.
  *  All textures are canvas-generated; no external assets.
@@ -446,6 +447,7 @@ export function createRiverVillage(
   villageZ: number,
   sampleHeight: HeightSampler,
   random: RandomSource = Math.random,
+  routePlan: RoutePlan = DEFAULT_ROUTE_PLAN,
 ): THREE.Group {
   const village = new THREE.Group()
   const roadMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.94 })
@@ -462,7 +464,7 @@ export function createRiverVillage(
     const positions = geometry.attributes.position.array as Float32Array
     for (let i = 0; i < positions.length; i += 3) {
       const z = startZ + positions[i + 2] + length / 2
-      const x = farBankRoadCenterX(z) + positions[i]
+      const x = farBankRoadCenterX(z, routePlan) + positions[i]
       positions[i] = x
       positions[i + 1] = sampleHeight(x, z) + 0.075
       positions[i + 2] = z
@@ -476,7 +478,7 @@ export function createRiverVillage(
   const addBridgeSpur = () => {
     const riverX = riverCenterX(bridgeZ)
     const bridgeEndX = riverX + RIVER_HALF_WIDTH + 6
-    const roadX = farBankRoadCenterX(bridgeZ)
+    const roadX = farBankRoadCenterX(bridgeZ, routePlan)
     const length = roadX - bridgeEndX + 1.4
     const centerX = bridgeEndX + length / 2
     const geometry = new THREE.PlaneGeometry(length, 3.8, 6, 1)
@@ -506,7 +508,7 @@ export function createRiverVillage(
     { z: villageZ + 76, side: 1, offset: 5.9 },
   ]
   for (const home of homes) {
-    const roadX = farBankRoadCenterX(home.z)
+    const roadX = farBankRoadCenterX(home.z, routePlan)
     const x = roadX + home.side * home.offset
     const house = createHouse(random)
     house.position.set(x, sampleHeight(x, home.z) - 0.14, home.z)

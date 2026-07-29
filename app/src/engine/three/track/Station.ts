@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 import { roadCenterX } from '../terrain/TerrainGen'
 import {
+  DEFAULT_ROUTE_PLAN,
   routeBeatForSegment,
   ROUTE_SEGMENT_LENGTH,
   type RoutePlan,
@@ -992,6 +993,7 @@ export class StationManager {
   private current: Station | null = null
   private currentZ = 0
   private hideTimer = 0
+  private routePlan: RoutePlan
 
   /** The manager must retain the longest profile until its scaled geometry
    * has actually cleared the camera, rather than using the regional baseline. */
@@ -1003,10 +1005,14 @@ export class StationManager {
   /** Grace period after the station leaves view before hiding (seconds). */
   private static readonly HIDE_DELAY = 0.8
 
+  constructor(routePlan: RoutePlan = DEFAULT_ROUTE_PLAN) {
+    this.routePlan = routePlan
+  }
+
   /** Show a station at the given Z center. Replaces any existing station. */
   showStation(name: string, zCenter: number, kind?: StationVisualKind) {
     this.hideStation()
-    this.current = new Station(name, zCenter, kind)
+    this.current = new Station(name, zCenter, kind ?? stationVisualKindAt(zCenter, this.routePlan))
     this.currentZ = zCenter
     this.hideTimer = 0
     this.group.add(this.current.group)

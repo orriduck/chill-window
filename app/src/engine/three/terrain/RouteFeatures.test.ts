@@ -50,6 +50,19 @@ describe('route features', () => {
     }
   })
 
+  it('lets an injected plan move urban, river, and HUD semantics together', () => {
+    const urbanRoute = createRoutePlan(3)
+    const urbanSegment = 2 * ROUTE_SEGMENT_LENGTH
+    const riverLake = 3 * ROUTE_SEGMENT_LENGTH + RIVER_LAKE_OFFSET
+
+    expect(routeFeatureForSegment(2, urbanRoute).biome).toBe('town')
+    expect(routeBeatForSegment(2, urbanRoute).station).toBe('urban-through')
+    expect(routeContextAt(urbanSegment, urbanRoute)).toEqual({ currentLabel: 'Town', nextLabel: 'River valley' })
+    expect(lakeBasinStrengthAt(riverLake, urbanRoute)).toBe(1)
+    expect(waterChannelAt(riverLake, urbanRoute).halfWidth).toBeGreaterThan(RIVER_HALF_WIDTH)
+    expect(waterChannelAt(riverLake).halfWidth).toBe(RIVER_HALF_WIDTH)
+  })
+
   it('rejects impossible railway geography before a route can render it', () => {
     const mountain = routeBeatForSegment(6)
     expect(routeBeatIssues({ ...mountain, landform: 'rolling' })).toContain('tunnels require mountain landform')

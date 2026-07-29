@@ -12,9 +12,11 @@ import {
   RIVER_BRIDGE_OFFSET,
   RIVER_VILLAGE_OFFSET,
   ROUTE_SEGMENT_LENGTH,
+  DEFAULT_ROUTE_PLAN,
   routeBeatForSegment,
   routeFeatureForSegment,
   sampleRouteFeature,
+  type RoutePlan,
 } from './RouteFeatures'
 import { createRiverVillage, createTownCluster, isTownPlannedFootprint } from './TownGenerator'
 import { isTownRoadBridgeFootprint } from './TownRoadBridge'
@@ -81,7 +83,8 @@ type SurfaceHeightSampler = (x: number, z: number) => number
 
 export class TerrainLOD {
   private parent: THREE.Object3D
-  private terrainGen = new TerrainGen()
+  private terrainGen: TerrainGen
+  private routePlan: RoutePlan
   private chunks = new Map<string, Chunk>()
   private frameCount = 0
   private material: THREE.MeshStandardMaterial
@@ -131,8 +134,14 @@ export class TerrainLOD {
   private bareTreeBranchGeom!: THREE.CylinderGeometry
   private bareTreeMat!: THREE.MeshStandardMaterial
 
-  constructor(scene: THREE.Object3D, biome: BiomeType = 'field') {
+  constructor(
+    scene: THREE.Object3D,
+    biome: BiomeType = 'field',
+    routePlan: RoutePlan = DEFAULT_ROUTE_PLAN,
+  ) {
     this.parent = scene
+    this.routePlan = routePlan
+    this.terrainGen = new TerrainGen(routePlan)
     const initial = this.getBiomeAt(0)
     this.currentBiome = biome === initial.type ? biome : initial.type
     this.nextBiome = initial.next
@@ -480,7 +489,7 @@ if ( terrainDebugView > 0.5 ) {
   // ---- Biome transitions ----
 
   private getBiomeAt(z: number): BiomeSample {
-    const route = sampleRouteFeature(z)
+    const route = sampleRouteFeature(z, this.routePlan)
     const from = getBiomeConfig(route.current.biome)
     const to = getBiomeConfig(route.next.biome)
     return {
@@ -612,13 +621,13 @@ if ( terrainDebugView > 0.5 ) {
         const z = worldZ + ri * spacing + spacing / 2 + jz
         const biome = this.getBiomeAt(z)
         const riverStrength = biome.params.river ?? 0
-        const channel = waterChannelAt(z)
+        const channel = waterChannelAt(z, this.routePlan)
 
         if (Math.abs(x) < TRACK_FLAT_HALF + 5) continue
         if ((biome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
         if (this.isTownPlannedFootprint(x, z)) continue
         if (this.isTownRoadBridgeFootprint(x, z)) continue
-        if (channel.lakeStrength > 0.1 && Math.abs(x - farBankRoadCenterX(z)) < ROAD_VERGE + 1) continue
+        if (channel.lakeStrength > 0.1 && Math.abs(x - farBankRoadCenterX(z, this.routePlan)) < ROAD_VERGE + 1) continue
         if (riverStrength > 0.2 && Math.abs(x - channel.centerX) < channel.bankHalfWidth + 1.5) continue
         if (this.isRiverVillageClearing(x, z)) continue
 
@@ -750,7 +759,7 @@ if ( terrainDebugView > 0.5 ) {
 
       // Country road: packed dirt lane with darker wheel ruts, grass verge
       // blend on the edges. Asphalt when passing through town.
-      const channel = waterChannelAt(z)
+      const channel = waterChannelAt(z, this.routePlan)
       const roadD = Math.abs(x - roadCenterX(z))
       const roadStrength = params.road ?? 0
       if (roadStrength > 0.01 && roadD < ROAD_VERGE && dist >= 6) {
@@ -766,7 +775,7 @@ if ( terrainDebugView > 0.5 ) {
 
       // The far-bank access road is not a disconnected decorative stripe:
       // it only exists while the shared lakeshore channel is open.
-      const lakeRoadD = Math.abs(x - farBankRoadCenterX(z))
+      const lakeRoadD = Math.abs(x - farBankRoadCenterX(z, this.routePlan))
       if (channel.lakeStrength > 0.01 && lakeRoadD < ROAD_VERGE && dist >= 6) {
         const speck = 0.9 + hash01(x * 7.3, z * 7.3) * 0.2
         let roadTone = ROAD_DIRT
@@ -899,6 +908,7 @@ if ( terrainDebugView > 0.5 ) {
         riverVillageSite.z,
         (x, z) => this.sampleHeight(x, z),
         random,
+        this.routePlan,
       ))
       cityClusters++
     }
@@ -911,7 +921,7 @@ if ( terrainDebugView > 0.5 ) {
       if (!isDecorationInsideChunk(x, z, worldX, worldZ)) continue
       const localBiome = this.getBiomeAt(z)
       const localRiverStrength = localBiome.params.river ?? 0
-      const channel = waterChannelAt(z)
+      const channel = waterChannelAt(z, this.routePlan)
 
       // Keep the rail corridor clear of trees/rocks
       if (Math.abs(x) < TRACK_FLAT_HALF + 4) continue
@@ -919,7 +929,7 @@ if ( terrainDebugView > 0.5 ) {
       if ((localBiome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
       if (this.isTownPlannedFootprint(x, z)) continue
       if (this.isTownRoadBridgeFootprint(x, z)) continue
-      if (channel.lakeStrength > 0.1 && Math.abs(x - farBankRoadCenterX(z)) < ROAD_VERGE + 1) continue
+      if (channel.lakeStrength > 0.1 && Math.abs(x - farBankRoadCenterX(z, this.routePlan)) < ROAD_VERGE + 1) continue
       // Keep the river channel clear
       if (localRiverStrength > 0.2 && Math.abs(x - channel.centerX) < channel.bankHalfWidth + 2) continue
       // Planned river access and house lots stay free of random vegetation.
@@ -984,7 +994,7 @@ if ( terrainDebugView > 0.5 ) {
   private getTownSite(chunkX: number, chunkZ: number): { x: number; z: number; profile: TownProfile } | null {
     const firstSegment = Math.floor((chunkZ * CHUNK_SIZE) / ROUTE_SEGMENT_LENGTH) - 1
     for (let segmentIndex = firstSegment; segmentIndex <= firstSegment + 2; segmentIndex++) {
-      const profile = townProfileForSettlement(routeBeatForSegment(segmentIndex).settlement)
+      const profile = townProfileForSettlement(routeBeatForSegment(segmentIndex, this.routePlan).settlement)
       if (!profile) continue
 
       const site = this.townSiteForSegment(segmentIndex)
@@ -1004,7 +1014,7 @@ if ( terrainDebugView > 0.5 ) {
 
   private isTownPlannedFootprint(x: number, z: number): boolean {
     const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
-    const profile = townProfileForSettlement(routeBeatForSegment(segmentIndex).settlement)
+    const profile = townProfileForSettlement(routeBeatForSegment(segmentIndex, this.routePlan).settlement)
     if (!profile) return false
     const site = this.townSiteForSegment(segmentIndex)
     return isTownPlannedFootprint(x, z, site.x, site.z, profile)
@@ -1012,7 +1022,7 @@ if ( terrainDebugView > 0.5 ) {
 
   private isTownRoadBridgeFootprint(x: number, z: number): boolean {
     const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
-    if (routeFeatureForSegment(segmentIndex).biome !== 'town') return false
+    if (routeFeatureForSegment(segmentIndex, this.routePlan).biome !== 'town') return false
     const site = this.townSiteForSegment(segmentIndex)
     return isTownRoadBridgeFootprint(x, z, site.x, site.z)
   }
@@ -1022,10 +1032,10 @@ if ( terrainDebugView > 0.5 ) {
   private getRiverVillageSite(chunkX: number, chunkZ: number): { bridgeZ: number; x: number; z: number } | null {
     const firstSegment = Math.floor((chunkZ * CHUNK_SIZE) / ROUTE_SEGMENT_LENGTH) - 1
     for (let segmentIndex = firstSegment; segmentIndex <= firstSegment + 2; segmentIndex++) {
-      if (routeFeatureForSegment(segmentIndex).biome !== 'river') continue
+      if (routeFeatureForSegment(segmentIndex, this.routePlan).biome !== 'river') continue
       const segmentStart = segmentIndex * ROUTE_SEGMENT_LENGTH
       const z = segmentStart + RIVER_VILLAGE_OFFSET
-      const x = farBankRoadCenterX(z)
+      const x = farBankRoadCenterX(z, this.routePlan)
       if (Math.floor(x / CHUNK_SIZE) === chunkX && Math.floor(z / CHUNK_SIZE) === chunkZ) {
         return { bridgeZ: segmentStart + RIVER_BRIDGE_OFFSET, x, z }
       }
@@ -1037,13 +1047,13 @@ if ( terrainDebugView > 0.5 ) {
    * purpose. This is calculated from world coordinates for every chunk. */
   private isRiverVillageClearing(x: number, z: number): boolean {
     const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
-    if (routeFeatureForSegment(segmentIndex).biome !== 'river') return false
+    if (routeFeatureForSegment(segmentIndex, this.routePlan).biome !== 'river') return false
     const segmentStart = segmentIndex * ROUTE_SEGMENT_LENGTH
     const bridgeZ = segmentStart + RIVER_BRIDGE_OFFSET
     const villageZ = segmentStart + RIVER_VILLAGE_OFFSET
-    const farRoadX = farBankRoadCenterX(z)
+    const farRoadX = farBankRoadCenterX(z, this.routePlan)
     if (z >= bridgeZ - 4 && z <= villageZ + 128 && Math.abs(x - farRoadX) < 5.5) return true
-    const channel = waterChannelAt(z)
+    const channel = waterChannelAt(z, this.routePlan)
     if (Math.abs(z - villageZ) < 110 && x > channel.centerX + channel.halfWidth - 2 && x < farRoadX + 15) return true
     return false
   }
