@@ -5,10 +5,9 @@ import {
   riverWaterElevationAt,
   roadCenterX,
 } from '../terrain/TerrainGen'
-import { ROUTE_SEGMENT_LENGTH, routeFeatureForSegment } from '../terrain/RouteFeatures'
+import { RIVER_BRIDGE_OFFSET, ROUTE_SEGMENT_LENGTH, routeFeatureForSegment } from '../terrain/RouteFeatures'
 import { trackElevationAt } from '../terrain/RouteProfile'
 
-const BRIDGE_OFFSET = 420
 const BUILD_AHEAD = 900
 const DISPOSE_BEHIND = 650
 
@@ -110,10 +109,10 @@ export class ValleyBridgeManager {
   private bridgeZ = 0
 
   private nextBridgeZ(camZ: number): number {
-    const firstSegment = Math.floor((camZ - BRIDGE_OFFSET) / ROUTE_SEGMENT_LENGTH)
+    const firstSegment = Math.floor((camZ - RIVER_BRIDGE_OFFSET) / ROUTE_SEGMENT_LENGTH)
     for (let segment = firstSegment; segment < firstSegment + 12; segment++) {
       if (routeFeatureForSegment(segment).biome !== 'river') continue
-      const z = segment * ROUTE_SEGMENT_LENGTH + BRIDGE_OFFSET
+      const z = segment * ROUTE_SEGMENT_LENGTH + RIVER_BRIDGE_OFFSET
       if (z > camZ - 50) return z
     }
     return Number.POSITIVE_INFINITY

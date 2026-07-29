@@ -1,5 +1,11 @@
 import * as THREE from 'three'
 import type { RandomSource } from '../core/procedural'
+import {
+  farBankRoadCenterX,
+  RIVER_HALF_WIDTH,
+  riverCenterX,
+  riverWaterElevationAt,
+} from './TerrainGen'
 
 /** European-style building factories + town cluster generator.
  *  All textures are canvas-generated; no external assets.
@@ -382,4 +388,124 @@ export function createTownCluster(
   }
 
   return town
+}
+
+/**
+ * A deliberately small settlement on the far river bank. The bridge and its
+ * access road are fixed route features; this cluster gives those works a
+ * reason to exist without turning the whole valley into another town biome.
+ */
+export function createRiverVillage(
+  bridgeZ: number,
+  villageZ: number,
+  sampleHeight: HeightSampler,
+  random: RandomSource = Math.random,
+): THREE.Group {
+  const village = new THREE.Group()
+  const roadMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.94 })
+  const gravelMat = new THREE.MeshStandardMaterial({ color: 0x898075, roughness: 0.98 })
+  const timberMat = new THREE.MeshStandardMaterial({ color: 0x70513b, roughness: 0.9 })
+  const boatMat = new THREE.MeshStandardMaterial({ color: 0x425e72, roughness: 0.62, metalness: 0.12 })
+
+  const addLongitudinalRoad = () => {
+    const startZ = bridgeZ - 2
+    const endZ = villageZ + 118
+    const length = endZ - startZ
+    const geometry = new THREE.PlaneGeometry(3.8, length, 1, Math.ceil(length / 8))
+    geometry.rotateX(-Math.PI / 2)
+    const positions = geometry.attributes.position.array as Float32Array
+    for (let i = 0; i < positions.length; i += 3) {
+      const z = startZ + positions[i + 2] + length / 2
+      const x = farBankRoadCenterX(z) + positions[i]
+      positions[i] = x
+      positions[i + 1] = sampleHeight(x, z) + 0.075
+      positions[i + 2] = z
+    }
+    geometry.computeVertexNormals()
+    const road = new THREE.Mesh(geometry, roadMat)
+    road.receiveShadow = true
+    village.add(road)
+  }
+
+  const addBridgeSpur = () => {
+    const riverX = riverCenterX(bridgeZ)
+    const bridgeEndX = riverX + RIVER_HALF_WIDTH + 6
+    const roadX = farBankRoadCenterX(bridgeZ)
+    const length = roadX - bridgeEndX + 1.4
+    const centerX = bridgeEndX + length / 2
+    const geometry = new THREE.PlaneGeometry(length, 3.8, 6, 1)
+    geometry.rotateX(-Math.PI / 2)
+    const positions = geometry.attributes.position.array as Float32Array
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = centerX + positions[i]
+      const z = bridgeZ + positions[i + 2]
+      positions[i] = x
+      positions[i + 1] = sampleHeight(x, z) + 0.08
+      positions[i + 2] = z
+    }
+    geometry.computeVertexNormals()
+    const spur = new THREE.Mesh(geometry, roadMat)
+    spur.receiveShadow = true
+    village.add(spur)
+  }
+
+  addLongitudinalRoad()
+  addBridgeSpur()
+
+  // Four houses are enough to read as a lived-in hamlet instead of a town.
+  const homes = [
+    { z: villageZ - 62, side: 1, offset: 6.4 },
+    { z: villageZ - 18, side: -1, offset: 5.8 },
+    { z: villageZ + 31, side: 1, offset: 7.2 },
+    { z: villageZ + 76, side: 1, offset: 5.9 },
+  ]
+  for (const home of homes) {
+    const roadX = farBankRoadCenterX(home.z)
+    const x = roadX + home.side * home.offset
+    const house = createHouse(random)
+    house.position.set(x, sampleHeight(x, home.z) - 0.14, home.z)
+    house.rotation.y = home.side > 0 ? -Math.PI / 2 : Math.PI / 2
+    village.add(house)
+
+    // A short gravel driveway makes the house-road relationship visible.
+    const driveLength = Math.max(2, home.offset - 1.8)
+    const driveGeometry = new THREE.PlaneGeometry(driveLength, 1.25, 3, 1)
+    driveGeometry.rotateX(-Math.PI / 2)
+    const drive = new THREE.Mesh(driveGeometry, gravelMat)
+    const drivePositions = driveGeometry.attributes.position.array as Float32Array
+    const driveCenterX = roadX + home.side * (1.8 + driveLength / 2)
+    for (let i = 0; i < drivePositions.length; i += 3) {
+      const wx = driveCenterX + drivePositions[i]
+      const wz = home.z + drivePositions[i + 2]
+      drivePositions[i] = wx
+      drivePositions[i + 1] = sampleHeight(wx, wz) + 0.09
+      drivePositions[i + 2] = wz
+    }
+    driveGeometry.computeVertexNormals()
+    drive.receiveShadow = true
+    village.add(drive)
+  }
+
+  // Small timber jetty: tied to the same river centerline, not the road mesh.
+  const dockZ = villageZ - 8
+  const riverX = riverCenterX(dockZ)
+  const waterY = riverWaterElevationAt(dockZ)
+  const dock = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.16, 3.1), timberMat)
+  dock.position.set(riverX + RIVER_HALF_WIDTH - 3.4, waterY + 0.16, dockZ)
+  dock.castShadow = true
+  dock.receiveShadow = true
+  village.add(dock)
+  for (const x of [riverX + RIVER_HALF_WIDTH - 6.8, riverX + RIVER_HALF_WIDTH - 0.6]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 1.05, 6), timberMat)
+    post.position.set(x, waterY + 0.46, dockZ + 1.15)
+    post.castShadow = true
+    village.add(post)
+  }
+  const boat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.28, 0.85), boatMat)
+  boat.position.set(riverX + 1.5, waterY + 0.28, dockZ - 2.2)
+  boat.rotation.y = -0.1
+  boat.castShadow = true
+  village.add(boat)
+
+  return village
 }
