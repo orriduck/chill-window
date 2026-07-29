@@ -9,6 +9,8 @@ export interface TrainSoundMix {
   tractionGain: number
   brakeGain: number
   tractionHz: number
+  brakeHz: number
+  brakeInverterGain: number
   railInterval: number
   railGain: number
   brakePulseInterval: number
@@ -20,8 +22,8 @@ function clamp(value: number, min = 0, max = 1): number {
 }
 
 /** A quiet electric commuter profile: traction rises while pulling away,
- * rolling texture takes over at cruise, and pneumatic/friction noise appears
- * only while the train is physically slowing down. */
+ * rolling texture takes over at cruise, and electrodynamic braking adds a
+ * separate descending inverter layer before pneumatic/friction texture. */
 export function trainSoundMix(motion: TrainAudioMotion): TrainSoundMix {
   const speed = clamp(motion.speedRatio)
   const acceleration = clamp(motion.acceleration / 3.5, -1, 1)
@@ -33,6 +35,8 @@ export function trainSoundMix(motion: TrainAudioMotion): TrainSoundMix {
     tractionGain: pulling * (0.045 + speed * 0.2),
     brakeGain: braking * (0.025 + speed * 0.17),
     tractionHz: 46 + speed * 178 + pulling * 22,
+    brakeHz: 58 + speed * 152 + braking * 18,
+    brakeInverterGain: braking * (0.028 + speed * 0.078),
     railInterval: 1 / (1.05 + speed * 4.15),
     railGain: speed * 0.16,
     brakePulseInterval: 1.45 - braking * 0.55,
@@ -47,8 +51,11 @@ export class TrainAudio {
   private rollingGain: GainNode | null = null
   private tractionGain: GainNode | null = null
   private brakeGain: GainNode | null = null
+  private brakeInverterGain: GainNode | null = null
   private tractionOscillator: OscillatorNode | null = null
   private tractionHarmonic: OscillatorNode | null = null
+  private brakeOscillator: OscillatorNode | null = null
+  private brakeHarmonic: OscillatorNode | null = null
   private noiseBuffer: AudioBuffer | null = null
   private steadySources: AudioScheduledSourceNode[] = []
   private nextRailPulseAt = 0
@@ -115,6 +122,29 @@ export class TrainAudio {
     this.tractionHarmonic = tractionHarmonic
     this.steadySources.push(tractionOscillator, tractionHarmonic)
 
+    // Modern regional EMUs retain a quieter variable-frequency component while
+    // regeneratively braking. It remains separate from traction so the two
+    // operating states cannot accidentally overlap.
+    const brakeInverterGain = ctx.createGain()
+    brakeInverterGain.gain.value = 0
+    brakeInverterGain.connect(brakeGain)
+    const brakeOscillator = ctx.createOscillator()
+    brakeOscillator.type = 'triangle'
+    brakeOscillator.frequency.value = 58
+    brakeOscillator.connect(brakeInverterGain)
+    brakeOscillator.start()
+    const brakeHarmonic = ctx.createOscillator()
+    brakeHarmonic.type = 'sine'
+    brakeHarmonic.frequency.value = 116
+    const brakeHarmonicGain = ctx.createGain()
+    brakeHarmonicGain.gain.value = 0.2
+    brakeHarmonic.connect(brakeHarmonicGain).connect(brakeInverterGain)
+    brakeHarmonic.start()
+    this.brakeInverterGain = brakeInverterGain
+    this.brakeOscillator = brakeOscillator
+    this.brakeHarmonic = brakeHarmonic
+    this.steadySources.push(brakeOscillator, brakeHarmonic)
+
     master.gain.linearRampToValueAtTime(0.46, ctx.currentTime + 1.1)
     this.running = true
     void ctx.resume()
@@ -129,8 +159,11 @@ export class TrainAudio {
     this.rollingGain?.gain.setTargetAtTime(mix.rollingGain, time, 0.28)
     this.tractionGain?.gain.setTargetAtTime(mix.tractionGain, time, 0.16)
     this.brakeGain?.gain.setTargetAtTime(mix.brakeGain, time, 0.12)
+    this.brakeInverterGain?.gain.setTargetAtTime(mix.brakeInverterGain, time, 0.12)
     this.tractionOscillator?.frequency.setTargetAtTime(mix.tractionHz, time, 0.18)
     this.tractionHarmonic?.frequency.setTargetAtTime(mix.tractionHz * 2.02, time, 0.18)
+    this.brakeOscillator?.frequency.setTargetAtTime(mix.brakeHz, time, 0.16)
+    this.brakeHarmonic?.frequency.setTargetAtTime(mix.brakeHz * 2.01, time, 0.16)
 
     if (this.speedRatio < 0.06) {
       this.nextRailPulseAt = time
@@ -239,8 +272,11 @@ export class TrainAudio {
     this.rollingGain = null
     this.tractionGain = null
     this.brakeGain = null
+    this.brakeInverterGain = null
     this.tractionOscillator = null
     this.tractionHarmonic = null
+    this.brakeOscillator = null
+    this.brakeHarmonic = null
     this.noiseBuffer = null
     this.steadySources = []
   }

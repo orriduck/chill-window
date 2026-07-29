@@ -7,6 +7,7 @@ describe('trainSoundMix', () => {
 
     expect(mix.tractionGain).toBe(0)
     expect(mix.brakeGain).toBe(0)
+    expect(mix.brakeInverterGain).toBe(0)
     expect(mix.railGain).toBe(0)
   })
 
@@ -23,7 +24,9 @@ describe('trainSoundMix', () => {
     const cruising = trainSoundMix({ speedRatio: 0.7, acceleration: 0 })
 
     expect(braking.brakeGain).toBeGreaterThan(0)
+    expect(braking.brakeInverterGain).toBeGreaterThan(0)
     expect(cruising.brakeGain).toBe(0)
+    expect(cruising.brakeInverterGain).toBe(0)
     expect(braking.rollingGain).toBeCloseTo(cruising.rollingGain)
   })
 
@@ -39,5 +42,12 @@ describe('trainSoundMix', () => {
     expect(coasting.brakePulseGain).toBe(0)
     expect(braking.brakePulseGain).toBeGreaterThan(0)
     expect(braking.brakePulseInterval).toBeLessThan(coasting.brakePulseInterval)
+  })
+
+  it('lowers the brake inverter tone as the train slows', () => {
+    const fast = trainSoundMix({ speedRatio: 0.85, acceleration: -2.5 })
+    const slow = trainSoundMix({ speedRatio: 0.2, acceleration: -2.5 })
+
+    expect(fast.brakeHz).toBeGreaterThan(slow.brakeHz)
   })
 })
