@@ -17,26 +17,37 @@ const WALL_W = 12
 const WALL_H = 7
 const RAIN_DROP_COUNT = 96
 const RAIN_GLASS_TOP = OPENING_H / 2 - 0.05
-const MAX_HUD_SLOPE_DEG = 12
 
-export interface WindowHudPose {
-  topAngleDeg: number
-  bottomAngleDeg: number
+export interface WindowHudReadout {
+  visible: boolean
+  time: string
+  journey: string
+  progress: number
+  segmentLabel: string
+  routeLabel: string
+  motionLabel: string
+  grade: number
+  stationNames: string[]
+  currentSegment: number
 }
 
-interface ProjectedPoint {
-  x: number
-  y: number
+export type WindowHudSurfaceLayout = {
+  top: { x: number; y: number; z: number; width: number; height: number }
+  bottom: { x: number; y: number; z: number; width: number; height: number }
 }
 
-/** Converts a projected window edge into a DOM rotation. Three's NDC y axis
- * grows upward; CSS screen y grows downward, so the visual slope is inverted. */
-export function projectedWindowEdgeAngleDeg(left: ProjectedPoint, right: ProjectedPoint): number {
-  const dx = right.x - left.x
-  if (dx <= 0.0001) return 0
-  const screenDy = left.y - right.y
-  const angle = THREE.MathUtils.radToDeg(Math.atan2(screenDy, dx))
-  return THREE.MathUtils.clamp(angle, -MAX_HUD_SLOPE_DEG, MAX_HUD_SLOPE_DEG)
+/** Passive rails occupy real cabin/window planes. Their perspective comes
+ * from the same camera projection as the frame, not from a CSS approximation. */
+export function windowHudSurfaceLayout(): WindowHudSurfaceLayout {
+  return {
+    top: { x: 0.05, y: 1.08, z: 0.035, width: 1.92, height: 0.34 },
+    bottom: { x: -0.02, y: -1.08, z: 0.035, width: 3.08, height: 0.52 },
+  }
+}
+
+/** Keep the physical progress stripe within its drawn surface. */
+export function clampWindowHudProgress(progress: number): number {
+  return THREE.MathUtils.clamp(progress, 0, 1)
 }
 
 /** A stopped train leaves water to creep; speed creates a shorter, faster streak. */
@@ -73,8 +84,24 @@ export class WindowFrame {
   private glassReflectionMaterials: { material: THREE.MeshBasicMaterial; weight: number }[] = []
   private rainOpacity = 0
   private lastUpdateTime = 0
-  private readonly hudEdgeLeft = new THREE.Vector3()
-  private readonly hudEdgeRight = new THREE.Vector3()
+  private windowHud: WindowHudReadout = {
+    visible: false,
+    time: '',
+    journey: '',
+    progress: 0,
+    segmentLabel: '',
+    routeLabel: '',
+    motionLabel: '',
+    grade: 0,
+    stationNames: [],
+    currentSegment: 0,
+  }
+  private topHudCanvas: HTMLCanvasElement | null = null
+  private topHudTexture: THREE.CanvasTexture | null = null
+  private topHudPlane: THREE.Mesh | null = null
+  private bottomHudCanvas: HTMLCanvasElement | null = null
+  private bottomHudTexture: THREE.CanvasTexture | null = null
+  private bottomHudPlane: THREE.Mesh | null = null
 
   constructor() {
     const frame = this.track(
@@ -101,6 +128,7 @@ export class WindowFrame {
     this.buildTopVent(frame, aluminium)
     this.buildRollerBlind(blindMat, accent)
     this.buildGlass()
+    this.buildWindowHud()
     this.buildLuggageRack(aluminium)
     this.buildFoldedBunk(aluminium)
     this.buildReadingLamp(aluminium)
@@ -110,6 +138,18 @@ export class WindowFrame {
     this.addSillObjects(accent)
     this.buildCabinLighting()
     this.promoteToForeground()
+  }
+
+  setHudReadout(readout: WindowHudReadout) {
+    this.windowHud = {
+      ...readout,
+      progress: clampWindowHudProgress(readout.progress),
+      currentSegment: Math.max(0, Math.floor(readout.currentSegment)),
+    }
+    if (this.topHudPlane) this.topHudPlane.visible = readout.visible
+    if (this.bottomHudPlane) this.bottomHudPlane.visible = readout.visible
+    if (!readout.visible) return
+    this.drawWindowHud()
   }
 
   /** Interior uses its own post-exterior render pass, so normal depth testing
@@ -564,6 +604,145 @@ export class WindowFrame {
     this.group.add(rain)
   }
 
+  /** The timer and journey rail are passive, so they can live on real cabin
+   * surfaces instead of fighting the 3D projection from a screen-space layer. */
+  private buildWindowHud() {
+    const layout = windowHudSurfaceLayout()
+    const top = this.createHudSurface(840, 190, layout.top, 16)
+    this.topHudCanvas = top.canvas
+    this.topHudTexture = top.texture
+    this.topHudPlane = top.plane
+
+    const bottom = this.createHudSurface(1280, 250, layout.bottom, 17)
+    this.bottomHudCanvas = bottom.canvas
+    this.bottomHudTexture = bottom.texture
+    this.bottomHudPlane = bottom.plane
+    this.drawWindowHud()
+  }
+
+  private createHudSurface(
+    canvasWidth: number,
+    canvasHeight: number,
+    layout: WindowHudSurfaceLayout['top'],
+    renderOrder: number,
+  ) {
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasWidth
+    canvas.height = canvasHeight
+    const texture = this.track(new THREE.CanvasTexture(canvas))
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.minFilter = THREE.LinearFilter
+    texture.magFilter = THREE.LinearFilter
+    const material = this.track(new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0.96,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }))
+    const plane = new THREE.Mesh(this.track(new THREE.PlaneGeometry(layout.width, layout.height)), material)
+    plane.position.set(layout.x, layout.y, layout.z)
+    plane.renderOrder = renderOrder
+    plane.visible = false
+    this.group.add(plane)
+    return { canvas, texture, plane }
+  }
+
+  private drawWindowHud() {
+    if (!this.topHudCanvas || !this.topHudTexture || !this.bottomHudCanvas || !this.bottomHudTexture) return
+    this.drawTopHud(this.topHudCanvas)
+    this.drawBottomHud(this.bottomHudCanvas)
+    this.topHudTexture.needsUpdate = true
+    this.bottomHudTexture.needsUpdate = true
+  }
+
+  private drawTopHud(canvas: HTMLCanvasElement) {
+    const context = canvas.getContext('2d')!
+    const { width, height } = canvas
+    context.clearRect(0, 0, width, height)
+    context.fillStyle = 'rgba(8, 13, 16, 0.42)'
+    context.fillRect(0, 0, width, height)
+    context.fillStyle = 'rgba(190, 220, 226, 0.42)'
+    context.fillRect(0, 0, width, 3)
+    context.fillRect(0, height - 3, width, 3)
+
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.fillStyle = '#f4f7f5'
+    context.font = '700 92px ui-monospace, SFMono-Regular, Menlo, monospace'
+    context.fillText(this.windowHud.time, width / 2, height * 0.47)
+    context.fillStyle = 'rgba(220, 231, 232, 0.8)'
+    context.font = '500 27px system-ui, sans-serif'
+    context.fillText(this.windowHud.journey, width / 2, height * 0.79)
+  }
+
+  private drawBottomHud(canvas: HTMLCanvasElement) {
+    const context = canvas.getContext('2d')!
+    const { width, height } = canvas
+    const left = 64
+    const right = width - 64
+    const railY = 72
+    const railWidth = right - left
+    context.clearRect(0, 0, width, height)
+    context.fillStyle = 'rgba(8, 13, 16, 0.34)'
+    context.fillRect(0, 0, width, height)
+    context.fillStyle = 'rgba(190, 220, 226, 0.34)'
+    context.fillRect(0, 0, width, 2)
+    context.fillRect(0, height - 2, width, 2)
+
+    context.strokeStyle = 'rgba(234, 241, 239, 0.52)'
+    context.lineWidth = 5
+    context.beginPath()
+    context.moveTo(left, railY)
+    context.lineTo(right, railY)
+    context.stroke()
+    context.strokeStyle = '#e4ae43'
+    context.lineWidth = 7
+    context.beginPath()
+    context.moveTo(left, railY)
+    context.lineTo(left + railWidth * this.windowHud.progress, railY)
+    context.stroke()
+
+    const stationCount = this.windowHud.stationNames.length
+    for (let index = 0; index < stationCount; index++) {
+      const x = left + railWidth * ((index + 1) / stationCount)
+      const reached = index < this.windowHud.currentSegment
+      context.fillStyle = reached ? '#e4ae43' : 'rgba(12, 18, 20, 0.84)'
+      context.strokeStyle = reached ? '#e4ae43' : 'rgba(236, 243, 242, 0.7)'
+      context.lineWidth = 4
+      context.beginPath()
+      context.arc(x, railY, 12, 0, Math.PI * 2)
+      context.fill()
+      context.stroke()
+      context.fillStyle = 'rgba(233, 241, 240, 0.82)'
+      context.font = '500 22px system-ui, sans-serif'
+      context.textAlign = 'center'
+      context.textBaseline = 'top'
+      context.fillText(this.windowHud.stationNames[index], x, railY + 21)
+    }
+
+    context.textBaseline = 'middle'
+    context.font = '500 24px system-ui, sans-serif'
+    context.fillStyle = 'rgba(235, 242, 241, 0.75)'
+    context.textAlign = 'left'
+    context.fillText(this.windowHud.segmentLabel, left, 182)
+    context.textAlign = 'center'
+    context.fillStyle = 'rgba(235, 242, 241, 0.86)'
+    context.fillText(this.windowHud.routeLabel, width / 2, 182)
+    context.textAlign = 'right'
+    context.fillStyle = 'rgba(235, 242, 241, 0.76)'
+    context.fillText(this.windowHud.motionLabel, right, 182)
+    const motionWidth = context.measureText(this.windowHud.motionLabel).width
+    const gradeX = right - motionWidth - 48
+    const gradeAngle = THREE.MathUtils.clamp(this.windowHud.grade, -0.02, 0.02) * 620
+    context.strokeStyle = '#e4ae43'
+    context.lineWidth = 4
+    context.beginPath()
+    context.moveTo(gradeX, 182)
+    context.lineTo(gradeX + 34, 182 - gradeAngle)
+    context.stroke()
+  }
+
   /**
    * The outside world does not need a costly reflection render target for a
    * believable sleeper window. A cool sky glint and the carriage's warm
@@ -651,28 +830,6 @@ export class WindowFrame {
     this.lastUpdateTime = time
     this.updateGlassReflections(ambientIntensity)
     this.updateRainDrops(dt, raining, speedRatio, shelter)
-  }
-
-  /** Project the real upper/lower opening rails so DOM HUD can stay anchored
-   * to the physical window during passenger-view panning. */
-  getHudPose(camera: THREE.PerspectiveCamera): WindowHudPose {
-    this.group.updateMatrixWorld(true)
-    return {
-      topAngleDeg: this.projectOpeningEdge(camera, OPENING_H / 2),
-      bottomAngleDeg: this.projectOpeningEdge(camera, -OPENING_H / 2),
-    }
-  }
-
-  private projectOpeningEdge(camera: THREE.PerspectiveCamera, y: number): number {
-    this.hudEdgeLeft
-      .set(-OPENING_W / 2, y, 0)
-      .applyMatrix4(this.group.matrixWorld)
-      .project(camera)
-    this.hudEdgeRight
-      .set(OPENING_W / 2, y, 0)
-      .applyMatrix4(this.group.matrixWorld)
-      .project(camera)
-    return projectedWindowEdgeAngleDeg(this.hudEdgeLeft, this.hudEdgeRight)
   }
 
   private updateGlassReflections(ambientIntensity: number) {

@@ -10,7 +10,7 @@ import { FieldPlots } from './terrain/FieldPlots'
 import { SkyDome } from './sky/SkyDome'
 import { TimeOfDay } from './sky/TimeOfDay'
 import { WeatherSystem, WeatherType } from './weather/WeatherSystem'
-import { WindowFrame, type WindowHudPose } from './interior/WindowFrame'
+import { WindowFrame, type WindowHudReadout } from './interior/WindowFrame'
 import { TrackSystem } from './track/TrackSystem'
 import { LinesideProps } from './track/LinesideProps'
 import { StationManager } from './track/Station'
@@ -44,8 +44,8 @@ export interface TrainControl {
   getRouteContext: () => RouteContext
   /** Current camera motion, used by the HUD and audio as the single source of truth. */
   getMotion: () => TrainMotionTelemetry
-  /** Projected slope of the physical window's upper and lower opening rails. */
-  getWindowHudPose: () => WindowHudPose
+  /** Update the passive readouts mounted on the physical window surfaces. */
+  setWindowHud: (readout: WindowHudReadout) => void
   /** Show a station ahead of the camera. */
   showStation: (name: string, zCenter: number) => void
   /** Build the next station outside the view before its arrival sequence starts. */
@@ -157,7 +157,7 @@ export default function ThreeCanvas({
           speedKmh: paused ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
           speedRatio: paused ? 0 : Math.min(1, camera.currentSpeed / CRUISE_SPEED),
         }),
-        getWindowHudPose: () => windowFrame.getHudPose(camera.getCamera()),
+        setWindowHud: (readout: WindowHudReadout) => windowFrame.setHudReadout(readout),
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
         prepareStation: (name: string) => {
           preparedStationStopZ = camera.z + TrainCamera.STATION_PREPARE_DISTANCE
