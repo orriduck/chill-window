@@ -1,6 +1,12 @@
 import * as THREE from 'three'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 import { roadCenterX } from '../terrain/TerrainGen'
+import {
+  routeBeatForSegment,
+  ROUTE_SEGMENT_LENGTH,
+  type RoutePlan,
+  type StationKind,
+} from '../terrain/RouteFeatures'
 
 // Platform dimensions — long enough to feel like a real station
 const PLATFORM_LENGTH = 180
@@ -33,6 +39,29 @@ const STATION_HALL_LENGTH = 20
 const STATION_FACADE_X = -STATION_HALL_WIDTH / 2
 const STATION_ENTRANCE_WIDTH = 4.6
 const STATION_WINDOW_CENTERS = [-7.25, -4.1, 4.1, 7.25] as const
+
+export type StationVisualKind = Exclude<StationKind, 'none'>
+
+type StationProfile = {
+  scaleX: number
+  scaleZ: number
+  district: 'full' | 'rural'
+  passingTracks: number
+  footbridge: boolean
+}
+
+const STATION_PROFILES: Record<StationVisualKind, StationProfile> = {
+  'rural-halt': { scaleX: 0.78, scaleZ: 0.52, district: 'rural', passingTracks: 0, footbridge: false },
+  regional: { scaleX: 1, scaleZ: 1, district: 'full', passingTracks: 0, footbridge: false },
+  'urban-through': { scaleX: 1.08, scaleZ: 1.28, district: 'full', passingTracks: 2, footbridge: true },
+}
+
+/** Station stops inherit their visible typology from the current route beat.
+ * Open country still receives a small halt at the origin or an unscheduled stop. */
+export function stationVisualKindAt(z: number, plan?: RoutePlan): StationVisualKind {
+  const beat = routeBeatForSegment(Math.floor(z / ROUTE_SEGMENT_LENGTH), plan)
+  return beat.station === 'none' ? 'rural-halt' : beat.station
+}
 
 export type StationDistrictLayout = {
   roadMinX: number
@@ -111,8 +140,12 @@ export class Station {
   private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
   private nightLitMaterials: { material: THREE.MeshStandardMaterial; baseIntensity: number }[] = []
   private platformGlowMaterial: THREE.MeshBasicMaterial | null = null
+  readonly kind: StationVisualKind
+  private readonly profile: StationProfile
 
-  constructor(name: string, zCenter: number) {
+  constructor(name: string, zCenter: number, kind = stationVisualKindAt(zCenter)) {
+    this.kind = kind
+    this.profile = STATION_PROFILES[kind]
     this.group.position.set(0, trackElevationAt(zCenter), zCenter)
     this.group.rotation.x = -Math.atan(trackGradeAt(zCenter))
 
@@ -188,17 +221,24 @@ export class Station {
     this.buildBenches(benchWoodMat, benchMetalMat)
     this.buildLights(lightMat, lightBulbMat, platformGlowMaterial, bulbGeometry, platformGlowGeometry)
     this.buildSigns(name, signMat)
-    this.buildDistrict(
-      name,
-      roadCenterX(zCenter),
-      asphaltMat,
-      facadeMat,
-      facadeTrimMat,
-      facadeGlassMat,
-      lightMat,
-      lightBulbMat,
-      roadBulbGeometry,
-    )
+    if (this.profile.district === 'full') {
+      this.buildDistrict(
+        name,
+        roadCenterX(zCenter),
+        asphaltMat,
+        facadeMat,
+        facadeTrimMat,
+        facadeGlassMat,
+        lightMat,
+        lightBulbMat,
+        roadBulbGeometry,
+      )
+    } else {
+      this.buildRuralHaltDistrict(asphaltMat, facadeMat, facadeGlassMat, lightMat)
+    }
+    if (this.profile.passingTracks > 0) this.buildUrbanPassingTracks(roofMat, pillarMat)
+    if (this.profile.footbridge) this.buildUrbanFootbridge(pillarMat)
+    this.group.scale.set(this.profile.scaleX, 1, this.profile.scaleZ)
     this.updateLighting(0.45)
   }
 
@@ -552,6 +592,85 @@ export class Station {
     }
   }
 
+  /** A rural halt has access and waiting shelter, but no suburban station hall.
+   * The compact layout intentionally reads as a village stop, not a scaled city. */
+  private buildRuralHaltDistrict(
+    asphaltMat: THREE.Material,
+    wallMat: THREE.Material,
+    glassMat: THREE.Material,
+    metalMat: THREE.Material,
+  ) {
+    const roadX = roadCenterX(this.group.position.z)
+    const road = new THREE.Mesh(this.box(3.8, 0.08, 112), asphaltMat)
+    road.position.set(roadX, 0.05, 0)
+    road.receiveShadow = true
+    this.group.add(road)
+
+    const gravelMat = this.track(new THREE.MeshStandardMaterial({ color: 0x8e887c, roughness: 0.98 }))
+    const parking = new THREE.Mesh(this.box(5.6, 0.05, 16), gravelMat)
+    parking.position.set(roadX - 4.6, 0.04, -12)
+    parking.receiveShadow = true
+    this.group.add(parking)
+
+    const shelter = new THREE.Group()
+    const roof = new THREE.Mesh(this.box(3.2, 0.14, 6.8), metalMat)
+    roof.position.set(0, 2.6, 0)
+    shelter.add(roof)
+    const back = new THREE.Mesh(this.box(0.08, 2.3, 5.9), glassMat)
+    back.position.set(1.55, 1.2, 0)
+    shelter.add(back)
+    for (const z of [-2.8, 2.8]) {
+      const post = new THREE.Mesh(this.box(0.12, 2.6, 0.12), metalMat)
+      post.position.set(-1.45, 1.3, z)
+      shelter.add(post)
+    }
+    const bench = new THREE.Mesh(this.box(0.45, 0.42, 3.2), wallMat)
+    bench.position.set(0.45, 0.52, 0)
+    shelter.add(bench)
+    shelter.position.set(PLATFORM_X + PLATFORM_WIDTH / 2 + 2.1, 0, 10)
+    this.group.add(shelter)
+
+    // Bicycle hoops are small but establish that the road is an arrival route.
+    for (let i = 0; i < 4; i++) {
+      const hoop = new THREE.Mesh(this.box(0.08, 0.72, 0.52), metalMat)
+      hoop.position.set(roadX - 2.3, 0.36, 8 + i * 1.3)
+      this.group.add(hoop)
+    }
+  }
+
+  /** A through-station needs visible track capacity, not a larger copy of a hall. */
+  private buildUrbanPassingTracks(railMat: THREE.Material, sleeperMat: THREE.Material) {
+    const railLength = PLATFORM_LENGTH + 96
+    const sleeperGeometry = this.track(new THREE.BoxGeometry(0.2, 0.12, 1.8))
+    for (let track = 0; track < this.profile.passingTracks; track++) {
+      const centerX = -4.4 - track * 3.1
+      for (const railOffset of [-0.67, 0.67]) {
+        const rail = new THREE.Mesh(this.box(0.08, 0.1, railLength), railMat)
+        rail.position.set(centerX + railOffset, 0.1, 0)
+        this.group.add(rail)
+      }
+      for (let z = -railLength / 2; z <= railLength / 2; z += 2.8) {
+        const sleeper = new THREE.Mesh(sleeperGeometry, sleeperMat)
+        sleeper.position.set(centerX, 0.02, z)
+        this.group.add(sleeper)
+      }
+    }
+  }
+
+  /** A short pedestrian bridge makes the urban track bundle legible in profile. */
+  private buildUrbanFootbridge(metalMat: THREE.Material) {
+    const deck = new THREE.Mesh(this.box(18, 0.18, 2.2), metalMat)
+    deck.position.set(0, 5.4, -38)
+    deck.castShadow = true
+    this.group.add(deck)
+    for (const x of [-7.8, 7.8]) {
+      const support = new THREE.Mesh(this.box(0.36, 5.3, 0.36), metalMat)
+      support.position.set(x, 2.65, -38)
+      support.castShadow = true
+      this.group.add(support)
+    }
+  }
+
   /** A deep reveal, sill and mullions give each bay an actual construction
    * depth instead of reading as a glowing rectangle pasted onto the hall. */
   private addHallWindow(
@@ -874,7 +993,9 @@ export class StationManager {
   private currentZ = 0
   private hideTimer = 0
 
-  static readonly PLATFORM_LENGTH = PLATFORM_LENGTH
+  /** The manager must retain the longest profile until its scaled geometry
+   * has actually cleared the camera, rather than using the regional baseline. */
+  static readonly PLATFORM_LENGTH = PLATFORM_LENGTH * STATION_PROFILES['urban-through'].scaleZ
   /** Place the station building just ahead of the final side-window sightline. */
   static readonly APPROACH_STATION_LEAD = 18
   /** Extra distance past the platform edge before hiding (units). */
@@ -883,9 +1004,9 @@ export class StationManager {
   private static readonly HIDE_DELAY = 0.8
 
   /** Show a station at the given Z center. Replaces any existing station. */
-  showStation(name: string, zCenter: number) {
+  showStation(name: string, zCenter: number, kind?: StationVisualKind) {
     this.hideStation()
-    this.current = new Station(name, zCenter)
+    this.current = new Station(name, zCenter, kind)
     this.currentZ = zCenter
     this.hideTimer = 0
     this.group.add(this.current.group)
