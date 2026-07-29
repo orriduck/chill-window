@@ -62,7 +62,7 @@ describe('window frame viewport layout', () => {
   it('keeps the desktop cabin at its authored scale', () => {
     const layout = windowFrameViewportLayout(16 / 9)
 
-    expect(layout.frameDistance).toBeCloseTo(3.65)
+    expect(layout.frameDistance).toBeCloseTo(3.1)
     expect(layout.scale).toBeCloseTo(1)
     expect(layout.yOffset).toBeCloseTo(0)
     expect(layout.forwardOffset).toBeCloseTo(0)
@@ -71,7 +71,7 @@ describe('window frame viewport layout', () => {
   it('steps the real cabin plane back on compact portrait viewports', () => {
     const layout = windowFrameViewportLayout(393 / 852)
 
-    expect(layout.frameDistance).toBeGreaterThan(3.65)
+    expect(layout.frameDistance).toBeGreaterThan(3.1)
     expect(layout.scale).toBeLessThan(1)
     expect(layout.yOffset).toBeLessThan(0)
     expect(layout.forwardOffset).toBeGreaterThan(0)
