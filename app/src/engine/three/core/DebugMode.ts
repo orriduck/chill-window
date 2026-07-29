@@ -275,6 +275,9 @@ export class DebugMode {
     camPos: THREE.Vector3
     camSpeed: number
     targetSpeed: number
+    routeGrade: number
+    routeElevation: number
+    cameraPitch: number
     currentBiome: string
     nextBiome: string
     segmentStartZ: number
@@ -312,6 +315,7 @@ export class DebugMode {
       `\n` +
       `Camera  x:${info.camPos.x.toFixed(2)}  y:${info.camPos.y.toFixed(2)}  z:${info.camPos.z.toFixed(1)}\n` +
       `速度    ${info.camSpeed.toFixed(1)} → ${info.targetSpeed.toFixed(1)}  u/s\n` +
+      `纵坡    ${(info.routeGrade * 100).toFixed(2)}%  高程 ${info.routeElevation.toFixed(1)}  pitch ${(info.cameraPitch * 180 / Math.PI).toFixed(2)}°\n` +
       `\n` +
       `── 场景分块 (${CHUNK_SIZE}u) ──\n` +
       `当前块  z:${(Math.floor(info.camPos.z / CHUNK_SIZE) * CHUNK_SIZE).toFixed(0)}  (${info.chunkCount} active)\n` +

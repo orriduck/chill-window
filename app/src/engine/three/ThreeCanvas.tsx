@@ -26,6 +26,8 @@ export interface TrainControl {
   setSpeed: (speed: number) => void
   /** Current camera Z position. */
   getZ: () => number
+  /** Current rail grade as a fraction, e.g. 0.006 means 0.6%. */
+  getGrade: () => number
   /** Show a station ahead of the camera. */
   showStation: (name: string, zCenter: number) => void
   /** Build the next station outside the view before its arrival sequence starts. */
@@ -117,6 +119,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
       controlRef.current = {
         setSpeed: (s: number) => camera.setTargetSpeed(s),
         getZ: () => camera.z,
+        getGrade: () => camera.grade,
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
         prepareStation: (name: string) => {
           preparedStationStopZ = camera.z + TrainCamera.STATION_PREPARE_DISTANCE
@@ -341,6 +344,9 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day' 
         camPos,
         camSpeed: camera.currentSpeed,
         targetSpeed: camera.targetSpeed,
+        routeGrade: camera.grade,
+        routeElevation: camera.elevation,
+        cameraPitch: camera.pitch,
         currentBiome: terrain.currentBiomeName,
         nextBiome: terrain.nextBiomeName,
         segmentStartZ: terrain.zSegmentStart,
