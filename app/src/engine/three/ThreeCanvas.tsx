@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
+import type { TimeOfDay as TimeOfDayPreset } from '../scenery'
 import { Scene3D } from './core/Scene3D'
 import { TrainCamera } from './core/Camera'
 import { WebGLRenderer } from './core/Renderer'
@@ -27,6 +28,12 @@ export interface TrainControl {
   getZ: () => number
   /** Show a station ahead of the camera. */
   showStation: (name: string, zCenter: number) => void
+  /** Build the next station outside the view before its arrival sequence starts. */
+  prepareStation: (name: string) => void
+  /** Create a station ahead and brake to its planned stop position. */
+  approachStation: (name: string) => void
+  /** Resume from a station with the gentler departure acceleration. */
+  departStation: () => void
   /** Remove the current station. */
   hideStation: () => void
 }
@@ -35,11 +42,12 @@ interface ThreeCanvasProps {
   className?: string
   /** Parent passes a ref; we fill it with train control methods. */
   controlRef?: RefObject<TrainControl | null>
+  /** Applies the setup-screen departure time to the 3D sky and lighting. */
+  timePreset?: TimeOfDayPreset
 }
 
-export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps) {
+export default function ThreeCanvas({ className, controlRef, timePreset = 'day' }: ThreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const clockRef = useRef<THREE.Clock>(new THREE.Clock())
   const rafRef = useRef<number>(0)
 
   useEffect(() => {
@@ -48,6 +56,7 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
 
     // ---- Scene ----
     const scene = new Scene3D()
+    const interiorScene = new THREE.Scene()
 
     // ---- Exterior group: everything outside the window frame ----
     // DebugMode F6 toggles this group's visibility to hide the outside world.
@@ -62,7 +71,7 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     const water = new WaterSystem()
     const fields = new FieldPlots((x, z) => terrain.sampleHeight(x, z))
     const skyDome = new SkyDome()
-    const timeOfDay = new TimeOfDay()
+    const timeOfDay = new TimeOfDay(timePreset)
     const weather = new WeatherSystem()
     const windowFrame = new WindowFrame()
     const trackSystem = new TrackSystem()
@@ -71,6 +80,11 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     const tunnels = new TunnelManager()
     const perfMonitor = new PerfMonitor(renderer.renderer)
     const debugMode = new DebugMode()
+    let preparedStationStopZ: number | null = null
+    let debugStationStopZ: number | null = null
+    let debugStationStopTarget: number | null = null
+    let debugStationBrakeAt = 0
+    let debugStationDwellUntil: number | null = null
 
     // Add exterior objects to the exteriorGroup
     exteriorGroup.add(skyDome.mesh)
@@ -82,18 +96,16 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     exteriorGroup.add(water.mesh)
     exteriorGroup.add(fields.group)
 
-    // Window frame is NOT in exteriorGroup — it stays visible in scene-hidden mode
-    scene.add(windowFrame.group)
+    // The cabin renders in a dedicated foreground pass after the exterior.
+    // This keeps weather and other transparent world effects behind the
+    // physical carriage panels while preserving the view through the opening.
+    interiorScene.add(windowFrame.group)
 
     scene.scene.fog = new THREE.Fog(0xbfe3f2, 200, 900)
 
     // Wire debug mode
     debugMode.init(scene.scene, exteriorGroup)
     debugMode.perfMonitor = perfMonitor
-
-    // TEMP-DEBUG: teleport hook for scene verification (remove before commit)
-    ;(window as any).__teleport = (z: number) => { camera.camera.position.z = z }
-    ;(window as any).__train = { camera, terrain, timeOfDay, tunnels, water, fields, windowFrame }
 
     // Show the origin station at the camera's starting position
     stations.showStation('始发站', camera.z)
@@ -104,6 +116,19 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
         setSpeed: (s: number) => camera.setTargetSpeed(s),
         getZ: () => camera.z,
         showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
+        prepareStation: (name: string) => {
+          preparedStationStopZ = camera.z + TrainCamera.STATION_PREPARE_DISTANCE
+          stations.showStation(name, preparedStationStopZ + StationManager.APPROACH_STATION_LEAD)
+        },
+        approachStation: (name: string) => {
+          const stopZ = preparedStationStopZ ?? camera.z + TrainCamera.STATION_STOP_DISTANCE
+          if (preparedStationStopZ === null) {
+            stations.showStation(name, stopZ + StationManager.APPROACH_STATION_LEAD)
+          }
+          camera.beginStationApproach(stopZ)
+          preparedStationStopZ = null
+        },
+        departStation: () => camera.departStation(),
         hideStation: () => stations.hideStation(),
       }
     }
@@ -134,6 +159,12 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     scene.add(dirLight)
     scene.add(dirLight.target)
 
+    const interiorAmbient = new THREE.AmbientLight(0xf4f8f7, 0.46)
+    interiorScene.add(interiorAmbient)
+    const interiorKey = new THREE.DirectionalLight(0xffe5c5, 0.34)
+    interiorKey.position.set(-2, 3, 2)
+    interiorScene.add(interiorKey)
+
     // ---- Top-down state tracking ----
     let wasTopDown = false
 
@@ -141,10 +172,15 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
     let lastSegmentZ = terrain.zSegmentStart
     let boundaryFrameCounter = 0
 
+    let lastFrameTime = performance.now()
+    let elapsedTime = 0
     const loop = () => {
       rafRef.current = requestAnimationFrame(loop)
 
-      const dt = Math.min(clockRef.current.getDelta(), MAX_DT)
+      const now = performance.now()
+      const dt = Math.min((now - lastFrameTime) / 1000, MAX_DT)
+      lastFrameTime = now
+      elapsedTime += dt
 
       // ---- Top-down camera toggle ----
       if (debugMode.isTopDown !== wasTopDown) {
@@ -158,6 +194,32 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
 
       // Always run camera physics so Z advances (top-down only overrides view)
       camera.update(dt)
+      const jumpTarget = debugMode.consumeJumpTarget()
+      if (jumpTarget !== null) camera.setZ(jumpTarget)
+      if (debugMode.consumeStationProbe()) {
+        const stopZ = camera.z + TrainCamera.STATION_PREPARE_DISTANCE
+        stations.showStation('调试站', stopZ + StationManager.APPROACH_STATION_LEAD)
+        debugStationStopZ = stopZ
+        debugStationStopTarget = stopZ
+        debugStationDwellUntil = null
+        debugStationBrakeAt = elapsedTime + TrainCamera.STATION_BRAKE_SECONDS
+      }
+      if (debugStationStopZ !== null && elapsedTime >= debugStationBrakeAt) {
+        camera.beginStationApproach(debugStationStopZ)
+        debugStationStopZ = null
+      }
+      if (
+        debugStationStopTarget !== null &&
+        debugStationDwellUntil === null &&
+        camera.z >= debugStationStopTarget - 0.02
+      ) {
+        debugStationDwellUntil = elapsedTime + 3
+      }
+      if (debugStationDwellUntil !== null && elapsedTime >= debugStationDwellUntil) {
+        camera.departStation()
+        debugStationStopTarget = null
+        debugStationDwellUntil = null
+      }
 
       if (debugMode.isTopDown) {
         // Override position/orientation for top-down aerial view
@@ -170,7 +232,7 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
       // Time of day drives sky, sun and lighting; weather modulates on top
       timeOfDay.update(dt)
       const state = timeOfDay.state
-      weather.update(dt, camPos)
+      weather.update(dt, cam)
       weather.applyToEnvironment(state)
 
       skyDome.update(camPos)
@@ -193,14 +255,16 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
       fog.near = THREE.MathUtils.lerp(state.fogNear, 8, tunnelD)
       fog.far = THREE.MathUtils.lerp(state.fogFar, 130, tunnelD)
 
+      terrain.setDebugView(debugMode.terrainDebugView)
+      terrain.setStreamingFrozen(debugMode.streamingFrozen)
       terrain.update(camPos)
       terrain.applyFrustumCulling(cam)
       trackSystem.update(camPos.z)
       lineside.update(camPos.z)
       stations.update(camPos.z, dt)
-      water.update(camPos.z, terrain.riverStrength, clockRef.current.elapsedTime)
-      fields.update(camPos.z, terrain.currentBiomeName === 'field')
-      windowFrame.update(cam, clockRef.current.elapsedTime)
+      water.update(camPos.z, terrain.riverStrength, elapsedTime)
+      fields.update(camPos.z, (z) => terrain.isBiomeAt(z, 'field'))
+      windowFrame.update(cam, elapsedTime)
 
       // Push fog back in top-down mode so terrain is visible from above
       const savedFogNear = fog.near
@@ -210,7 +274,9 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
         fog.far = 3000
       }
 
-      renderer.render(scene.scene, cam)
+      // Top-down is an exterior-only terrain inspection view. In the normal
+      // carriage view the interior remains a separate foreground pass.
+      renderer.render(scene.scene, cam, debugMode.isTopDown ? undefined : interiorScene)
       perfMonitor.update() // F3 perf overlay
 
       // Restore fog for HUD boundary rendering
@@ -252,6 +318,9 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
         triangles: info.render.triangles,
         topDown: debugMode.topDown,
         sceneHidden: debugMode.sceneHidden,
+        terrainDebugView: debugMode.terrainDebugView,
+        streamingFrozen: debugMode.streamingFrozen,
+        terrain: terrain.debugInfo,
       })
     }
     rafRef.current = requestAnimationFrame(loop)
@@ -281,11 +350,12 @@ export default function ThreeCanvas({ className, controlRef }: ThreeCanvasProps)
       perfMonitor.dispose()
       renderer.dispose()
       scene.dispose()
+      interiorScene.clear()
       if (canvas.parentNode) {
         canvas.parentNode.removeChild(canvas)
       }
     }
-  }, [])
+  }, [controlRef, timePreset])
 
   return (
     <div

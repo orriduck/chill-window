@@ -15,8 +15,18 @@ export class WebGLRenderer {
     this.renderer.toneMappingExposure = 1.15
   }
 
-  render(scene: THREE.Scene, camera: THREE.Camera) {
+  render(scene: THREE.Scene, camera: THREE.Camera, foreground?: THREE.Scene) {
     this.renderer.render(scene, camera)
+    if (foreground) {
+      // The carriage is a separate foreground pass. Transparent exterior
+      // effects (snow/rain) have already been rendered, so they cannot draw
+      // over opaque interior panels on a later transparent pass.
+      const autoClear = this.renderer.autoClear
+      this.renderer.autoClear = false
+      this.renderer.clearDepth()
+      this.renderer.render(foreground, camera)
+      this.renderer.autoClear = autoClear
+    }
   }
 
   resize(width: number, height: number) {

@@ -7,8 +7,12 @@ const CHUNK_SIZE = 256
  *
  * Keys:
  *   F3  — cycle HUD: off → perf only → full debug → off
+ *   F4  — trigger the station arrival motion probe
  *   F5  — toggle top-down aerial view (follows train, shows boundaries)
  *   F6  — toggle scene-hidden mode (hide everything but window frame)
+ *   F7  — toggle terrain surface-mask diagnostics
+ *   F8  — freeze / resume terrain streaming
+ *   F9/F10/F11 — jump to the planned town, river, or mountain debug probes
  */
 export class DebugMode {
   // ---- HUD level ----
@@ -18,6 +22,10 @@ export class DebugMode {
   // ---- State ----
   topDown = false
   sceneHidden = false
+  terrainDebugView: 0 | 1 = 0
+  streamingFrozen = false
+  private jumpTarget: number | null = null
+  private stationProbeRequested = false
 
   // ---- HUD DOM ----
   private hudEl: HTMLDivElement
@@ -66,6 +74,10 @@ export class DebugMode {
         e.preventDefault()
         this.cycleHud()
         break
+      case 'F4':
+        e.preventDefault()
+        this.stationProbeRequested = true
+        break
       case 'F5':
         e.preventDefault()
         this.toggleTopDown()
@@ -73,6 +85,26 @@ export class DebugMode {
       case 'F6':
         e.preventDefault()
         this.toggleSceneHidden()
+        break
+      case 'F7':
+        e.preventDefault()
+        this.terrainDebugView = this.terrainDebugView === 0 ? 1 : 0
+        break
+      case 'F8':
+        e.preventDefault()
+        this.streamingFrozen = !this.streamingFrozen
+        break
+      case 'F9':
+        e.preventDefault()
+        this.jumpTarget = 3400
+        break
+      case 'F10':
+        e.preventDefault()
+        this.jumpTarget = 4900
+        break
+      case 'F11':
+        e.preventDefault()
+        this.jumpTarget = 6400
         break
     }
   }
@@ -117,6 +149,18 @@ export class DebugMode {
   /** Whether the debug camera should override the normal camera. */
   get isTopDown(): boolean {
     return this.topDown
+  }
+
+  consumeJumpTarget(): number | null {
+    const target = this.jumpTarget
+    this.jumpTarget = null
+    return target
+  }
+
+  consumeStationProbe(): boolean {
+    const requested = this.stationProbeRequested
+    this.stationProbeRequested = false
+    return requested
   }
 
   // ---- Camera override for top-down view ----
@@ -243,6 +287,16 @@ export class DebugMode {
     triangles: number
     topDown: boolean
     sceneHidden: boolean
+    terrainDebugView: 0 | 1
+    streamingFrozen: boolean
+    terrain: {
+      activeChunks: number
+      pendingChunks: number
+      createdChunks: number
+      releasedChunks: number
+      cityClusters: number
+      lods: string
+    }
   }) {
     if (this.hudLevel < 2) return
 
@@ -253,12 +307,16 @@ export class DebugMode {
 
     this.hudEl.textContent =
       `[DEBUG]  F3 HUD  F5 ${info.topDown ? '下车' : '俯瞰'}  F6 无场景\n` +
+      `F7 ${info.terrainDebugView ? '材质权重' : '正常'}  F8 ${info.streamingFrozen ? '冻结流式' : '流式'}\n` +
+      `F4 车站  F9 城镇  F10 河谷  F11 山地\n` +
       `\n` +
       `Camera  x:${info.camPos.x.toFixed(2)}  y:${info.camPos.y.toFixed(2)}  z:${info.camPos.z.toFixed(1)}\n` +
       `速度    ${info.camSpeed.toFixed(1)} → ${info.targetSpeed.toFixed(1)}  u/s\n` +
       `\n` +
       `── 场景分块 (${CHUNK_SIZE}u) ──\n` +
       `当前块  z:${(Math.floor(info.camPos.z / CHUNK_SIZE) * CHUNK_SIZE).toFixed(0)}  (${info.chunkCount} active)\n` +
+      `流式    active ${info.terrain.activeChunks}  queue ${info.terrain.pendingChunks}  +${info.terrain.createdChunks} / -${info.terrain.releasedChunks}\n` +
+      `LOD     ${info.terrain.lods}  城镇 ${info.terrain.cityClusters}\n` +
       `\n` +
       `── 生态区段 (${info.segmentLength}u) ──\n` +
       `${info.currentBiome} → ${info.nextBiome}\n` +
@@ -270,7 +328,7 @@ export class DebugMode {
       `FPS  ${info.fps}  (${info.frameTime}ms)\n` +
       `Draw  ${info.drawCalls}  Tri  ${(info.triangles / 1000).toFixed(1)}k\n` +
       `\n` +
-      `俯瞰 ${info.topDown ? 'ON' : 'off'}  无场景 ${info.sceneHidden ? 'ON' : 'off'}`
+      `俯瞰 ${info.topDown ? 'ON' : 'off'}  无场景 ${info.sceneHidden ? 'ON' : 'off'}  流式 ${info.streamingFrozen ? '冻结' : 'ON'}`
   }
 
   dispose() {

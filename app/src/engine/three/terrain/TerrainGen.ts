@@ -25,8 +25,8 @@ export function riverCenterX(z: number): number {
 export function roadCenterX(z: number): number {
   return 20 + Math.sin(z * 0.0025 + 0.8) * 4
 }
-export const ROAD_HALF_WIDTH = 2.2
-export const ROAD_VERGE = 3.6 // grass blend-out distance
+export const ROAD_HALF_WIDTH = 3.0
+export const ROAD_VERGE = 4.8 // grass blend-out distance
 
 function smoothstep(t: number): number {
   return t * t * (3 - 2 * t)

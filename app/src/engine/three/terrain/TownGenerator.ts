@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { RandomSource } from '../core/procedural'
 
 /** European-style building factories + town cluster generator.
  *  All textures are canvas-generated; no external assets.
@@ -10,8 +11,8 @@ const APARTMENT_COLORS = [0xc8b8a0, 0xb8a890, 0xa89888, 0xd0c0a8]
 
 type HeightSampler = (x: number, z: number) => number
 
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
+function pick<T>(arr: T[], random: RandomSource): T {
+  return arr[Math.floor(random() * arr.length)]
 }
 
 /** Gabled roof: triangular prism via ExtrudeGeometry, ridge along local Z. */
@@ -43,15 +44,15 @@ function makeWindow(w: number, h: number, frameMat: THREE.Material, glassMat: TH
 
 /** Detached European house: plastered walls, gabled roof, chimney,
  *  framed windows on both gable-facing sides, door. */
-export function createHouse(): THREE.Group {
+export function createHouse(random: RandomSource = Math.random): THREE.Group {
   const bldg = new THREE.Group()
-  const w = 3 + Math.random() * 1.6
-  const d = 2.6 + Math.random() * 1.2
-  const h = 2 + Math.random() * 0.7
+  const w = 3 + random() * 1.6
+  const d = 2.6 + random() * 1.2
+  const h = 2 + random() * 0.7
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: pick(WALL_COLORS), roughness: 0.9 })
+  const wallMat = new THREE.MeshStandardMaterial({ color: pick(WALL_COLORS, random), roughness: 0.9 })
   const roofMat = new THREE.MeshStandardMaterial({
-    color: pick(ROOF_COLORS), roughness: 0.85, flatShading: true,
+    color: pick(ROOF_COLORS, random), roughness: 0.85, flatShading: true,
   })
   const trimMat = new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 0.8 })
   const glassMat = new THREE.MeshStandardMaterial({
@@ -105,7 +106,12 @@ export function createHouse(): THREE.Group {
 
 /** Window-grid texture pair for apartment blocks: `map` is the wall with
  *  window openings, `lit` is the emissive layer where a few windows glow. */
-function makeApartmentTextures(cols: number, rows: number, wallColor: string): { map: THREE.Texture; lit: THREE.Texture } {
+function makeApartmentTextures(
+  cols: number,
+  rows: number,
+  wallColor: string,
+  random: RandomSource,
+): { map: THREE.Texture; lit: THREE.Texture } {
   const wpx = 64 * cols
   const hpx = 64 * rows
   const dayCanvas = document.createElement('canvas')
@@ -134,7 +140,7 @@ function makeApartmentTextures(cols: number, rows: number, wallColor: string): {
       dctx.fillStyle = '#e8e2d2'
       dctx.fillRect(x - 3, y - 3, ww + 6, wh + 6)
       // Glass: mostly dark reflective, some interior-lit
-      const litUp = Math.random() < 0.28
+      const litUp = random() < 0.28
       dctx.fillStyle = litUp ? '#f5d98a' : '#26313e'
       dctx.fillRect(x, y, ww, wh)
       // Mullion cross
@@ -161,16 +167,21 @@ function makeApartmentTextures(cols: number, rows: number, wallColor: string): {
 }
 
 /** Mid-rise apartment block: 3-5 storeys, window-grid facade, flat roof rim. */
-export function createApartment(): THREE.Group {
+export function createApartment(random: RandomSource = Math.random): THREE.Group {
   const bldg = new THREE.Group()
-  const floors = 3 + Math.floor(Math.random() * 3)
-  const w = 7 + Math.random() * 3
-  const d = 6 + Math.random() * 2
+  const floors = 3 + Math.floor(random() * 3)
+  const w = 7 + random() * 3
+  const d = 6 + random() * 2
   const h = floors * 1.6
 
   const cols = Math.max(4, Math.round(w / 1.4))
-  const wallHex = pick(APARTMENT_COLORS)
-  const { map, lit } = makeApartmentTextures(cols, floors, `#${wallHex.toString(16).padStart(6, '0')}`)
+  const wallHex = pick(APARTMENT_COLORS, random)
+  const { map, lit } = makeApartmentTextures(
+    cols,
+    floors,
+    `#${wallHex.toString(16).padStart(6, '0')}`,
+    random,
+  )
   const wallMat = new THREE.MeshStandardMaterial({
     map,
     emissiveMap: lit,
@@ -191,7 +202,7 @@ export function createApartment(): THREE.Group {
   bldg.add(rim)
 
   // Ground-floor shop band with awning
-  if (Math.random() < 0.6) {
+  if (random() < 0.6) {
     const shop = new THREE.Mesh(
       new THREE.BoxGeometry(w * 0.9, 0.9, 0.15),
       new THREE.MeshStandardMaterial({
@@ -203,7 +214,7 @@ export function createApartment(): THREE.Group {
     bldg.add(shop)
     const awning = new THREE.Mesh(
       new THREE.BoxGeometry(w * 0.9, 0.08, 0.6),
-      new THREE.MeshStandardMaterial({ color: pick([0x9a3a32, 0x3a5a4a, 0x3a4a6a]), roughness: 0.8 })
+      new THREE.MeshStandardMaterial({ color: pick([0x9a3a32, 0x3a5a4a, 0x3a4a6a], random), roughness: 0.8 })
     )
     awning.position.set(0, 1.4, d / 2 + 0.35)
     awning.rotation.x = 0.25
@@ -276,19 +287,24 @@ export function createChurch(): THREE.Group {
 /** A small town: buildings arranged along a main street parallel to the
  *  track (+Z), with a couple of side streets. 8-14 buildings: mostly houses,
  *  some apartment blocks near the centre, optionally a church. */
-export function createTownCluster(cx: number, cz: number, sampleHeight: HeightSampler): THREE.Group {
+export function createTownCluster(
+  cx: number,
+  cz: number,
+  sampleHeight: HeightSampler,
+  random: RandomSource = Math.random,
+): THREE.Group {
   const town = new THREE.Group()
 
-  const houseCount = 7 + Math.floor(Math.random() * 4)
-  const aptCount = 2 + Math.floor(Math.random() * 3)
-  const hasChurch = Math.random() < 0.5
+  const houseCount = 8 + Math.floor(random() * 4)
+  const aptCount = 2 + Math.floor(random() * 3)
+  const hasChurch = random() < 0.5
 
   const placed: { x: number; z: number; r: number }[] = []
   const tryPlace = (make: () => THREE.Group, r: number, xMin: number, xMax: number) => {
     for (let attempt = 0; attempt < 12; attempt++) {
-      const side = Math.random() < 0.5 ? -1 : 1
-      const x = cx + side * (xMin + Math.random() * (xMax - xMin))
-      const z = cz + (Math.random() - 0.5) * 170
+      // Keep the rail-side verge open. Homes face the road from the far side.
+      const x = cx + xMin + random() * (xMax - xMin)
+      const z = cz + (random() - 0.5) * 170
       let clear = true
       for (const p of placed) {
         const dx = p.x - x
@@ -298,15 +314,15 @@ export function createTownCluster(cx: number, cz: number, sampleHeight: HeightSa
       if (!clear) continue
       const b = make()
       b.position.set(x, sampleHeight(x, z) - 0.15, z)
-      b.rotation.y = side > 0 ? Math.PI + (Math.random() - 0.5) * 0.3 : (Math.random() - 0.5) * 0.3
+      b.rotation.y = Math.PI + (random() - 0.5) * 0.22
       town.add(b)
       placed.push({ x, z, r })
       return
     }
   }
 
-  for (let i = 0; i < houseCount; i++) tryPlace(createHouse, 3.2, 6, 34)
-  for (let i = 0; i < aptCount; i++) tryPlace(createApartment, 5.5, 5, 16)
+  for (let i = 0; i < houseCount; i++) tryPlace(() => createHouse(random), 3.2, 10, 38)
+  for (let i = 0; i < aptCount; i++) tryPlace(() => createApartment(random), 5.5, 10, 24)
   if (hasChurch) tryPlace(createChurch, 6, 8, 20)
 
   // Main street: paved strip parallel to the track through the town centre
@@ -324,6 +340,27 @@ export function createTownCluster(cx: number, cz: number, sampleHeight: HeightSa
   street.position.set(cx, 0, cz)
   street.receiveShadow = true
   town.add(street)
+
+  // Side streets connect the main road with homes instead of leaving them
+  // scattered over grass. Their surfaces conform to the same terrain sampler.
+  for (let i = 0; i < 3; i++) {
+    const z = cz - 54 + i * 54
+    const length = 28 + random() * 12
+    const laneGeom = new THREE.PlaneGeometry(length, 2.7, 6, 1)
+    laneGeom.rotateX(-Math.PI / 2)
+    const lanePos = laneGeom.attributes.position.array as Float32Array
+    for (let v = 0; v < lanePos.length; v += 3) {
+      const wx = cx + length / 2 + lanePos[v]
+      const wz = z + lanePos[v + 2]
+      lanePos[v] = wx
+      lanePos[v + 1] = sampleHeight(wx, wz) + 0.075
+      lanePos[v + 2] = wz
+    }
+    laneGeom.computeVertexNormals()
+    const lane = new THREE.Mesh(laneGeom, streetMat)
+    lane.receiveShadow = true
+    town.add(lane)
+  }
 
   // Street lamps along the main street
   const lampMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.5, metalness: 0.6 })

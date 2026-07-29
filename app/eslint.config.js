@@ -6,7 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // Generated Shadcn primitives are retained verbatim; lint application code
+  // rather than reporting framework-template implementation details.
+  globalIgnores(['dist', 'src/components/ui/**']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
