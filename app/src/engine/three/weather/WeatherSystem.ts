@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { DayState } from '../sky/TimeOfDay'
+import type { BiomeType } from '../terrain/Biome'
 
 export const WeatherType = {
   CLEAR: 'clear',
@@ -13,8 +14,11 @@ export type WeatherType = (typeof WeatherType)[keyof typeof WeatherType]
 const MAX_PARTICLES = 4000
 const PARTICLE_BOX = { x: 140, y: 80, z: 140 }
 const MAX_SPLASHES = 40
-const MIN_SWITCH_SECONDS = 120
-const MAX_SWITCH_SECONDS = 180
+// A focus trip should not feel like it crosses several weather fronts.
+// Auto weather is re-evaluated at most once over most journeys instead of
+// being visibly shuffled every few minutes.
+const MIN_SWITCH_SECONDS = 45 * 60
+const MAX_SWITCH_SECONDS = 75 * 60
 // Keep precipitation outside the carriage: transparent particles otherwise
 // render over interior panels after the opaque scene pass.
 const WINDOW_EXTERIOR_NEAR = 4
@@ -23,6 +27,34 @@ const WINDOW_EXTERIOR_NEAR = 4
 const FOGGY_FOG_COLOR = new THREE.Color(0x9aa4ad)
 const RAIN_FOG_COLOR = new THREE.Color(0x5a6570)
 const SNOW_FOG_COLOR = new THREE.Color(0xe8eef2)
+
+/** Weather that can plausibly be chosen by the automatic departure mode.
+ * Snow needs higher ground in this compact route model; manual snow remains
+ * available everywhere because it is an explicit passenger choice. */
+export function automaticWeatherCandidates(biome: BiomeType): readonly WeatherType[] {
+  const common: readonly WeatherType[] = [
+    WeatherType.CLEAR,
+    WeatherType.CLOUDY,
+    WeatherType.RAIN,
+    WeatherType.FOGGY,
+  ]
+  return biome === 'mountain' ? [...common, WeatherType.SNOW] : common
+}
+
+export function isAutomaticWeatherAllowed(weather: WeatherType, biome: BiomeType): boolean {
+  return automaticWeatherCandidates(biome).includes(weather)
+}
+
+/** Preserve an explicit passenger preset; normalize only ambient auto weather
+ * when a route segment no longer supports the current condition. */
+export function weatherForRoute(
+  current: WeatherType,
+  override: WeatherType | null,
+  biome: BiomeType,
+): WeatherType {
+  if (override !== null) return override
+  return isAutomaticWeatherAllowed(current, biome) ? current : WeatherType.CLEAR
+}
 
 interface Cloud {
   mesh: THREE.Mesh
@@ -108,26 +140,26 @@ export class WeatherSystem {
     return MIN_SWITCH_SECONDS + Math.random() * (MAX_SWITCH_SECONDS - MIN_SWITCH_SECONDS)
   }
 
-  private pickRandomWeather(): WeatherType {
-    const types = [
-      WeatherType.CLEAR,
-      WeatherType.CLOUDY,
-      WeatherType.RAIN,
-      WeatherType.SNOW,
-      WeatherType.FOGGY,
-    ]
+  private pickAutomaticWeather(biome: BiomeType): WeatherType {
+    const types = automaticWeatherCandidates(biome)
     let next = types[Math.floor(Math.random() * types.length)]
     if (next === this.current) next = WeatherType.CLEAR
     return next
   }
 
-  update(dt: number, camera: THREE.PerspectiveCamera) {
+  update(dt: number, camera: THREE.PerspectiveCamera, biome: BiomeType) {
     const cameraPos = camera.position
     this.time += dt
-    if (this.override === null) {
+    const routeWeather = weatherForRoute(this.current, this.override, biome)
+    if (routeWeather !== this.current) {
+      // A snow event cannot continue across the route's lowland sections.
+      // Reset to a quiet clear state rather than replacing it with another
+      // arbitrary particle effect at the segment boundary.
+      this.setWeather(routeWeather)
+    } else if (this.override === null) {
       this.switchTimer -= dt
       if (this.switchTimer <= 0) {
-        this.setWeather(this.pickRandomWeather())
+        this.setWeather(this.pickAutomaticWeather(biome))
       }
     }
 
