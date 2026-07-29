@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { TimeOfDay } from '@/engine/time';
 import { TrainAudio } from '@/engine/audio';
 import {
-  buildFreeJourney, buildPomodoroJourney, suggestStops,
+  buildFreeJourney, buildPomodoroJourney, journeyBannerText, suggestStops,
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
@@ -41,6 +41,7 @@ interface HudState {
   grade: number;
   routeLabel: string;
   nextRouteLabel: string;
+  approaching: boolean;
 }
 
 export default function Home() {
@@ -75,7 +76,7 @@ export default function Home() {
   const [isPaused, setIsPaused] = useState(false);
 
   const [hud, setHud] = useState<HudState>({
-    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: '田野', nextRouteLabel: '林地',
+    phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: '田野', nextRouteLabel: '林地', approaching: false,
   });
 
   // 主循环
@@ -156,6 +157,7 @@ export default function Home() {
           grade: typeof trainControl?.getGrade === 'function' ? trainControl.getGrade() : 0,
           routeLabel: routeContext.currentLabel,
           nextRouteLabel: routeContext.nextLabel,
+          approaching: arrivingRef.current,
         });
       }
     };
@@ -272,6 +274,12 @@ export default function Home() {
   const focusDone = plan ? plan.totalFocusSec - hud.focusLeft : 0;
   const gradePercent = Math.abs(hud.grade * 100);
   const gradeLabel = gradePercent < 0.05 ? '平坡' : hud.grade > 0 ? '上坡' : '下坡';
+  const journeyBanner = journeyBannerText({
+    paused: isPaused,
+    dwelling: hud.phase === 'dwell',
+    approaching: hud.approaching,
+    stationName: hud.nextStation,
+  });
 
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
@@ -394,7 +402,7 @@ export default function Home() {
               {formatTime(hud.focusLeft)}
             </div>
             <div className="mt-1 text-xs tracking-widest text-white/70 drop-shadow max-[520px]:mt-0.5 max-[520px]:text-[10px]">
-              {isPaused ? '行程已暂停' : hud.phase === 'dwell' ? '列车经停中' : `开往 ${hud.nextStation}站`}
+              {journeyBanner}
             </div>
           </div>
 

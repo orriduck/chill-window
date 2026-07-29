@@ -10,6 +10,13 @@ export interface JourneyPlan {
   totalFocusSec: number;
 }
 
+export interface JourneyBannerState {
+  paused: boolean;
+  dwelling: boolean;
+  approaching: boolean;
+  stationName: string;
+}
+
 const STATION_NAMES = [
   '青川', '雾岭', '禾木', '白鹭洲', '松溪', '望舒', '栖云', '南浦', '折柳',
   '听澜', '鹿鸣', '星野', '霜降', '半山', '竹里', '临皋', '石桥', '杏坛',
@@ -55,6 +62,20 @@ export function suggestStops(focusMin: number): number {
   if (focusMin <= 60) return 1;
   if (focusMin <= 90) return 2;
   return 3;
+}
+
+/** Passenger copy mirrors the actual motion lifecycle, rather than predicting
+ * a timetable that this focused journey does not simulate. */
+export function journeyBannerText({
+  paused,
+  dwelling,
+  approaching,
+  stationName,
+}: JourneyBannerState): string {
+  if (paused) return '行程已暂停';
+  if (dwelling) return '列车经停中';
+  if (approaching) return `即将到达 ${stationName}站`;
+  return `开往 ${stationName}站`;
 }
 
 export const TIME_OPTIONS: { value: TimeOfDay; label: string }[] = [
