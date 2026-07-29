@@ -39,6 +39,13 @@ export interface WindowHudControlAnchor {
   angle: number
 }
 
+export interface WindowHudControlHitArea {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export type WindowHudSurfaceLayout = {
   rail: { x: number; y: number; z: number; width: number; height: number }
 }
@@ -82,6 +89,20 @@ export function windowHudSurfaceLayout(): WindowHudSurfaceLayout {
  * The interactive DOM hit strip uses the same right/top corner projection. */
 export function windowHudControlLayout(): WindowHudControlLayout {
   return { rightInset: 64, topInset: 14, size: 42, gap: 7 }
+}
+
+/** Source geometry shared by canvas drawing and projected pointer hit areas. */
+export function windowHudControlCanvasRects() {
+  const layout = windowHudControlLayout()
+  const canvasWidth = 1280
+  const stripWidth = layout.size * 5 + layout.gap * 4
+  const startX = canvasWidth - layout.rightInset - stripWidth
+  return Array.from({ length: 5 }, (_, index) => ({
+    x: startX + index * (layout.size + layout.gap),
+    y: layout.topInset,
+    width: layout.size,
+    height: layout.size,
+  }))
 }
 
 /** Keep the physical progress stripe within its drawn surface. */
@@ -220,6 +241,35 @@ export class WindowFrame {
     const y = (1 - rightTop.y) / 2
     const angle = Math.atan2(-(rightTop.y - leftTop.y), rightTop.x - leftTop.x)
     return { x, y, angle }
+  }
+
+  /** Individually project the transparent DOM hit areas. The visible buttons
+   * remain painted into the same physical WebGL HUD texture. */
+  getHudControlHitAreas(camera: THREE.Camera): WindowHudControlHitArea[] {
+    if (!this.journeyHudPlane?.visible) return []
+    const rail = windowHudSurfaceLayout().rail
+    const canvasWidth = 1280
+    const canvasHeight = 190
+    const controls = windowHudControlCanvasRects()
+    const project = (canvasX: number, canvasY: number) => {
+      const point = new THREE.Vector3(
+        rail.x - rail.width / 2 + (canvasX / canvasWidth) * rail.width,
+        rail.y + rail.height / 2 - (canvasY / canvasHeight) * rail.height,
+        rail.z + 0.01,
+      )
+      this.group.localToWorld(point)
+      point.project(camera)
+      return { x: (point.x + 1) / 2, y: (1 - point.y) / 2 }
+    }
+    return controls.map((control) => {
+      const topLeft = project(control.x, control.y)
+      const bottomRight = project(control.x + control.width, control.y + control.height)
+      const left = Math.min(topLeft.x, bottomRight.x)
+      const right = Math.max(topLeft.x, bottomRight.x)
+      const top = Math.min(topLeft.y, bottomRight.y)
+      const bottom = Math.max(topLeft.y, bottomRight.y)
+      return { x: (left + right) / 2, y: (top + bottom) / 2, width: right - left, height: bottom - top }
+    })
   }
 
   /** Interior uses its own post-exterior render pass, so normal depth testing
@@ -849,20 +899,16 @@ export class WindowFrame {
   /** Draw the icons into the HUD texture itself so their perspective is the
    * same as the timer, route line and every other physical panel detail. */
   private drawHudControls(context: CanvasRenderingContext2D) {
-    const { width } = context.canvas
-    const layout = windowHudControlLayout()
-    const stripWidth = layout.size * 5 + layout.gap * 4
-    const startX = width - layout.rightInset - stripWidth
-    const y = layout.topInset
-    const center = (index: number) => startX + index * (layout.size + layout.gap) + layout.size / 2
+    const controls = windowHudControlCanvasRects()
+    const center = (index: number) => controls[index].x + controls[index].width / 2
+    const cy = controls[0].y + controls[0].height / 2
 
-    for (let index = 0; index < 5; index++) {
-      const x = startX + index * (layout.size + layout.gap)
+    for (const control of controls) {
       context.fillStyle = 'rgba(5, 10, 12, 0.6)'
       context.strokeStyle = 'rgba(203, 223, 226, 0.32)'
       context.lineWidth = 1.5
       context.beginPath()
-      context.arc(x + layout.size / 2, y + layout.size / 2, layout.size / 2 - 1, 0, Math.PI * 2)
+      context.arc(control.x + control.width / 2, control.y + control.height / 2, control.width / 2 - 1, 0, Math.PI * 2)
       context.fill()
       context.stroke()
     }
@@ -872,8 +918,6 @@ export class WindowFrame {
     context.lineWidth = 2.5
     context.lineCap = 'round'
     context.lineJoin = 'round'
-    const cy = y + layout.size / 2
-
     // pause / resume
     if (this.windowHud.paused) {
       context.beginPath()
