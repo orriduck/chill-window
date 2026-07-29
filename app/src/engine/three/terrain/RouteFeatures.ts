@@ -8,6 +8,9 @@ import type { BiomeType } from './Biome'
  */
 export const ROUTE_SEGMENT_LENGTH = 1500
 export const ROUTE_BLEND_LENGTH = 350
+/** Fixed infrastructure anchors inside every river segment. */
+export const RIVER_BRIDGE_OFFSET = 420
+export const RIVER_VILLAGE_OFFSET = 700
 
 export interface RouteFeature {
   biome: BiomeType

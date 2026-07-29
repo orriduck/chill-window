@@ -20,6 +20,13 @@ export function riverCenterX(z: number): number {
   return 44 + Math.sin(z * 0.0032) * 9 + Math.sin(z * 0.0009 + 2.1) * 5
 }
 
+/** A small far-bank service road continues from the valley bridge to the
+ * river village. Keeping it tied to the river prevents a settlement from
+ * looking independently scattered across the valley. */
+export function farBankRoadCenterX(z: number): number {
+  return riverCenterX(z) + RIVER_HALF_WIDTH + 14
+}
+
 /** River surface shares the route elevation so valley infrastructure and
  * water stay vertically coherent through the route's gentle grades. */
 export function riverWaterElevationAt(z: number, strength = 1): number {

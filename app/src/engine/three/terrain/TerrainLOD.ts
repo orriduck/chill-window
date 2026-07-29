@@ -3,16 +3,19 @@ import {
   TerrainGen, TRACK_FLAT_HALF,
   riverCenterX, RIVER_BANK, RIVER_HALF_WIDTH,
   roadCenterX, ROAD_HALF_WIDTH, ROAD_VERGE,
+  farBankRoadCenterX,
 } from './TerrainGen'
 import type { BiomeType, BiomeColors, HeightParams } from './Biome'
 import { getBiomeConfig } from './Biome'
 import {
   ROUTE_BLEND_LENGTH,
+  RIVER_BRIDGE_OFFSET,
+  RIVER_VILLAGE_OFFSET,
   ROUTE_SEGMENT_LENGTH,
   routeFeatureForSegment,
   sampleRouteFeature,
 } from './RouteFeatures'
-import { createTownCluster } from './TownGenerator'
+import { createRiverVillage, createTownCluster } from './TownGenerator'
 import { createSeededRandom, hash01, seedFromGrid, type RandomSource } from '../core/procedural'
 import {
   ballastGravelTex, groundGrassTex, groundRockBumpTex, groundRockTex,
@@ -582,6 +585,7 @@ if ( terrainDebugView > 0.5 ) {
         if (Math.abs(x) < TRACK_FLAT_HALF + 5) continue
         if ((biome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
         if (riverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 1.5) continue
+        if (this.isRiverVillageClearing(x, z)) continue
 
         // Reuse the terrain grid created for this chunk. This keeps every
         // tuft exactly on the rendered triangle while avoiding four noise
@@ -827,6 +831,17 @@ if ( terrainDebugView > 0.5 ) {
       cityClusters++
     }
 
+    const riverVillageSite = this.getRiverVillageSite(chunkX, chunkZ)
+    if (riverVillageSite && densityScale >= 0.5) {
+      decorations.push(createRiverVillage(
+        riverVillageSite.bridgeZ,
+        riverVillageSite.z,
+        (x, z) => this.sampleHeight(x, z),
+        random,
+      ))
+      cityClusters++
+    }
+
     const attempts = Math.floor(biome.decorDensity * 58 * densityScale)
 
     for (let i = 0; i < attempts; i++) {
@@ -841,6 +856,8 @@ if ( terrainDebugView > 0.5 ) {
       if ((localBiome.params.road ?? 0) > 0.1 && Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
       // Keep the river channel clear
       if (localRiverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 2) continue
+      // Planned river access and house lots stay free of random vegetation.
+      if (this.isRiverVillageClearing(x, z)) continue
 
       const height = sampleChunkSurface(x, z)
       const slope = this.terrainGen.getSlope(x, z, localBiome.params)
@@ -907,6 +924,36 @@ if ( terrainDebugView > 0.5 ) {
       }
     }
     return null
+  }
+
+  /** One far-bank hamlet is positioned after the fixed road bridge in each
+   * river segment. Owning it from the village chunk keeps streaming stable. */
+  private getRiverVillageSite(chunkX: number, chunkZ: number): { bridgeZ: number; x: number; z: number } | null {
+    const firstSegment = Math.floor((chunkZ * CHUNK_SIZE) / ROUTE_SEGMENT_LENGTH) - 1
+    for (let segmentIndex = firstSegment; segmentIndex <= firstSegment + 2; segmentIndex++) {
+      if (routeFeatureForSegment(segmentIndex).biome !== 'river') continue
+      const segmentStart = segmentIndex * ROUTE_SEGMENT_LENGTH
+      const z = segmentStart + RIVER_VILLAGE_OFFSET
+      const x = farBankRoadCenterX(z)
+      if (Math.floor(x / CHUNK_SIZE) === chunkX && Math.floor(z / CHUNK_SIZE) === chunkZ) {
+        return { bridgeZ: segmentStart + RIVER_BRIDGE_OFFSET, x, z }
+      }
+    }
+    return null
+  }
+
+  /** Clear vegetation where the access road, lots, and jetty have a planned
+   * purpose. This is calculated from world coordinates for every chunk. */
+  private isRiverVillageClearing(x: number, z: number): boolean {
+    const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
+    if (routeFeatureForSegment(segmentIndex).biome !== 'river') return false
+    const segmentStart = segmentIndex * ROUTE_SEGMENT_LENGTH
+    const bridgeZ = segmentStart + RIVER_BRIDGE_OFFSET
+    const villageZ = segmentStart + RIVER_VILLAGE_OFFSET
+    const farRoadX = farBankRoadCenterX(z)
+    if (z >= bridgeZ - 4 && z <= villageZ + 128 && Math.abs(x - farRoadX) < 5.5) return true
+    if (Math.abs(z - villageZ) < 110 && x > riverCenterX(z) + RIVER_HALF_WIDTH - 2 && x < farRoadX + 15) return true
+    return false
   }
 
   // ---- Vegetation billboards ----
