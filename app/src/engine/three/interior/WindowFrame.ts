@@ -123,7 +123,12 @@ export class WindowFrame {
       new THREE.MeshStandardMaterial({ color: 0x20282d, roughness: 0.5, metalness: 0.28 })
     )
     const aluminium = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xa8b4b9, roughness: 0.3, metalness: 0.85 })
+      new THREE.MeshStandardMaterial({
+        color: 0xa8b4b9,
+        map: this.makeBrushedAluminiumTexture(),
+        roughness: 0.3,
+        metalness: 0.85,
+      })
     )
     const accent = this.track(
       new THREE.MeshStandardMaterial({ color: 0x76b4c8, roughness: 0.38, metalness: 0.45 })
@@ -346,31 +351,57 @@ export class WindowFrame {
     this.wobblers.push({ obj: bag, baseY: bag.position.y, phase: 2.6 })
   }
 
-  /** Folded upper berth with a slim safety rail. */
+  /** Folded upper berth with fitted linen, retaining straps and a positive
+   * release pull. It sits beside the aperture instead of occupying its view. */
   private buildFoldedBunk(aluminium: THREE.Material) {
-    const bunkY = 1.35
     const bunk = new THREE.Group()
 
-    const mattressMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xd8e0e2, roughness: 0.95 })
+    const shellMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x25353d, roughness: 0.52, metalness: 0.28 })
     )
-    const mattress = new THREE.Mesh(this.box(1.5, 0.16, 0.5), mattressMat)
-    bunk.add(mattress)
+    const shell = new THREE.Mesh(this.box(1.46, 0.72, 0.09), shellMat)
+    bunk.add(shell)
 
-    const blanketMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x31546a, roughness: 1.0 })
+    const linenMat = this.track(
+      new THREE.MeshStandardMaterial({ map: this.makeLinenTexture(), roughness: 0.96 })
     )
-    const blanket = new THREE.Mesh(this.box(1.5, 0.1, 0.14), blanketMat)
-    blanket.position.set(0, 0.02, 0.22)
-    bunk.add(blanket)
+    const foldedMattress = new THREE.Mesh(this.box(1.3, 0.55, 0.08), linenMat)
+    foldedMattress.position.z = 0.09
+    bunk.add(foldedMattress)
+
+    const beddingMat = this.track(
+      new THREE.MeshStandardMaterial({ map: this.makeBeddingTexture(), roughness: 1.0 })
+    )
+    const duvetBand = new THREE.Mesh(this.box(1.22, 0.18, 0.045), beddingMat)
+    duvetBand.position.set(0, -0.14, 0.16)
+    bunk.add(duvetBand)
+
+    const strapMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x172126, roughness: 0.78, metalness: 0.06 })
+    )
+    for (const strapX of [-0.38, 0.38]) {
+      const strap = new THREE.Mesh(this.box(0.045, 0.54, 0.025), strapMat)
+      strap.position.set(strapX, 0, 0.18)
+      bunk.add(strap)
+
+      const clasp = new THREE.Mesh(this.box(0.1, 0.06, 0.04), aluminium)
+      clasp.position.set(strapX, -0.04, 0.2)
+      bunk.add(clasp)
+    }
 
     for (const sx of [-0.45, 0.45]) {
-      const bracket = new THREE.Mesh(this.box(0.04, 0.2, 0.52), aluminium)
+      const bracket = new THREE.Mesh(this.box(0.04, 0.2, 0.28), aluminium)
+      bracket.position.z = -0.06
       bracket.position.x = sx
       bunk.add(bracket)
     }
 
-    bunk.position.set(-1.72, bunkY, 0.28)
+    const pull = new THREE.Mesh(this.track(new THREE.TorusGeometry(0.07, 0.012, 6, 12)), aluminium)
+    pull.position.set(0.54, -0.28, 0.18)
+    pull.rotation.x = Math.PI / 2
+    bunk.add(pull)
+
+    bunk.position.set(-2.5, 0.7, 0.28)
     this.group.add(bunk)
   }
 
@@ -386,9 +417,20 @@ export class WindowFrame {
     arm.rotation.x = -0.42
     lamp.add(arm)
 
+    const joint = new THREE.Mesh(this.track(new THREE.SphereGeometry(0.055, 12, 8)), aluminium)
+    joint.position.set(0, 0.23, 0.1)
+    lamp.add(joint)
+
     const housing = new THREE.Mesh(this.box(0.24, 0.07, 0.13), aluminium)
     housing.position.set(0, 0.25, 0.16)
     lamp.add(housing)
+
+    const shadeMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x1c272c, roughness: 0.5, metalness: 0.38 })
+    )
+    const shade = new THREE.Mesh(this.box(0.18, 0.045, 0.1), shadeMat)
+    shade.position.set(0, 0.19, 0.225)
+    lamp.add(shade)
 
     const bulbMat = this.track(
       new THREE.MeshStandardMaterial({
@@ -421,26 +463,46 @@ export class WindowFrame {
     this.group.add(lamp)
   }
 
-  /** Deep blue-grey berth bench with a compact laminate work surface. */
+  /** Deep blue-grey lower berth with separated cushions and a cantilevered
+   * table. The volume lives beneath the lower HUD, not over it. */
   private buildSeat() {
     const fabric = this.track(
       new THREE.MeshStandardMaterial({ map: this.makeSeatTextile(), roughness: 1.0, metalness: 0 })
     )
-    const seat = new THREE.Mesh(this.box(4.3, 0.72, 0.28), fabric)
-    seat.position.set(0.25, -2.02, 0.62)
+    const baseMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x1b292f, roughness: 0.66, metalness: 0.22 })
+    )
+    const base = new THREE.Mesh(this.box(4.3, 0.24, 0.42), baseMat)
+    base.position.set(0.25, -2.18, 0.52)
+    base.rotation.x = 0.12
+    this.group.add(base)
+
+    const seat = new THREE.Mesh(this.box(4.24, 0.3, 0.5), fabric)
+    seat.position.set(0.25, -1.96, 0.66)
     seat.rotation.x = 0.12
     this.group.add(seat)
+
+    const backrest = new THREE.Mesh(this.box(4.24, 0.24, 0.16), fabric)
+    backrest.position.set(0.25, -1.71, 0.47)
+    backrest.rotation.x = 0.12
+    this.group.add(backrest)
 
     const edgeMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x9fc8d5, roughness: 0.42, metalness: 0.42 })
     )
     const topPiping = new THREE.Mesh(this.box(4.34, 0.03, 0.035), edgeMat)
-    topPiping.position.set(0.25, -1.67, 0.79)
+    topPiping.position.set(0.25, -1.79, 0.92)
     topPiping.rotation.x = 0.12
     this.group.add(topPiping)
+    for (const seamX of [-1.1, 0.25, 1.6]) {
+      const seam = new THREE.Mesh(this.box(0.025, 0.25, 0.025), edgeMat)
+      seam.position.set(seamX, -1.95, 0.93)
+      seam.rotation.x = 0.12
+      this.group.add(seam)
+    }
     for (const side of [-1, 1]) {
       const arm = new THREE.Mesh(this.box(0.12, 0.34, 0.4), edgeMat)
-      arm.position.set(0.25 + side * 2.05, -1.92, 0.56)
+      arm.position.set(0.25 + side * 2.05, -1.98, 0.65)
       arm.rotation.x = 0.12
       this.group.add(arm)
     }
@@ -448,10 +510,19 @@ export class WindowFrame {
     const tableMat = this.track(
       new THREE.MeshStandardMaterial({ map: this.makeCabinPanelTexture(), roughness: 0.58, metalness: 0.08 })
     )
-    const table = new THREE.Mesh(this.box(1.65, 0.05, 0.66), tableMat)
-    table.position.set(-0.55, -1.88, 0.43)
+    const table = new THREE.Mesh(this.box(1.45, 0.05, 0.58), tableMat)
+    table.position.set(-0.55, -1.69, 0.48)
     table.rotation.x = -0.05
     this.group.add(table)
+
+    const tableEdge = new THREE.Mesh(this.box(1.46, 0.035, 0.025), edgeMat)
+    tableEdge.position.set(-0.55, -1.7, 0.77)
+    tableEdge.rotation.x = -0.05
+    this.group.add(tableEdge)
+    const tableSupport = new THREE.Mesh(this.box(0.045, 0.3, 0.045), edgeMat)
+    tableSupport.position.set(0.07, -1.88, 0.49)
+    tableSupport.rotation.x = -0.28
+    this.group.add(tableSupport)
 
     const blanketMat = this.track(
       new THREE.MeshStandardMaterial({ map: this.makeBeddingTexture(), roughness: 0.98 })
@@ -510,12 +581,12 @@ export class WindowFrame {
 
   }
 
-  /** A muted digital route display replaces decorative vintage wall art. */
+  /** A compact berth control panel replaces decorative wall art. */
   private buildInfoPanel() {
     const frameMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x20282d, roughness: 0.38, metalness: 0.68 })
     )
-    const frame = new THREE.Mesh(this.box(0.52, 0.4, 0.03), frameMat)
+    const frame = new THREE.Mesh(this.box(0.58, 0.46, 0.03), frameMat)
     frame.position.set(2.75, 0.05, 0.0)
     this.group.add(frame)
     const displayMat = this.track(
@@ -524,6 +595,22 @@ export class WindowFrame {
     const display = new THREE.Mesh(this.track(new THREE.PlaneGeometry(0.42, 0.08)), displayMat)
     display.position.set(2.75, 0.09, 0.02)
     this.group.add(display)
+
+    const buttonMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xd4e5e7, roughness: 0.32, metalness: 0.65 })
+    )
+    for (const buttonX of [2.65, 2.85]) {
+      const button = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.034, 0.034, 0.018, 12)), buttonMat)
+      button.rotation.x = Math.PI / 2
+      button.position.set(buttonX, -0.1, 0.035)
+      this.group.add(button)
+    }
+    const indicatorMat = this.track(
+      new THREE.MeshBasicMaterial({ color: 0x8ddbe1, transparent: true, opacity: 0.9 })
+    )
+    const indicator = new THREE.Mesh(this.track(new THREE.CircleGeometry(0.018, 10)), indicatorMat)
+    indicator.position.set(2.56, -0.1, 0.04)
+    this.group.add(indicator)
   }
 
   // ---- Glass & sill ----
@@ -870,21 +957,31 @@ export class WindowFrame {
 
   // ---- Canvas textures ----
 
-  /** Light-grey composite panels with recessed joins. */
+  /** Low-sheen light-grey composite panels, with restrained horizontal joins
+   * and a fine laminate grain rather than traditional wood panelling. */
   private makeCabinPanelTexture(): THREE.Texture {
     const size = 256
     const canvas = document.createElement('canvas')
     canvas.width = size
     canvas.height = size
     const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#c8d0d1'
+    ctx.fillStyle = '#b9c4c6'
     ctx.fillRect(0, 0, size, size)
 
-    for (let y = 32; y < size; y += 64) {
-      ctx.fillStyle = 'rgba(37,52,58,0.18)'
+    for (let y = 0; y < size; y += 4) {
+      const alpha = y % 16 === 0 ? 0.05 : 0.018
+      ctx.fillStyle = `rgba(27, 42, 48, ${alpha})`
+      ctx.fillRect(0, y, size, 1)
+    }
+    for (let y = 40; y < size; y += 72) {
+      ctx.fillStyle = 'rgba(32, 48, 55, 0.2)'
       ctx.fillRect(0, y, size, 2)
-      ctx.fillStyle = 'rgba(255,255,255,0.24)'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.34)'
       ctx.fillRect(0, y + 2, size, 1)
+    }
+    for (let x = 20; x < size; x += 48) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)'
+      ctx.fillRect(x, 0, 1, size)
     }
 
     const tex = new THREE.CanvasTexture(canvas)
@@ -894,7 +991,7 @@ export class WindowFrame {
     return this.track(tex)
   }
 
-  /** Blue-grey woven seat textile with a restrained geometric weave. */
+  /** Blue-grey upholstery with crossing warp and weft threads. */
   private makeSeatTextile(): THREE.Texture {
     const size = 128
     const canvas = document.createElement('canvas')
@@ -904,16 +1001,13 @@ export class WindowFrame {
     ctx.fillStyle = '#334b5c'
     ctx.fillRect(0, 0, size, size)
 
-    const step = 12
-    for (let ry = 0; ry < size / step; ry++) {
-      for (let rx = 0; rx < size / step; rx++) {
-        const x = rx * step + (ry % 2 === 0 ? 0 : step / 2)
-        const y = ry * step
-        ctx.fillStyle = 'rgba(190,220,225,0.3)'
-        ctx.fillRect(x, y, 2, 2)
-        ctx.fillStyle = 'rgba(23,35,46,0.28)'
-        ctx.fillRect(x + step / 2, y + step / 2, 2, 2)
-      }
+    for (let x = 0; x < size; x += 4) {
+      ctx.fillStyle = x % 8 === 0 ? 'rgba(201, 224, 225, 0.18)' : 'rgba(15, 27, 37, 0.16)'
+      ctx.fillRect(x, 0, 1, size)
+    }
+    for (let y = 0; y < size; y += 5) {
+      ctx.fillStyle = y % 10 === 0 ? 'rgba(216, 235, 235, 0.14)' : 'rgba(18, 31, 41, 0.15)'
+      ctx.fillRect(0, y, size, 1)
     }
 
     const tex = new THREE.CanvasTexture(canvas)
@@ -924,7 +1018,7 @@ export class WindowFrame {
     return this.track(tex)
   }
 
-  /** Navy bedding with a subtle cool pinstripe. */
+  /** Navy duvet cover with fine cool pinstripes. */
   private makeBeddingTexture(): THREE.Texture {
     const size = 96
     const canvas = document.createElement('canvas')
@@ -940,6 +1034,53 @@ export class WindowFrame {
     texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.RepeatWrapping
     texture.repeat.set(3, 2)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return this.track(texture)
+  }
+
+  /** Warm-white linen for the visible folded mattress. */
+  private makeLinenTexture(): THREE.Texture {
+    const size = 96
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#e2e7e4'
+    ctx.fillRect(0, 0, size, size)
+    for (let x = 0; x < size; x += 6) {
+      ctx.fillStyle = x % 12 === 0 ? 'rgba(112, 135, 138, 0.12)' : 'rgba(255, 255, 255, 0.16)'
+      ctx.fillRect(x, 0, 1, size)
+    }
+    for (let y = 0; y < size; y += 7) {
+      ctx.fillStyle = y % 14 === 0 ? 'rgba(89, 110, 116, 0.1)' : 'rgba(255, 255, 255, 0.14)'
+      ctx.fillRect(0, y, size, 1)
+    }
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(3, 2)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return this.track(texture)
+  }
+
+  /** Subtle linear machining marks prevent fittings from reading as flat grey. */
+  private makeBrushedAluminiumTexture(): THREE.Texture {
+    const size = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#a8b4b9'
+    ctx.fillRect(0, 0, size, size)
+    for (let y = 0; y < size; y += 3) {
+      const alpha = y % 9 === 0 ? 0.2 : 0.07
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`
+      ctx.fillRect(0, y, size, 1)
+    }
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(2, 2)
     texture.colorSpace = THREE.SRGBColorSpace
     return this.track(texture)
   }
