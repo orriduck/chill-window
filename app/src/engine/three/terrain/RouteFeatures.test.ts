@@ -82,6 +82,7 @@ describe('route features', () => {
     const regional = routeBeatForSegment(3)
     expect(routeBeatIssues({ ...regional, station: 'none' })).toContain('station engineering requires a station kind')
     expect(routeBeatIssues({ ...regional, roadRelation: 'valley-access' })).toContain('valley access roads require a valley bridge')
+    expect(routeBeatIssues({ ...regional, roadRelation: 'grade-separated' })).toContain('grade-separated roads require urban-through engineering')
   })
 
   it('keeps bridge, village, lake and tunnel anchors inside their authored beats', () => {

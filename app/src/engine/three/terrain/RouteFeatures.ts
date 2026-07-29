@@ -259,6 +259,7 @@ export function routeBeatIssues(beat: RouteBeat): string[] {
   if (beat.station === 'urban-through' && beat.settlement !== 'urban-edge') issues.push('urban through stations require urban-edge fabric')
   if (beat.roadRelation === 'station-access' && beat.station === 'none') issues.push('station access roads require a station')
   if (beat.roadRelation === 'valley-access' && !valleyEngineering) issues.push('valley access roads require a valley bridge')
+  if (beat.roadRelation === 'grade-separated' && beat.engineering !== 'urban-through') issues.push('grade-separated roads require urban-through engineering')
 
   return issues
 }

@@ -897,6 +897,7 @@ if ( terrainDebugView > 0.5 ) {
         (x, z) => this.sampleHeight(x, z),
         random,
         townSite.profile,
+        townSite.hasGradeSeparatedRoad,
       ))
       cityClusters++
     }
@@ -991,15 +992,16 @@ if ( terrainDebugView > 0.5 ) {
     return { decorations, cityClusters }
   }
 
-  private getTownSite(chunkX: number, chunkZ: number): { x: number; z: number; profile: TownProfile } | null {
+  private getTownSite(chunkX: number, chunkZ: number): { x: number; z: number; profile: TownProfile; hasGradeSeparatedRoad: boolean } | null {
     const firstSegment = Math.floor((chunkZ * CHUNK_SIZE) / ROUTE_SEGMENT_LENGTH) - 1
     for (let segmentIndex = firstSegment; segmentIndex <= firstSegment + 2; segmentIndex++) {
-      const profile = townProfileForSettlement(routeBeatForSegment(segmentIndex, this.routePlan).settlement)
+      const beat = routeBeatForSegment(segmentIndex, this.routePlan)
+      const profile = townProfileForSettlement(beat.settlement)
       if (!profile) continue
 
       const site = this.townSiteForSegment(segmentIndex)
       if (Math.floor(site.x / CHUNK_SIZE) === chunkX && Math.floor(site.z / CHUNK_SIZE) === chunkZ) {
-        return { ...site, profile }
+        return { ...site, profile, hasGradeSeparatedRoad: beat.roadRelation === 'grade-separated' }
       }
     }
     return null
@@ -1022,7 +1024,8 @@ if ( terrainDebugView > 0.5 ) {
 
   private isTownRoadBridgeFootprint(x: number, z: number): boolean {
     const segmentIndex = Math.floor(z / ROUTE_SEGMENT_LENGTH)
-    if (routeFeatureForSegment(segmentIndex, this.routePlan).biome !== 'town') return false
+    const beat = routeBeatForSegment(segmentIndex, this.routePlan)
+    if (beat.roadRelation !== 'grade-separated') return false
     const site = this.townSiteForSegment(segmentIndex)
     return isTownRoadBridgeFootprint(x, z, site.x, site.z)
   }

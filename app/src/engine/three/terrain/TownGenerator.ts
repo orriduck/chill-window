@@ -326,6 +326,7 @@ export function createTownCluster(
   sampleHeight: HeightSampler,
   random: RandomSource = Math.random,
   profile: TownProfile = 'regional',
+  hasGradeSeparatedRoad = false,
 ): THREE.Group {
   const town = new THREE.Group()
 
@@ -410,10 +411,10 @@ export function createTownCluster(
     }
   }
 
-  // The bridge starts just before the town block. Its descending town-side
-  // ramp merges back into this main street instead of appearing as a free
-  // floating overpass beside the railway.
-  town.add(createTownRoadBridge(cx, cz, sampleHeight))
+  // A proper road crossing belongs to the urban-edge route beat. Regional
+  // towns retain their local street fabric instead of receiving the same
+  // motorway-like structure as a city approach.
+  if (hasGradeSeparatedRoad) town.add(createTownRoadBridge(cx, cz, sampleHeight))
 
   // Street lamps along the main street
   const lampMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.5, metalness: 0.6 })
