@@ -10,6 +10,7 @@ import groundRockUrl from './assets/rock_06.e37dd9a2.jpg'
 import groundRockBumpUrl from './assets/rock_06_bump.4570639b.jpg'
 import ballastGravelUrl from './assets/gravel_01.490410e9.jpg'
 import riverSandUrl from './assets/sand_01.b8a432e9.jpg'
+import { configureSpriteAtlas } from './textureSampling'
 
 /**
  * Shared textures, loaded once. Sprite atlases stay whole — per-variant UV
@@ -40,12 +41,12 @@ export const ballastGravelReady = new Promise<void>((resolve) => {
 export const ballastGravelTex = load(ballastGravelUrl, true, resolveBallastGravelReady)
 
 // ---- Sprite atlases ----
-export const grassSpriteTex = load(grassSpriteUrl) // 2x2, 4 clump variants
-export const bushSpriteTex = load(bushSpriteUrl)   // 2x2, 4 bush variants
-export const treeNearTex = load(treesNearUrl)      // 4x1
-export const treeNearBTex = load(treesNearBUrl)    // 4x1
-export const treeFarTex = load(treesFarUrl)        // 4x1
-export const treeFarBTex = load(treesFarBUrl)      // 4x1
+export const grassSpriteTex = configureSpriteAtlas(load(grassSpriteUrl)) // 2x2, 4 clump variants
+export const bushSpriteTex = configureSpriteAtlas(load(bushSpriteUrl))   // 2x2, 4 bush variants
+export const treeNearTex = configureSpriteAtlas(load(treesNearUrl))      // 4x2
+export const treeNearBTex = configureSpriteAtlas(load(treesNearBUrl))    // 4x2
+export const treeFarTex = configureSpriteAtlas(load(treesFarUrl))        // 2x2
+export const treeFarBTex = configureSpriteAtlas(load(treesFarBUrl))      // 2x2
 
 /** Rewrite a geometry's uv attribute to address one cell of an atlas.
  *  col/row are 0-based; row 0 is the TOP row of the image. */

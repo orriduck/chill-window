@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import * as THREE from 'three'
 import { TREE_STYLES, treeSpriteCell, treeSpriteVariantCount, treeStyleForBiome } from './Vegetation'
+import { configureSpriteAtlas } from '../textureSampling'
 
 describe('treeStyleForBiome', () => {
   it('keeps every requested tree silhouette reachable through deterministic samples', () => {
@@ -37,5 +39,17 @@ describe('tree sprite atlas cells', () => {
   it('clamps invalid atlas variants into a real cell', () => {
     expect(treeSpriteCell('far', -1)).toMatchObject({ col: 0, row: 0 })
     expect(treeSpriteCell('near', 12)).toMatchObject({ col: 3, row: 1 })
+  })
+})
+
+describe('sprite atlas sampling', () => {
+  it('does not blend neighbouring atlas cells through mip levels', () => {
+    const atlas = configureSpriteAtlas(new THREE.Texture())
+
+    expect(atlas.wrapS).toBe(THREE.ClampToEdgeWrapping)
+    expect(atlas.wrapT).toBe(THREE.ClampToEdgeWrapping)
+    expect(atlas.generateMipmaps).toBe(false)
+    expect(atlas.minFilter).toBe(THREE.LinearFilter)
+    expect(atlas.magFilter).toBe(THREE.LinearFilter)
   })
 })
