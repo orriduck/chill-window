@@ -14,6 +14,7 @@ import {
   lakeBasinStrengthAt,
   ROUTE_BLEND_LENGTH,
   ROUTE_SEGMENT_LENGTH,
+  routeContextAt,
   routeFeatureForSegment,
   sampleRouteFeature,
 } from './RouteFeatures'
@@ -62,6 +63,9 @@ describe('route features', () => {
     expect(lakeBasinStrengthAt(lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH)).toBe(0)
     expect(lakeBasinStrengthAt(lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH / 2)).toBeGreaterThan(0)
     expect(lakeBasinStrengthAt(mountainStart + 20)).toBe(0)
+    expect(routeContextAt(lakeCenter)).toEqual({ currentLabel: '湖岸', nextLabel: '山地' })
+    expect(routeContextAt(villageZ)).toEqual({ currentLabel: '河谷', nextLabel: '山地' })
+    expect(routeContextAt(mountainStart + 20)).toEqual({ currentLabel: '山地', nextLabel: '田野' })
 
     const lakeChannel = waterChannelAt(lakeCenter)
     expect(lakeChannel.halfWidth).toBeGreaterThan(RIVER_HALF_WIDTH)
@@ -79,6 +83,26 @@ describe('route features', () => {
     expect(routeFeatureForSegment(mountainSegment).tunnel).toBe(true)
     expect(tunnelCenter).toBeGreaterThan(mountainStart)
     expect(tunnelCenter + MOUNTAIN_TUNNEL_LENGTH / 2).toBeLessThan(mountainStart + ROUTE_SEGMENT_LENGTH)
+  })
+
+  it('keeps lakeshore labels stable across each eased basin edge', () => {
+    const lakeCenter = 3 * ROUTE_SEGMENT_LENGTH + RIVER_LAKE_OFFSET
+    const entry = lakeCenter - RIVER_LAKE_HALF_LENGTH - RIVER_LAKE_FADE_LENGTH
+    const exit = lakeCenter + RIVER_LAKE_HALF_LENGTH + RIVER_LAKE_FADE_LENGTH
+
+    expect(routeContextAt(entry)).toMatchObject({ currentLabel: '河谷' })
+    expect(routeContextAt(entry + RIVER_LAKE_FADE_LENGTH / 2)).toMatchObject({ currentLabel: '湖岸' })
+    expect(routeContextAt(exit - RIVER_LAKE_FADE_LENGTH / 2)).toMatchObject({ currentLabel: '湖岸' })
+    expect(routeContextAt(exit)).toMatchObject({ currentLabel: '河谷' })
+  })
+
+  it('names every planned biome in the passenger context', () => {
+    expect(routeContextAt(0)).toMatchObject({ currentLabel: '田野' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH)).toMatchObject({ currentLabel: '林地' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 2)).toMatchObject({ currentLabel: '城镇' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 3)).toMatchObject({ currentLabel: '河谷' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 3 + RIVER_LAKE_OFFSET)).toMatchObject({ currentLabel: '湖岸' })
+    expect(routeContextAt(ROUTE_SEGMENT_LENGTH * 4)).toMatchObject({ currentLabel: '山地' })
   })
 })
 

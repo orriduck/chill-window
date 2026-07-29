@@ -47,6 +47,19 @@ export interface RouteFeatureSample {
   blend: number
 }
 
+export interface RouteContext {
+  currentLabel: string
+  nextLabel: string
+}
+
+const BIOME_LABELS: Record<BiomeType, string> = {
+  field: '田野',
+  forest: '林地',
+  town: '城镇',
+  river: '河谷',
+  mountain: '山地',
+}
+
 function positiveModulo(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor
 }
@@ -87,4 +100,20 @@ export function lakeBasinStrengthAt(z: number): number {
 
   const t = (distance - RIVER_LAKE_HALF_LENGTH) / RIVER_LAKE_FADE_LENGTH
   return 1 - t * t * (3 - 2 * t)
+}
+
+/**
+ * Passenger-facing terrain context derived from the exact route coordinate
+ * used by the camera and streamed scenery. The low threshold makes the lake
+ * label enter a little before the full-width basin, but it remains entirely
+ * deterministic while the train crosses either eased shore.
+ */
+export function routeContextAt(z: number): RouteContext {
+  const route = sampleRouteFeature(z)
+  const isLakeshore = lakeBasinStrengthAt(z) >= 0.12
+
+  return {
+    currentLabel: isLakeshore ? '湖岸' : BIOME_LABELS[route.current.biome],
+    nextLabel: BIOME_LABELS[route.next.biome],
+  }
 }
