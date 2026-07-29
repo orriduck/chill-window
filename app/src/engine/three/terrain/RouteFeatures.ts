@@ -118,7 +118,9 @@ type RouteBeatId = keyof typeof BEATS
 // biome rolls. Seed selection chooses a complete programme, so a valley bridge
 // always has a valley and a mountain tunnel never appears in open farmland.
 const CURATED_ROUTE_PROGRAMMES: readonly (readonly RouteBeatId[])[] = [
-  ['open-country', 'woodland', 'regional-town', 'river-valley', 'mountain-pass'],
+  // The default is deliberately long enough for a focus journey to encounter
+  // every station scale before the river engineering and mountain exit.
+  ['open-country', 'rural-halt', 'woodland', 'regional-town', 'urban-edge', 'river-valley', 'mountain-pass'],
   ['rural-halt', 'woodland', 'regional-town', 'river-valley', 'mountain-pass'],
   ['open-country', 'regional-town', 'woodland', 'river-valley', 'mountain-pass'],
   ['open-country', 'woodland', 'urban-edge', 'river-valley', 'mountain-pass'],

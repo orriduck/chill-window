@@ -48,7 +48,7 @@ describe('stationHallFacadeLayout', () => {
 describe('station route typology', () => {
   it('maps route beats to visible station types without leaving an untyped stop', () => {
     expect(stationVisualKindAt(0)).toBe('rural-halt')
-    expect(stationVisualKindAt(2 * 1500)).toBe('regional')
+    expect(stationVisualKindAt(3 * 1500)).toBe('regional')
     expect(stationVisualKindAt(2 * 1500, createRoutePlan(3))).toBe('urban-through')
   })
 })
