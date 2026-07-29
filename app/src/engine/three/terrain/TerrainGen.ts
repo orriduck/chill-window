@@ -64,6 +64,8 @@ export function roadCenterX(z: number): number {
 }
 export const ROAD_HALF_WIDTH = 3.0
 export const ROAD_VERGE = 4.8 // grass blend-out distance
+/** Top elevation of the shared country-road formation relative to rail. */
+export const ROADBED_OFFSET = -0.12
 
 function smoothstep(t: number): number {
   return t * t * (3 - 2 * t)
@@ -147,7 +149,7 @@ export class TerrainGen {
       if (roadDistance < ROAD_VERGE) {
         const edge = (roadDistance - ROAD_HALF_WIDTH) / (ROAD_VERGE - ROAD_HALF_WIDTH)
         const roadWeight = (1 - smoothstep(Math.min(Math.max(edge, 0), 1))) * Math.min(1, road * 2)
-        const roadbed = trackElevationAt(z) - 0.12
+        const roadbed = trackElevationAt(z) + ROADBED_OFFSET
         height = height * (1 - roadWeight) + roadbed * roadWeight
       }
     }
