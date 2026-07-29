@@ -6,6 +6,7 @@ import treesNearBUrl from './assets/trees_summer_near_04b.84790ad5.png'
 import treesFarUrl from './assets/trees_summer_far_04.df59f729.png'
 import treesFarBUrl from './assets/trees_summer_far_04b.2a814171.png'
 import groundGrassUrl from './assets/grass_summer_01.d4364fbb.jpg'
+import groundRockUrl from './assets/rock_06.e37dd9a2.jpg'
 import groundRockBumpUrl from './assets/rock_06_bump.4570639b.jpg'
 import ballastGravelUrl from './assets/gravel_01.490410e9.jpg'
 
@@ -27,6 +28,7 @@ function load(url: string, srgb = true): THREE.Texture {
 
 // ---- Ground ----
 export const groundGrassTex = load(groundGrassUrl)
+export const groundRockTex = load(groundRockUrl)
 export const groundRockBumpTex = load(groundRockBumpUrl, false)
 export const ballastGravelTex = load(ballastGravelUrl)
 
@@ -63,6 +65,7 @@ export function applyAtlasUV(
 export function disposeSharedTextures(): void {
   for (const tex of [
     groundGrassTex,
+    groundRockTex,
     groundRockBumpTex,
     ballastGravelTex,
     grassSpriteTex,

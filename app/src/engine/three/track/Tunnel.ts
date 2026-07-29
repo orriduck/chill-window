@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { createSeededRandom, seedFromGrid } from '../core/procedural'
 
 // Tunnel geometry
 const TUNNEL_LENGTH = 280
@@ -10,12 +11,11 @@ const PORTAL_DEPTH = 1.4
 const ARCH_R = 4.3
 const ARCH_SPRING = 2.6 // height where the arch curve starts
 
-// Scheduling: one tunnel per mountain-biome segment.
-// Biome segments are 2000 long and cycle field/forest/mountain/river/town,
-// so mountain is segment index % 5 === 2.
-const SEGMENT = 2000
-const MOUNTAIN_INDEX = 2
-const TUNNEL_OFFSET = 1100 // centre of the tunnel inside its segment
+// Scheduling mirrors TerrainLOD's fixed world sequence:
+// field, forest, town, river, mountain — 1500 units each.
+const SEGMENT = 1500
+const MOUNTAIN_INDEX = 4
+const TUNNEL_OFFSET = 1080 // centre of the mountain segment
 const BUILD_AHEAD = 900 // build when the camera gets this close
 const DISPOSE_BEHIND = 600 // dispose once this far past the exit
 
@@ -31,6 +31,7 @@ class Tunnel {
   private disposables: (THREE.BufferGeometry | THREE.Material)[] = []
 
   constructor(zCenter: number) {
+    const random = createSeededRandom(seedFromGrid(0, Math.floor(zCenter), 51))
     this.group.position.z = zCenter
 
     // ---- Earthen mound: half-cylinder shell covering the tube ----
@@ -51,16 +52,16 @@ class Tunnel {
       new THREE.MeshStandardMaterial({ color: 0x77705f, roughness: 0.95, flatShading: true })
     )
     for (let i = 0; i < 5; i++) {
-      const rock = new THREE.Mesh(this.track(new THREE.DodecahedronGeometry(0.8 + Math.random() * 0.9, 0)), capMat)
-      const a = Math.PI / 2 + (Math.random() - 0.5) * 0.9 // near the crest
+      const rock = new THREE.Mesh(this.track(new THREE.DodecahedronGeometry(0.8 + random() * 0.9, 0)), capMat)
+      const a = Math.PI / 2 + (random() - 0.5) * 0.9 // near the crest
       const r = MOUND_RADIUS - 0.3
       // Place on the mound surface: cross-section is in XY
       rock.position.set(
         Math.cos(a) * r,
         Math.sin(a) * r,
-        (Math.random() - 0.5) * (TUNNEL_LENGTH - 40)
+        (random() - 0.5) * (TUNNEL_LENGTH - 40)
       )
-      rock.rotation.set(Math.random(), Math.random() * Math.PI, Math.random())
+      rock.rotation.set(random(), random() * Math.PI, random())
       this.group.add(rock)
     }
 

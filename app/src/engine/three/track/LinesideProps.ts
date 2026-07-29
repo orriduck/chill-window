@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { hash01 } from '../core/procedural'
 import { roadCenterX, ROAD_VERGE } from '../terrain/TerrainGen'
 
 // Catenary poles
@@ -88,7 +89,10 @@ export class LinesideProps {
 
     for (let i = 0; i < POLE_COUNT; i++) {
       this.poleZ.push(i * POLE_SPACING - POLE_BEHIND)
+      this.writePole(i)
     }
+    this.poles.instanceMatrix.needsUpdate = true
+    this.poleArms.instanceMatrix.needsUpdate = true
     this.group.add(this.poles, this.poleArms)
 
     // Contact wire above the rails, follows the camera like the track
@@ -114,15 +118,11 @@ export class LinesideProps {
     this.grass = new THREE.InstancedMesh(grassGeom, grassMat, GRASS_COUNT)
     this.grass.frustumCulled = false
     for (let i = 0; i < GRASS_COUNT; i++) {
-      const z = -POLE_BEHIND + Math.random() * GRASS_WINDOW
-      this.grassData.push({
-        x: this.sampleClearX(GRASS_X_MIN, GRASS_X_MAX, z),
-        z,
-        s: 0.85 + Math.random() * 0.9,
-        rot: Math.random() * Math.PI,
-      })
-      this.setGrassColor(i)
+      this.grassData.push({ x: 0, z: 0, s: 1, rot: 0 })
+      this.resetGrass(i, -POLE_BEHIND + hash01(i, 0, 1) * GRASS_WINDOW)
     }
+    this.grass.instanceMatrix.needsUpdate = true
+    if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true
     this.group.add(this.grass)
 
     // ---- White wildflower specks ----
@@ -133,15 +133,8 @@ export class LinesideProps {
     this.flowers = new THREE.InstancedMesh(flowerGeom, flowerMat, FLOWER_COUNT)
     this.flowers.frustumCulled = false
     for (let i = 0; i < FLOWER_COUNT; i++) {
-      const z = -POLE_BEHIND + Math.random() * GRASS_WINDOW
-      this.flowerData.push({
-        x: this.sampleClearX(FLOWER_X_MIN, FLOWER_X_MAX, z),
-        z,
-        s: 0.7 + Math.random() * 0.6,
-      })
-      // Occasional cream/pink tint so the verge is not pure white
-      this.colorScratch.setHSL(0.12 + Math.random() * 0.04, 0.25 + Math.random() * 0.2, 0.85 + Math.random() * 0.1)
-      this.flowers.setColorAt(i, this.colorScratch)
+      this.flowerData.push({ x: 0, z: 0, s: 1 })
+      this.resetFlower(i, -POLE_BEHIND + hash01(i, 0, 2) * GRASS_WINDOW)
     }
     if (this.flowers.instanceColor) this.flowers.instanceColor.needsUpdate = true
     this.group.add(this.flowers)
@@ -167,7 +160,11 @@ export class LinesideProps {
     this.fenceRailsHigh.frustumCulled = false
     for (let i = 0; i < FENCE_POST_COUNT; i++) {
       this.fenceZ.push(i * FENCE_POST_SPACING - POLE_BEHIND)
+      this.writeFence(i)
     }
+    this.fencePosts.instanceMatrix.needsUpdate = true
+    this.fenceRailsLow.instanceMatrix.needsUpdate = true
+    this.fenceRailsHigh.instanceMatrix.needsUpdate = true
     this.group.add(this.fencePosts, this.fenceRailsLow, this.fenceRailsHigh)
 
     // ---- Mid-distance tree band: trunk + two-tier foliage ----
@@ -176,13 +173,17 @@ export class LinesideProps {
     const trunkMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.9 })
     )
-    const foliageGeom = this.track(new THREE.ConeGeometry(2.2, 4, 7))
-    foliageGeom.translate(0, 3.6, 0)
+    // Low-poly broadleaf crowns keep the middle distance readable without
+    // the repeated Christmas-tree silhouette of the old cone band.
+    const foliageGeom = this.track(new THREE.IcosahedronGeometry(2.15, 1))
+    foliageGeom.scale(0.9, 1.18, 0.9)
+    foliageGeom.translate(0, 3.9, 0)
     const foliageMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x2e6b47, roughness: 0.85, flatShading: true })
     )
-    const foliageTopGeom = this.track(new THREE.ConeGeometry(1.4, 2.6, 7))
-    foliageTopGeom.translate(0, 6.0, 0)
+    const foliageTopGeom = this.track(new THREE.DodecahedronGeometry(1.22, 0))
+    foliageTopGeom.scale(0.92, 1.18, 0.92)
+    foliageTopGeom.translate(0, 5.85, 0)
     const foliageTopMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0x35794f, roughness: 0.85, flatShading: true })
     )
@@ -193,109 +194,159 @@ export class LinesideProps {
     this.foliage.frustumCulled = false
     this.foliageTop.frustumCulled = false
     for (let i = 0; i < TREE_COUNT; i++) {
-      this.treeData.push({
-        x: TREE_X_MIN + Math.random() * (TREE_X_MAX - TREE_X_MIN),
-        z: -150 + Math.random() * TREE_WINDOW,
-        s: 1.2 + Math.random() * 1.8,
-        rot: Math.random() * Math.PI * 2,
-      })
+      this.treeData.push({ x: 0, z: 0, s: 1, rot: 0 })
+      this.resetTree(i, -150 + hash01(i, 0, 3) * TREE_WINDOW)
     }
+    this.trunks.instanceMatrix.needsUpdate = true
+    this.foliage.instanceMatrix.needsUpdate = true
+    this.foliageTop.instanceMatrix.needsUpdate = true
     this.group.add(this.trunks, this.foliage, this.foliageTop)
   }
 
   update(camZ: number) {
-    // Poles: recycle behind -> ahead
+    // Instances are placed once and only rewritten after they pass the
+    // recycle line. Re-uploading 1,900 matrices every frame caused grass to
+    // shimmer and consumed enough CPU to make the terrain stream stutter.
+    let polesChanged = false
     for (let i = 0; i < POLE_COUNT; i++) {
-      if (this.poleZ[i] < camZ - POLE_BEHIND) this.poleZ[i] += POLE_WINDOW
-      this.dummy.position.set(POLE_X, 0, this.poleZ[i])
-      this.dummy.rotation.set(0, 0, 0)
-      this.dummy.scale.setScalar(1)
-      this.dummy.updateMatrix()
-      this.poles.setMatrixAt(i, this.dummy.matrix)
-      this.poleArms.setMatrixAt(i, this.dummy.matrix)
+      if (this.poleZ[i] < camZ - POLE_BEHIND) {
+        this.poleZ[i] += POLE_WINDOW
+        this.writePole(i)
+        polesChanged = true
+      }
     }
-    this.poles.instanceMatrix.needsUpdate = true
-    this.poleArms.instanceMatrix.needsUpdate = true
+    if (polesChanged) {
+      this.poles.instanceMatrix.needsUpdate = true
+      this.poleArms.instanceMatrix.needsUpdate = true
+    }
 
     // Contact wire follows the camera (uniform along Z)
     const wire = this.group.getObjectByName('contactWire')
     if (wire) wire.position.z = camZ
 
-    // Grass: recycle, resample height in the blend zone
+    let grassChanged = false
     for (let i = 0; i < GRASS_COUNT; i++) {
       const g = this.grassData[i]
       if (g.z < camZ - POLE_BEHIND) {
-        g.z += GRASS_WINDOW
-        g.x = this.sampleClearX(GRASS_X_MIN, GRASS_X_MAX, g.z)
-        g.s = 0.85 + Math.random() * 0.9
-        g.rot = Math.random() * Math.PI
-        this.setGrassColor(i)
+        this.resetGrass(i, g.z + GRASS_WINDOW)
+        grassChanged = true
       }
-      this.dummy.position.set(g.x, this.sampleHeight(g.x, g.z), g.z)
-      this.dummy.rotation.set(0, g.rot, 0)
-      this.dummy.scale.setScalar(g.s)
-      this.dummy.updateMatrix()
-      this.grass.setMatrixAt(i, this.dummy.matrix)
     }
-    this.grass.instanceMatrix.needsUpdate = true
+    if (grassChanged) {
+      this.grass.instanceMatrix.needsUpdate = true
+      if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true
+    }
 
-    // Flowers: recycle with the same window as the grass
+    let flowersChanged = false
     for (let i = 0; i < FLOWER_COUNT; i++) {
       const f = this.flowerData[i]
       if (f.z < camZ - POLE_BEHIND) {
-        f.z += GRASS_WINDOW
-        f.x = this.sampleClearX(FLOWER_X_MIN, FLOWER_X_MAX, f.z)
-        f.s = 0.7 + Math.random() * 0.6
+        this.resetFlower(i, f.z + GRASS_WINDOW)
+        flowersChanged = true
       }
-      this.dummy.position.set(f.x, this.sampleHeight(f.x, f.z) + 0.28, f.z)
-      this.dummy.rotation.set(0, 0, 0)
-      this.dummy.scale.setScalar(f.s)
-      this.dummy.updateMatrix()
-      this.flowers.setMatrixAt(i, this.dummy.matrix)
     }
-    this.flowers.instanceMatrix.needsUpdate = true
+    if (flowersChanged) this.flowers.instanceMatrix.needsUpdate = true
 
-    // Fence: posts and their trailing rails share one transform each
+    let fenceChanged = false
     for (let i = 0; i < FENCE_POST_COUNT; i++) {
-      if (this.fenceZ[i] < camZ - POLE_BEHIND) this.fenceZ[i] += FENCE_WINDOW
-      const z = this.fenceZ[i]
-      this.dummy.position.set(FENCE_X, this.sampleHeight(FENCE_X, z), z)
-      this.dummy.rotation.set(0, 0, 0)
-      this.dummy.scale.setScalar(1)
-      this.dummy.updateMatrix()
-      this.fencePosts.setMatrixAt(i, this.dummy.matrix)
-      this.fenceRailsLow.setMatrixAt(i, this.dummy.matrix)
-      this.fenceRailsHigh.setMatrixAt(i, this.dummy.matrix)
+      if (this.fenceZ[i] < camZ - POLE_BEHIND) {
+        this.fenceZ[i] += FENCE_WINDOW
+        this.writeFence(i)
+        fenceChanged = true
+      }
     }
-    this.fencePosts.instanceMatrix.needsUpdate = true
-    this.fenceRailsLow.instanceMatrix.needsUpdate = true
-    this.fenceRailsHigh.instanceMatrix.needsUpdate = true
+    if (fenceChanged) {
+      this.fencePosts.instanceMatrix.needsUpdate = true
+      this.fenceRailsLow.instanceMatrix.needsUpdate = true
+      this.fenceRailsHigh.instanceMatrix.needsUpdate = true
+    }
 
-    // Tree band: recycle, resample height on the natural terrain
+    let treesChanged = false
     for (let i = 0; i < TREE_COUNT; i++) {
       const t = this.treeData[i]
       if (t.z < camZ - 150) {
-        t.z += TREE_WINDOW
-        t.x = TREE_X_MIN + Math.random() * (TREE_X_MAX - TREE_X_MIN)
-        t.s = 1.2 + Math.random() * 1.8
+        this.resetTree(i, t.z + TREE_WINDOW)
+        treesChanged = true
       }
-      this.dummy.position.set(t.x, this.sampleHeight(t.x, t.z) - 0.15, t.z)
-      this.dummy.rotation.set(0, t.rot, 0)
-      this.dummy.scale.setScalar(t.s)
-      this.dummy.updateMatrix()
-      this.trunks.setMatrixAt(i, this.dummy.matrix)
-      this.foliage.setMatrixAt(i, this.dummy.matrix)
-      this.foliageTop.setMatrixAt(i, this.dummy.matrix)
     }
-    this.trunks.instanceMatrix.needsUpdate = true
-    this.foliage.instanceMatrix.needsUpdate = true
-    this.foliageTop.instanceMatrix.needsUpdate = true
+    if (treesChanged) {
+      this.trunks.instanceMatrix.needsUpdate = true
+      this.foliage.instanceMatrix.needsUpdate = true
+      this.foliageTop.instanceMatrix.needsUpdate = true
+    }
+  }
+
+  private writePole(i: number) {
+    this.dummy.position.set(POLE_X, 0, this.poleZ[i])
+    this.dummy.rotation.set(0, 0, 0)
+    this.dummy.scale.setScalar(1)
+    this.dummy.updateMatrix()
+    this.poles.setMatrixAt(i, this.dummy.matrix)
+    this.poleArms.setMatrixAt(i, this.dummy.matrix)
+  }
+
+  private resetGrass(i: number, z: number) {
+    const g = this.grassData[i]
+    g.z = z
+    g.x = this.sampleClearX(GRASS_X_MIN, GRASS_X_MAX, z, i)
+    g.s = 0.55 + hash01(i, z, 11) * 0.5
+    g.rot = hash01(i, z, 12) * Math.PI
+    this.setGrassColor(i, z)
+    this.dummy.position.set(g.x, this.sampleHeight(g.x, z), z)
+    this.dummy.rotation.set(0, g.rot, 0)
+    this.dummy.scale.setScalar(g.s)
+    this.dummy.updateMatrix()
+    this.grass.setMatrixAt(i, this.dummy.matrix)
+  }
+
+  private resetFlower(i: number, z: number) {
+    const f = this.flowerData[i]
+    f.z = z
+    f.x = this.sampleClearX(FLOWER_X_MIN, FLOWER_X_MAX, z, i + GRASS_COUNT)
+    f.s = 0.7 + hash01(i, z, 21) * 0.6
+    this.colorScratch.setHSL(
+      0.12 + hash01(i, z, 22) * 0.04,
+      0.25 + hash01(i, z, 23) * 0.2,
+      0.85 + hash01(i, z, 24) * 0.1,
+    )
+    this.flowers.setColorAt(i, this.colorScratch)
+    this.dummy.position.set(f.x, this.sampleHeight(f.x, z) + 0.28, z)
+    this.dummy.rotation.set(0, 0, 0)
+    this.dummy.scale.setScalar(f.s)
+    this.dummy.updateMatrix()
+    this.flowers.setMatrixAt(i, this.dummy.matrix)
+  }
+
+  private writeFence(i: number) {
+    const z = this.fenceZ[i]
+    this.dummy.position.set(FENCE_X, this.sampleHeight(FENCE_X, z), z)
+    this.dummy.rotation.set(0, 0, 0)
+    this.dummy.scale.setScalar(1)
+    this.dummy.updateMatrix()
+    this.fencePosts.setMatrixAt(i, this.dummy.matrix)
+    this.fenceRailsLow.setMatrixAt(i, this.dummy.matrix)
+    this.fenceRailsHigh.setMatrixAt(i, this.dummy.matrix)
+  }
+
+  private resetTree(i: number, z: number) {
+    const tree = this.treeData[i]
+    tree.z = z
+    tree.x = TREE_X_MIN + hash01(i, z, 31) * (TREE_X_MAX - TREE_X_MIN)
+    tree.s = 1.2 + hash01(i, z, 32) * 1.8
+    tree.rot = hash01(i, z, 33) * Math.PI * 2
+    this.dummy.position.set(tree.x, this.sampleHeight(tree.x, z) - 0.15, z)
+    this.dummy.rotation.set(0, tree.rot, 0)
+    this.dummy.scale.setScalar(tree.s)
+    this.dummy.updateMatrix()
+    this.trunks.setMatrixAt(i, this.dummy.matrix)
+    this.foliage.setMatrixAt(i, this.dummy.matrix)
+    this.foliageTop.setMatrixAt(i, this.dummy.matrix)
   }
 
   /** Two intersecting quads (X shape) for camera-facing grass volume. */
   private makeCrossedQuadGeometry(): THREE.BufferGeometry {
-    const p1 = new THREE.PlaneGeometry(1.2, 0.8)
-    p1.translate(0, 0.4, 0)
+    const p1 = new THREE.PlaneGeometry(0.82, 0.58)
+    p1.translate(0, 0.29, 0)
     const p2 = p1.clone()
     p2.rotateY(Math.PI / 2)
     const a = p1.toNonIndexed()
@@ -349,19 +400,22 @@ export class LinesideProps {
 
   /** Random x in [min, max] that keeps clear of the country road.
    *  Bias toward the near edge so the verge reads dense from the window. */
-  private sampleClearX(min: number, max: number, z: number): number {
+  private sampleClearX(min: number, max: number, z: number, key: number): number {
     for (let attempt = 0; attempt < 6; attempt++) {
-      const x = min + (max - min) * Math.pow(Math.random(), 1.5)
+      const x = min + (max - min) * Math.pow(hash01(key, z, attempt), 1.5)
       if (Math.abs(x - roadCenterX(z)) > ROAD_VERGE) return x
     }
-    return min + Math.random() * (max - min)
+    return min + hash01(key, z, 9) * (max - min)
   }
 
   /** Vary grass tint so the verge does not read as a uniform carpet. */
-  private setGrassColor(i: number) {
-    this.colorScratch.setHSL(0.25 + Math.random() * 0.09, 0.5, 0.3 + Math.random() * 0.16)
+  private setGrassColor(i: number, z: number) {
+    this.colorScratch.setHSL(
+      0.25 + hash01(i, z, 41) * 0.09,
+      0.5,
+      0.3 + hash01(i, z, 42) * 0.16,
+    )
     this.grass.setColorAt(i, this.colorScratch)
-    if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true
   }
 
   private box(w: number, h: number, d: number): THREE.BoxGeometry {

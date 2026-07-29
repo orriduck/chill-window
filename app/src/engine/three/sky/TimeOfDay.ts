@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { TimeOfDay as TimeOfDayPreset } from '../../scenery'
 
 export const Phase = {
   DAWN: 0,
@@ -8,7 +9,7 @@ export const Phase = {
 } as const
 export type Phase = (typeof Phase)[keyof typeof Phase]
 
-export const FULL_CYCLE_SECONDS = 300 // 5 minutes real time
+export const FULL_CYCLE_SECONDS = 900 // 15 minutes real time
 
 interface PhaseKeyframe {
   horizon: number
@@ -81,6 +82,13 @@ const KEYS: Record<Phase, PhaseKeyframe> = {
 
 const PHASE_COUNT = 4
 
+const PRESET_CYCLE_POSITION: Record<TimeOfDayPreset, number> = {
+  morning: 0.1,
+  day: 0.32,
+  dusk: 0.56,
+  night: 0.82,
+}
+
 /** Everything a frame needs to know about the current time of day. */
 export class DayState {
   horizonColor = new THREE.Color()
@@ -101,11 +109,15 @@ export class DayState {
 }
 
 export class TimeOfDay {
-  private elapsed = 0
+  private elapsed: number
   readonly state = new DayState()
 
   private tmpA = new THREE.Color()
   private tmpB = new THREE.Color()
+
+  constructor(initialPreset: TimeOfDayPreset = 'day') {
+    this.elapsed = FULL_CYCLE_SECONDS * PRESET_CYCLE_POSITION[initialPreset]
+  }
 
   get phase(): Phase {
     return (Math.floor((this.elapsed / FULL_CYCLE_SECONDS) * PHASE_COUNT) % PHASE_COUNT) as Phase

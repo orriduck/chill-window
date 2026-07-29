@@ -6,9 +6,10 @@ import {
 } from './TerrainGen'
 import type { BiomeType, BiomeColors, HeightParams } from './Biome'
 import { getBiomeConfig } from './Biome'
-import { createHouse, createTownCluster } from './TownGenerator'
+import { createTownCluster } from './TownGenerator'
+import { createSeededRandom, hash01, seedFromGrid, type RandomSource } from '../core/procedural'
 import {
-  groundGrassTex, groundRockBumpTex,
+  ballastGravelTex, groundGrassTex, groundRockBumpTex, groundRockTex,
   grassSpriteTex, bushSpriteTex,
   treeNearTex, treeNearBTex, treeFarTex, treeFarBTex,
   applyAtlasUV,
@@ -21,16 +22,25 @@ interface Chunk {
   x: number
   z: number
   lod: number
+  cityClusters: number
+}
+
+interface TerrainShaderDebug {
+  uniforms: {
+    terrainDebugView: { value: number }
+  }
 }
 
 const CHUNK_SIZE = 256
-const CHUNKS_BEHIND_Z = 2 // chunks behind the camera along travel (+Z)
-const CHUNKS_AHEAD_Z = 2 // chunks ahead of the camera along travel (+Z)
+const CHUNKS_BEHIND_Z = 3 // chunks behind the camera along travel (+Z)
+const CHUNKS_AHEAD_Z = 5 // prewarmed chunks ahead of the side window
 const CHUNKS_VIEW_X = 3 // chunks in the view direction (+X side window)
-const UPDATE_INTERVAL = 10 // frames
-const SEGMENT_LENGTH = 2000 // travel distance per biome
-const BLEND_LENGTH = 500 // transition distance between biomes
-const BIOME_ORDER: BiomeType[] = ['field', 'forest', 'mountain', 'river', 'town']
+const UPDATE_INTERVAL = 4 // frames between low-cost streaming jobs
+const INITIAL_CHUNKS_PER_TICK = 6
+const STREAM_CHUNKS_PER_TICK = 1
+const SEGMENT_LENGTH = 1500 // travel distance per biome
+const BLEND_LENGTH = 350 // world-space biome transition zone
+const BIOME_ORDER: BiomeType[] = ['field', 'forest', 'town', 'river', 'mountain']
 const BALLAST_LIGHT = 0x8a8078
 const BALLAST_DARK = 0x5f564c
 // Slowroad-style mottled meadow tones: dry golden straw vs deep olive
@@ -41,11 +51,22 @@ const ROAD_DIRT = 0x9a8258
 const ROAD_RUT = 0x7a6642
 const ROAD_ASPHALT = 0x4e4a44
 
-/** Deterministic per-position hash, used for gravel speckle. */
-function hash2(x: number, z: number): number {
-  const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453
-  return s - Math.floor(s)
+interface BiomeSample {
+  type: BiomeType
+  next: BiomeType
+  segmentIndex: number
+  segmentStart: number
+  params: HeightParams
+  colors: BiomeColors
+  decorDensity: number
 }
+
+interface DecorationResult {
+  decorations: THREE.Object3D[]
+  cityClusters: number
+}
+
+type SurfaceHeightSampler = (x: number, z: number) => number
 
 export class TerrainLOD {
   private parent: THREE.Object3D
@@ -53,14 +74,19 @@ export class TerrainLOD {
   private chunks = new Map<string, Chunk>()
   private frameCount = 0
   private material: THREE.MeshStandardMaterial
+  private terrainShader: TerrainShaderDebug | null = null
+  private terrainDebugView = 0
+  private streamingFrozen = false
+  private createdChunks = 0
+  private releasedChunks = 0
+  private pendingChunks = 0
+  private initialWarmup = true
 
   // Biome transition state
   private currentBiome: BiomeType
   private nextBiome: BiomeType
   private segmentStartZ: number
   private activeParams: HeightParams
-  private activeColors: BiomeColors
-  private activeDecorDensity: number
 
   // Scratch objects for frustum culling
   private frustum = new THREE.Frustum()
@@ -93,19 +119,21 @@ export class TerrainLOD {
 
   constructor(scene: THREE.Object3D, biome: BiomeType = 'field') {
     this.parent = scene
-    this.currentBiome = biome
-    this.nextBiome = this.pickNextBiome(biome)
-    this.segmentStartZ = 0
+    const initial = this.getBiomeAt(0)
+    this.currentBiome = biome === initial.type ? biome : initial.type
+    this.nextBiome = initial.next
+    this.segmentStartZ = initial.segmentStart
+    this.activeParams = initial.params
 
-    const config = getBiomeConfig(biome)
-    this.activeParams = { ...config.heightParams }
-    this.activeColors = { ...config.colors }
-    this.activeDecorDensity = config.decorDensity
-
-    // Ground: real grass photo texture + bump, tinted by vertex colors
+    // Ground: vertex colors carry biome tint; the shader selects the local
+    // surface material (grass, ballast/dirt, or exposed rock) per vertex.
     groundGrassTex.wrapS = THREE.RepeatWrapping
     groundGrassTex.wrapT = THREE.RepeatWrapping
     groundGrassTex.repeat.set(CHUNK_SIZE / 10, CHUNK_SIZE / 10)
+    ballastGravelTex.wrapS = THREE.RepeatWrapping
+    ballastGravelTex.wrapT = THREE.RepeatWrapping
+    groundRockTex.wrapS = THREE.RepeatWrapping
+    groundRockTex.wrapT = THREE.RepeatWrapping
     groundRockBumpTex.wrapS = THREE.RepeatWrapping
     groundRockBumpTex.wrapT = THREE.RepeatWrapping
     groundRockBumpTex.repeat.set(CHUNK_SIZE / 10, CHUNK_SIZE / 10)
@@ -118,6 +146,52 @@ export class TerrainLOD {
       metalness: 0.0,
       flatShading: false,
     })
+    this.material.onBeforeCompile = (shader) => {
+      this.terrainShader = shader as unknown as TerrainShaderDebug
+      shader.uniforms.terrainGravelMap = { value: ballastGravelTex }
+      shader.uniforms.terrainRockMap = { value: groundRockTex }
+      shader.uniforms.terrainDebugView = { value: this.terrainDebugView }
+
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+attribute vec3 terrainBlend;
+varying vec3 vTerrainBlend;`,
+        )
+        .replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+vTerrainBlend = terrainBlend;`,
+        )
+
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+uniform sampler2D terrainGravelMap;
+uniform sampler2D terrainRockMap;
+uniform float terrainDebugView;
+varying vec3 vTerrainBlend;`,
+        )
+        .replace(
+          '#include <map_fragment>',
+          `#ifdef USE_MAP
+vec3 weights = max( vTerrainBlend, vec3( 0.0 ) );
+weights /= max( dot( weights, vec3( 1.0 ) ), 0.0001 );
+vec3 grassMacro = texture2D( map, vMapUv ).rgb;
+vec3 grassDetail = texture2D( map, vMapUv * 3.7 + vec2( 0.17, 0.43 ) ).rgb;
+vec3 grassSurface = min( vec3( 1.0 ), mix( grassMacro, grassDetail, 0.35 ) * 1.12 );
+vec3 gravelSurface = texture2D( terrainGravelMap, vMapUv * 1.35 ).rgb;
+vec3 rockSurface = texture2D( terrainRockMap, vMapUv * 0.42 ).rgb;
+diffuseColor.rgb *= grassSurface * weights.x + gravelSurface * weights.y + rockSurface * weights.z;
+if ( terrainDebugView > 0.5 ) {
+  diffuseColor.rgb = weights;
+}
+#endif`,
+        )
+    }
+    this.material.customProgramCacheKey = () => 'terrain-surface-splat-v1'
 
     // Grass sprites: single quads, one geometry per atlas variant (UV-baked)
     this.grassMat = new THREE.MeshStandardMaterial({
@@ -199,14 +273,19 @@ export class TerrainLOD {
 
   update(cameraPos: THREE.Vector3) {
     this.updateBiomeTransition(cameraPos.z)
+    if (this.streamingFrozen) return
 
     this.frameCount++
     if (this.frameCount % UPDATE_INTERVAL !== 0) return
 
-    const cx = Math.floor(cameraPos.x / CHUNK_SIZE)
+    // The train only vibrates a few millimetres around x=0. `floor` turns
+    // that harmless motion into a -1/0 chunk flip, repeatedly deleting the
+    // entire far-side corridor. Round keeps streaming anchored to the rail.
+    const cx = Math.round(cameraPos.x / CHUNK_SIZE)
     const cz = Math.floor(cameraPos.z / CHUNK_SIZE)
 
     const needed = new Set<string>()
+    const pending: { x: number; z: number; priority: number }[] = []
 
     // Camera travels along +Z and looks toward +X (side window).
     // Grid: straddle the track on Z, extend outward on +X.
@@ -218,7 +297,8 @@ export class TerrainLOD {
         needed.add(key)
 
         if (!this.chunks.has(key)) {
-          this.createChunk(chunkX, chunkZ, cameraPos)
+          const distance = Math.abs(chunkZ - cz) * 10 + chunkX
+          pending.push({ x: chunkX, z: chunkZ, priority: distance })
         }
       }
     }
@@ -228,8 +308,17 @@ export class TerrainLOD {
       if (!needed.has(key)) {
         this.removeChunk(chunk)
         this.chunks.delete(key)
+        this.releasedChunks++
       }
     }
+
+    pending.sort((a, b) => a.priority - b.priority)
+    const budget = this.initialWarmup ? INITIAL_CHUNKS_PER_TICK : STREAM_CHUNKS_PER_TICK
+    for (const chunk of pending.slice(0, budget)) {
+      this.createChunk(chunk.x, chunk.z)
+    }
+    this.pendingChunks = Math.max(0, pending.length - budget)
+    if (pending.length <= budget) this.initialWarmup = false
   }
 
   /** Manual frustum culling: hide chunks outside the view before render. */
@@ -238,7 +327,12 @@ export class TerrainLOD {
     this.frustum.setFromProjectionMatrix(this.projScreen)
     for (const chunk of this.chunks.values()) {
       this.chunkBox.setFromObject(chunk.mesh)
-      chunk.mesh.visible = this.frustum.intersectsBox(this.chunkBox)
+      const visible = this.frustum.intersectsBox(this.chunkBox)
+      chunk.mesh.visible = visible
+      for (const decoration of chunk.decorations) decoration.visible = visible
+      if (chunk.grass) {
+        for (const grass of chunk.grass) grass.visible = visible
+      }
     }
   }
 
@@ -249,6 +343,33 @@ export class TerrainLOD {
   /** Number of currently active terrain chunks. */
   get chunkCount(): number {
     return this.chunks.size
+  }
+
+  get debugInfo() {
+    const lodCounts = new Map<number, number>()
+    for (const chunk of this.chunks.values()) {
+      lodCounts.set(chunk.lod, (lodCounts.get(chunk.lod) ?? 0) + 1)
+    }
+    return {
+      activeChunks: this.chunks.size,
+      pendingChunks: this.pendingChunks,
+      createdChunks: this.createdChunks,
+      releasedChunks: this.releasedChunks,
+      cityClusters: [...this.chunks.values()].reduce((count, chunk) => count + chunk.cityClusters, 0),
+      lods: [...lodCounts.entries()]
+        .sort((a, b) => b[0] - a[0])
+        .map(([lod, count]) => `${lod}:${count}`)
+        .join(' '),
+    }
+  }
+
+  setDebugView(view: 0 | 1) {
+    this.terrainDebugView = view
+    if (this.terrainShader) this.terrainShader.uniforms.terrainDebugView.value = view
+  }
+
+  setStreamingFrozen(frozen: boolean) {
+    this.streamingFrozen = frozen
   }
 
   /** The Z position where the current biome segment began. */
@@ -274,7 +395,31 @@ export class TerrainLOD {
 
   /** World-space terrain height under the current (possibly blending) biome. */
   sampleHeight(x: number, z: number): number {
-    return this.terrainGen.getHeight(x, z, this.activeParams)
+    // Props must sit on the same triangle surface drawn by the terrain mesh.
+    // Sampling the continuous noise function here made rocks, trees and crops
+    // float above (or sink through) the lower-resolution rendered terrain.
+    const step = CHUNK_SIZE / 64
+    const x0 = Math.floor(x / step) * step
+    const z0 = Math.floor(z / step) * step
+    const tx = (x - x0) / step
+    const tz = (z - z0) / step
+    const heightAt = (sx: number, sz: number) =>
+      this.terrainGen.getHeight(sx, sz, this.getBiomeAt(sz).params)
+
+    const h00 = heightAt(x0, z0)
+    const h10 = heightAt(x0 + step, z0)
+    const h01 = heightAt(x0, z0 + step)
+    const h11 = heightAt(x0 + step, z0 + step)
+
+    // PlaneGeometry uses the top-left/bottom-left/top-right diagonal.
+    if (tx + tz <= 1) {
+      return h00 * (1 - tx - tz) + h10 * tx + h01 * tz
+    }
+    return h01 * (1 - tx) + h10 * (1 - tz) + h11 * (tx + tz - 1)
+  }
+
+  isBiomeAt(z: number, type: BiomeType): boolean {
+    return this.getBiomeAt(z).type === type
   }
 
   /** 0..1 — current river carve strength (biome-blended). */
@@ -297,28 +442,37 @@ export class TerrainLOD {
 
   // ---- Biome transitions ----
 
-  private pickNextBiome(after: BiomeType): BiomeType {
-    const index = BIOME_ORDER.indexOf(after)
-    return BIOME_ORDER[(index + 1) % BIOME_ORDER.length]
+  private getBiomeAt(z: number): BiomeSample {
+    const segmentIndex = Math.floor(z / SEGMENT_LENGTH)
+    const orderIndex = ((segmentIndex % BIOME_ORDER.length) + BIOME_ORDER.length) % BIOME_ORDER.length
+    const type = BIOME_ORDER[orderIndex]
+    const next = BIOME_ORDER[(orderIndex + 1) % BIOME_ORDER.length]
+    const segmentStart = segmentIndex * SEGMENT_LENGTH
+    const blendStart = segmentStart + SEGMENT_LENGTH - BLEND_LENGTH
+    const blend = THREE.MathUtils.smoothstep(
+      THREE.MathUtils.clamp((z - blendStart) / BLEND_LENGTH, 0, 1),
+      0,
+      1,
+    )
+    const from = getBiomeConfig(type)
+    const to = getBiomeConfig(next)
+    return {
+      type,
+      next,
+      segmentIndex,
+      segmentStart,
+      params: this.lerpParams(from.heightParams, to.heightParams, blend),
+      colors: this.lerpColors(from.colors, to.colors, blend),
+      decorDensity: THREE.MathUtils.lerp(from.decorDensity, to.decorDensity, blend),
+    }
   }
 
   private updateBiomeTransition(cameraZ: number) {
-    // Advance to the next biome when the segment is fully travelled
-    if (cameraZ >= this.segmentStartZ + SEGMENT_LENGTH) {
-      this.segmentStartZ += SEGMENT_LENGTH
-      this.currentBiome = this.nextBiome
-      this.nextBiome = this.pickNextBiome(this.currentBiome)
-    }
-
-    const blendStart = this.segmentStartZ + SEGMENT_LENGTH - BLEND_LENGTH
-    const rawT = THREE.MathUtils.clamp((cameraZ - blendStart) / BLEND_LENGTH, 0, 1)
-    const t = THREE.MathUtils.smoothstep(rawT, 0, 1)
-
-    const from = getBiomeConfig(this.currentBiome)
-    const to = getBiomeConfig(this.nextBiome)
-    this.activeParams = this.lerpParams(from.heightParams, to.heightParams, t)
-    this.activeColors = this.lerpColors(from.colors, to.colors, t)
-    this.activeDecorDensity = THREE.MathUtils.lerp(from.decorDensity, to.decorDensity, t)
+    const sample = this.getBiomeAt(cameraZ)
+    this.currentBiome = sample.type
+    this.nextBiome = sample.next
+    this.segmentStartZ = sample.segmentStart
+    this.activeParams = sample.params
   }
 
   private lerpParams(a: HeightParams, b: HeightParams, t: number): HeightParams {
@@ -367,7 +521,7 @@ export class TerrainLOD {
 
   private disposeDecoration(decor: THREE.Object3D) {
     decor.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
+      if (obj instanceof THREE.Mesh && !obj.userData.sharedTerrainResource) {
         obj.geometry.dispose()
         const disposeMat = (m: THREE.Material) => {
           // Free canvas textures attached to the material (window grids etc.)
@@ -388,6 +542,7 @@ export class TerrainLOD {
   /** Attach a dark semi-transparent disc under a decor to fake ambient occlusion. */
   private addShadow(parent: THREE.Object3D, radius: number) {
     const disc = new THREE.Mesh(this.shadowDisc.geom, this.shadowDisc.mat)
+    disc.userData.sharedTerrainResource = true
     disc.scale.setScalar(radius)
     disc.position.y = 0.02
     disc.renderOrder = 1
@@ -401,8 +556,8 @@ export class TerrainLOD {
   private populateGrass(
     worldX: number,
     worldZ: number,
-    params: HeightParams,
     densityScale: number,
+    sampleSurfaceHeight: SurfaceHeightSampler,
   ): THREE.InstancedMesh[] {
     // Dense coverage: single-quad sprites are cheap enough for high density
     const spacing = densityScale >= 1 ? 2.3 : densityScale >= 0.5 ? 3.6 : 6.0
@@ -413,28 +568,32 @@ export class TerrainLOD {
     // Collect matrix elements into flat arrays per variant (no Matrix4 allocs)
     const variantData: number[][] = [[], [], [], []]
     const dummy = new THREE.Object3D()
-    const riverStrength = params.river ?? 0
     // Slope sampling is the hot path (multiple noise evals per cell) —
     // only bother for near chunks where steep-bank grass is visible
     const checkSlope = densityScale >= 1
 
     for (let ci = 0; ci < cols; ci++) {
       for (let ri = 0; ri < rows; ri++) {
-        const jx = (hash2(ci * 997 + ri * 3, worldZ * 0.001) - 0.5) * spacing * 0.6
-        const jz = (hash2(ci * 13 + ri * 733, worldX * 0.001) - 0.5) * spacing * 0.6
+        const jx = (hash01(ci * 997 + ri * 3, worldZ * 0.001) - 0.5) * spacing * 0.6
+        const jz = (hash01(ci * 13 + ri * 733, worldX * 0.001) - 0.5) * spacing * 0.6
         const x = worldX + ci * spacing + spacing / 2 + jx
         const z = worldZ + ri * spacing + spacing / 2 + jz
+        const biome = this.getBiomeAt(z)
+        const riverStrength = biome.params.river ?? 0
 
         if (Math.abs(x) < TRACK_FLAT_HALF + 5) continue
         if (Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
         if (riverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 1.5) continue
 
-        const h = this.terrainGen.getHeight(x, z, params)
-        if (checkSlope && this.terrainGen.getSlope(x, z, params) > 1.3) continue
+        // Reuse the terrain grid created for this chunk. This keeps every
+        // tuft exactly on the rendered triangle while avoiding four noise
+        // evaluations for every candidate during streaming.
+        const h = sampleSurfaceHeight(x, z)
+        if (checkSlope && this.terrainGen.getSlope(x, z, biome.params) > 1.3) continue
 
-        const rot = hash2(ci * 31 + ri * 17, worldZ) * Math.PI * 2
-        const scale = 0.85 + hash2(ci * 7 + ri * 11, worldX) * 1.15
-        const variant = Math.floor(hash2(ci * 5 + ri * 41, worldX + worldZ) * 4)
+        const rot = hash01(ci * 31 + ri * 17, worldZ) * Math.PI * 2
+        const scale = 0.85 + hash01(ci * 7 + ri * 11, worldX) * 1.15
+        const variant = Math.floor(hash01(ci * 5 + ri * 41, worldX + worldZ) * 4)
 
         dummy.position.set(x, h + 0.03, z)
         dummy.rotation.set(0, rot, 0)
@@ -462,23 +621,45 @@ export class TerrainLOD {
     return meshes
   }
 
-  private createChunk(cx: number, cz: number, cameraPos: THREE.Vector3) {
+  /**
+   * Builds a sampler for the exact triangulated surface of a newly-created
+   * chunk. Props created with the chunk therefore share its vertex heights
+   * rather than approximating the terrain with a fresh noise query.
+   */
+  private createChunkSurfaceSampler(
+    worldX: number,
+    worldZ: number,
+    positions: Float32Array,
+    resolution: number,
+  ): SurfaceHeightSampler {
+    const step = CHUNK_SIZE / resolution
+    const rowWidth = resolution + 1
+    const heightAt = (column: number, row: number) => positions[(row * rowWidth + column) * 3 + 1]
+
+    return (x, z) => {
+      const localX = THREE.MathUtils.clamp(x - worldX, 0, CHUNK_SIZE)
+      const localZ = THREE.MathUtils.clamp(z - worldZ, 0, CHUNK_SIZE)
+      const column = Math.min(resolution - 1, Math.floor(localX / step))
+      const row = Math.min(resolution - 1, Math.floor(localZ / step))
+      const tx = (localX - column * step) / step
+      const tz = (localZ - row * step) / step
+      const h00 = heightAt(column, row)
+      const h10 = heightAt(column + 1, row)
+      const h01 = heightAt(column, row + 1)
+      const h11 = heightAt(column + 1, row + 1)
+
+      if (tx + tz <= 1) return h00 * (1 - tx - tz) + h10 * tx + h01 * tz
+      return h01 * (1 - tx) + h10 * (1 - tz) + h11 * (tx + tz - 1)
+    }
+  }
+
+  private createChunk(cx: number, cz: number) {
     const worldX = cx * CHUNK_SIZE
     const worldZ = cz * CHUNK_SIZE
-
-    const dist = Math.sqrt(
-      (worldX + CHUNK_SIZE / 2 - cameraPos.x) ** 2 +
-      (worldZ + CHUNK_SIZE / 2 - cameraPos.z) ** 2
-    )
-
-    let resolution: number
-    if (dist < CHUNK_SIZE * 1.5) {
-      resolution = 64
-    } else if (dist < CHUNK_SIZE * 3) {
-      resolution = 32
-    } else {
-      resolution = 16
-    }
+    // Every visible chunk uses the same grid. Mixing resolutions at shared
+    // edges creates T-junctions that are conspicuous from a moving window;
+    // close-range detail belongs in the material, not an edge-unsafe LOD.
+    const resolution = 64
 
     const geometry = new THREE.PlaneGeometry(
       CHUNK_SIZE,
@@ -490,9 +671,7 @@ export class TerrainLOD {
 
     const positions = geometry.attributes.position.array as Float32Array
     const colors = new Float32Array(positions.length)
-    const params = this.activeParams
-    const cols = this.activeColors
-
+    const terrainBlends = new Float32Array(positions.length)
     const centerX = worldX + CHUNK_SIZE / 2
     const centerZ = worldZ + CHUNK_SIZE / 2
 
@@ -501,11 +680,13 @@ export class TerrainLOD {
       // noise field are both defined in world space, not chunk-local space.
       const x = positions[i] + centerX
       const z = positions[i + 2] + centerZ
+      const biome = this.getBiomeAt(z)
+      const { params, colors: cols } = biome
       const h = this.terrainGen.getHeight(x, z, params)
       positions[i + 1] = h
 
       const slope = this.terrainGen.getSlope(x, z, params)
-      let color = this.computeVertexColor(h, slope, cols, params)
+      let color = this.computeVertexColor(h, slope, cols, params, hash01(x * 2.1, z * 2.1))
 
       // Ballast coloring: gravel speckle only on the rail bed itself (|x|<6).
       // Beyond that the verge is meadow — grass comes right up to the track
@@ -513,7 +694,7 @@ export class TerrainLOD {
       const dist = Math.abs(x)
       if (dist < 6) {
         const t = THREE.MathUtils.smoothstep((dist - 4) / 4, 0, 1)
-        const gravelTone = hash2(x, z) > 0.5 ? BALLAST_LIGHT : BALLAST_DARK
+        const gravelTone = hash01(x, z) > 0.5 ? BALLAST_LIGHT : BALLAST_DARK
         color = { ...this.lerpColor(gravelTone, this.rgbToHex(color), t), isGround: false }
       } else if (color.isGround) {
         // Slowroad-style mottled meadow: low-frequency golden-straw vs
@@ -523,7 +704,7 @@ export class TerrainLOD {
         const patchStrength = Math.min(1, Math.abs(patch - 0.5) * 2) * 0.55
         const patchTone = patch > 0.5 ? MEADOW_GOLD : MEADOW_OLIVE
         color = { ...this.lerpColor(this.rgbToHex(color), patchTone, patchStrength), isGround: true }
-        const grain = 0.93 + hash2(x * 3.1, z * 3.1) * 0.14
+        const grain = 0.93 + hash01(x * 3.1, z * 3.1) * 0.14
         color.r = Math.min(1, color.r * grain)
         color.g = Math.min(1, color.g * grain)
         color.b = Math.min(1, color.b * grain)
@@ -533,9 +714,9 @@ export class TerrainLOD {
       // blend on the edges. Asphalt when passing through town.
       const roadD = Math.abs(x - roadCenterX(z))
       if (roadD < ROAD_VERGE && dist >= 6) {
-        const inTown = this.currentBiome === 'town'
+        const inTown = biome.type === 'town'
         const base = inTown ? ROAD_ASPHALT : ROAD_DIRT
-        const speck = 0.9 + hash2(x * 7.3, z * 7.3) * 0.2
+        const speck = 0.9 + hash01(x * 7.3, z * 7.3) * 0.2
         let roadTone = base
         if (!inTown && Math.abs(roadD - 0.9) < 0.28) roadTone = ROAD_RUT
         const edge = THREE.MathUtils.smoothstep((roadD - ROAD_HALF_WIDTH) / (ROAD_VERGE - ROAD_HALF_WIDTH), 0, 1)
@@ -553,13 +734,39 @@ export class TerrainLOD {
           color = { ...sandy, isGround: false }
         }
       }
+
+      // Surface splatting follows the same masks that shape the scenery.
+      // A little low-frequency noise keeps material boundaries from becoming
+      // perfectly parallel bands while preserving the rail clearances.
+      const edgeNoise = (hash01(x * 0.23, z * 0.23) - 0.5) * 0.16
+      const trackWeight = 1 - THREE.MathUtils.smoothstep(dist + edgeNoise, 5, 11)
+      const roadWeight = 1 - THREE.MathUtils.smoothstep(roadD + edgeNoise, ROAD_HALF_WIDTH, ROAD_VERGE + 1.2)
+      const riverD = Math.abs(x - riverCenterX(z))
+      const riverBankWeight = riverStrength > 0.05
+        ? 1 - THREE.MathUtils.smoothstep(riverD + edgeNoise, RIVER_HALF_WIDTH * 0.7, RIVER_BANK)
+        : 0
+      const gravelWeight = Math.max(trackWeight, roadWeight, riverBankWeight)
+
+      const maxH = params.baseHeight + params.amplitude * 1.5
+      const snowLine = maxH * 0.75
+      const slopeRockWeight = THREE.MathUtils.smoothstep(slope + edgeNoise * 2, 1.2, 3.2)
+      const snowRockWeight = THREE.MathUtils.smoothstep(h, snowLine, snowLine + Math.max(maxH * 0.2, 0.1))
+      const rockWeight = Math.max(slopeRockWeight, snowRockWeight) * (1 - gravelWeight)
+      const grassWeight = Math.max(0, 1 - gravelWeight - rockWeight)
+
       colors[i] = color.r
       colors[i + 1] = color.g
       colors[i + 2] = color.b
+      terrainBlends[i] = grassWeight
+      terrainBlends[i + 1] = gravelWeight
+      terrainBlends[i + 2] = rockWeight
     }
 
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    geometry.setAttribute('terrainBlend', new THREE.BufferAttribute(terrainBlends, 3))
     geometry.computeVertexNormals()
+
+    const sampleChunkSurface = this.createChunkSurfaceSampler(worldX, worldZ, positions, resolution)
 
     const mesh = new THREE.Mesh(geometry, this.material)
     mesh.position.set(centerX, 0, centerZ)
@@ -567,60 +774,85 @@ export class TerrainLOD {
     mesh.receiveShadow = true
 
     this.parent.add(mesh)
-    // Distant (low-res) chunks get fewer decorations
-    const densityScale = resolution === 64 ? 1 : resolution === 32 ? 0.5 : 0.25
-    const decorations = this.createDecorations(worldX, worldZ, params, densityScale)
+    // The mesh grid stays uniform; decoration density alone falls off with
+    // distance from the rail corridor.
+    const densityScale = worldX < CHUNK_SIZE ? 1 : worldX < CHUNK_SIZE * 2 ? 0.55 : 0.25
+    const chunkBiome = this.getBiomeAt(centerZ)
+    const decorationResult = this.createDecorations(
+      cx,
+      cz,
+      worldX,
+      worldZ,
+      chunkBiome,
+      densityScale,
+      createSeededRandom(seedFromGrid(cx, cz, 11)),
+      sampleChunkSurface,
+    )
+    const decorations = decorationResult.decorations
     for (const decor of decorations) {
       this.parent.add(decor)
     }
     // Dense grass sprites covering all green terrain
-    const grass = this.populateGrass(worldX, worldZ, params, densityScale)
+    const grass = this.populateGrass(worldX, worldZ, densityScale, sampleChunkSurface)
     for (const g of grass) this.parent.add(g)
-    this.chunks.set(`${cx},${cz}`, { mesh, decorations, grass: grass.length > 0 ? grass : undefined, x: cx, z: cz, lod: resolution })
+    this.chunks.set(`${cx},${cz}`, {
+      mesh,
+      decorations,
+      grass: grass.length > 0 ? grass : undefined,
+      x: cx,
+      z: cz,
+      lod: resolution,
+      cityClusters: decorationResult.cityClusters,
+    })
+    this.createdChunks++
   }
 
   private createDecorations(
+    chunkX: number,
+    chunkZ: number,
     worldX: number,
     worldZ: number,
-    params: HeightParams,
-    densityScale: number
-  ): THREE.Object3D[] {
+    biome: BiomeSample,
+    densityScale: number,
+    random: RandomSource,
+    sampleChunkSurface: SurfaceHeightSampler,
+  ): DecorationResult {
     const decorations: THREE.Object3D[] = []
-    const riverStrength = params.river ?? 0
+    let cityClusters = 0
 
-    // Town biome: a coherent settlement instead of scattered farmhouses —
-    // one cluster per chunk, centred away from the road and rail corridor
-    if (this.currentBiome === 'town' && densityScale >= 0.5) {
-      const cx = Math.max(worldX + 40 + Math.random() * 60, 34)
-      const cz = worldZ + CHUNK_SIZE / 2
-      const town = createTownCluster(cx, cz, (x, z) => this.terrainGen.getHeight(x, z, params))
-      decorations.push(town)
-      // A few trees still scatter around the town edge
+    // One planned settlement per town segment, anchored to the country road.
+    // It is intentionally not repeated in each chunk of a town biome.
+    const townSite = this.getTownSite(chunkX, chunkZ)
+    if (townSite && densityScale >= 0.5) {
+      decorations.push(createTownCluster(townSite.x, townSite.z, (x, z) => this.sampleHeight(x, z), random))
+      cityClusters++
     }
 
-    const attempts = Math.floor(this.activeDecorDensity * 80 * densityScale)
+    const attempts = Math.floor(biome.decorDensity * 58 * densityScale)
 
     for (let i = 0; i < attempts; i++) {
-      const x = worldX + Math.random() * CHUNK_SIZE
-      const z = worldZ + Math.random() * CHUNK_SIZE
+      const x = worldX + random() * CHUNK_SIZE
+      const z = worldZ + random() * CHUNK_SIZE
+      const localBiome = this.getBiomeAt(z)
+      const localRiverStrength = localBiome.params.river ?? 0
 
       // Keep the rail corridor clear of trees/rocks
       if (Math.abs(x) < TRACK_FLAT_HALF + 4) continue
       // Keep the country road clear
       if (Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 1) continue
       // Keep the river channel clear
-      if (riverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 2) continue
+      if (localRiverStrength > 0.2 && Math.abs(x - riverCenterX(z)) < RIVER_BANK + 2) continue
 
-      const height = this.terrainGen.getHeight(x, z, params)
-      const slope = this.terrainGen.getSlope(x, z, params)
+      const height = sampleChunkSurface(x, z)
+      const slope = this.terrainGen.getSlope(x, z, localBiome.params)
 
       // Steep ground: no trees or buildings, but rock outcrops grip the slope
       if (slope >= 2) {
-        if (slope < 4.5 && Math.random() < 0.45) {
-          const outcrop = this.createRockOutcrop()
+        if (slope < 4.5 && random() < 0.45) {
+          const outcrop = this.createRockOutcrop(random)
           outcrop.position.set(x, height - 0.35, z)
-          outcrop.rotation.y = Math.random() * Math.PI * 2
-          const s = 0.9 + Math.random() * 1.6
+          outcrop.rotation.y = random() * Math.PI * 2
+          const s = 0.9 + random() * 1.6
           outcrop.scale.setScalar(s)
           decorations.push(outcrop)
         }
@@ -638,46 +870,61 @@ export class TerrainLOD {
       }
       if (tooClose) continue
 
-      // Weighted random: 50% tree, 13% rock, 14% bush, 12% building,
-      // 7% flower patch, 4% rock slab cluster
-      const roll = Math.random()
+      // Homes only live inside planned settlements. Generic decoration stays
+      // natural, preserving readable roads and an open rail-side verge.
+      const roll = random()
       let decor: THREE.Object3D
-      if (roll < 0.50) {
-        decor = this.createTreeBillboard(densityScale)
-      } else if (roll < 0.63) {
-        decor = this.createRock()
-      } else if (roll < 0.77) {
-        decor = this.createBushBillboard()
-      } else if (roll < 0.89) {
-        decor = createHouse()
-      } else if (roll < 0.96) {
-        decor = this.createFlowerPatch()
+      if (roll < 0.54) {
+        decor = this.createTreeBillboard(densityScale, random)
+      } else if (roll < 0.68) {
+        decor = this.createRock(random)
+      } else if (roll < 0.84) {
+        decor = this.createBushBillboard(random)
+      } else if (roll < 0.95) {
+        decor = this.createFlowerPatch(random)
       } else {
-        decor = this.createRockOutcrop()
+        decor = this.createRockOutcrop(random)
       }
       decor.position.set(x, height - 0.12, z) // sink slightly — roots grip the slope
-      decor.rotation.y = Math.random() * Math.PI * 2
-      const s = 0.8 + Math.random() * 0.7
+      decor.rotation.y = random() * Math.PI * 2
+      const s = 0.8 + random() * 0.7
       decor.scale.setScalar(s)
       decorations.push(decor)
     }
 
-    return decorations
+    return { decorations, cityClusters }
+  }
+
+  private getTownSite(chunkX: number, chunkZ: number): { x: number; z: number } | null {
+    const firstSegment = Math.floor((chunkZ * CHUNK_SIZE) / SEGMENT_LENGTH) - 1
+    for (let segmentIndex = firstSegment; segmentIndex <= firstSegment + 2; segmentIndex++) {
+      const orderIndex = ((segmentIndex % BIOME_ORDER.length) + BIOME_ORDER.length) % BIOME_ORDER.length
+      if (BIOME_ORDER[orderIndex] !== 'town') continue
+
+      const random = createSeededRandom(seedFromGrid(segmentIndex, 0, 29))
+      const z = segmentIndex * SEGMENT_LENGTH + SEGMENT_LENGTH * (0.3 + random() * 0.38)
+      const x = roadCenterX(z)
+      if (Math.floor(x / CHUNK_SIZE) === chunkX && Math.floor(z / CHUNK_SIZE) === chunkZ) {
+        return { x, z }
+      }
+    }
+    return null
   }
 
   // ---- Vegetation billboards ----
 
   /** Tree billboard: crossed quads textured with a pre-rendered tree sprite.
    *  Near chunks use the detailed sheet, far chunks the silhouette sheet. */
-  private createTreeBillboard(densityScale: number): THREE.Group {
+  private createTreeBillboard(densityScale: number, random: RandomSource): THREE.Group {
     const tree = new THREE.Group()
     const near = densityScale >= 0.5
-    const variant = Math.floor(Math.random() * 8)
+    const variant = Math.floor(random() * 8)
     const geom = near ? this.treeGeomsNear[variant] : this.treeGeomsFar[variant]
     const mat = near
       ? (variant < 4 ? this.treeMatNear : this.treeMatNearB)
       : (variant < 4 ? this.treeMatFar : this.treeMatFarB)
     const sprite = new THREE.Mesh(geom, mat)
+    sprite.userData.sharedTerrainResource = true
     sprite.castShadow = near // far sprites skip the alpha-tested shadow pass
     tree.add(sprite)
     this.addShadow(tree, 1.2)
@@ -685,18 +932,19 @@ export class TerrainLOD {
   }
 
   /** Bush billboard: crossed quads with a pre-rendered bush sprite. */
-  private createBushBillboard(): THREE.Group {
+  private createBushBillboard(random: RandomSource): THREE.Group {
     const bush = new THREE.Group()
-    const variant = Math.floor(Math.random() * 4)
+    const variant = Math.floor(random() * 4)
     const sprite = new THREE.Mesh(this.bushGeoms[variant], this.bushMat)
+    sprite.userData.sharedTerrainResource = true
     sprite.castShadow = true
     bush.add(sprite)
     this.addShadow(bush, 0.8)
     return bush
   }
 
-  private createRock(): THREE.Mesh {
-    const size = 0.5 + Math.random() * 0.5
+  private createRock(random: RandomSource): THREE.Mesh {
+    const size = 0.5 + random() * 0.5
     const geom = new THREE.DodecahedronGeometry(size, 0)
     const mat = new THREE.MeshStandardMaterial({ color: 0x808080, roughness: 0.8, flatShading: true })
     const rock = new THREE.Mesh(geom, mat)
@@ -706,23 +954,23 @@ export class TerrainLOD {
   }
 
   /** Small flower patch: cluster of tiny colored spheres */
-  private createFlowerPatch(): THREE.Group {
+  private createFlowerPatch(random: RandomSource): THREE.Group {
     const patch = new THREE.Group()
     // White-dominant daisy palette, per the slowroad reference
     const colors = [0xffffff, 0xffffff, 0xf5f0dc, 0xffffff, 0xffe9a8]
-    const count = 3 + Math.floor(Math.random() * 4)
+    const count = 3 + Math.floor(random() * 4)
     for (let i = 0; i < count; i++) {
-      const r = 0.04 + Math.random() * 0.04
+      const r = 0.04 + random() * 0.04
       const geom = new THREE.SphereGeometry(r, 4, 3)
       const mat = new THREE.MeshStandardMaterial({
-        color: colors[Math.floor(Math.random() * colors.length)],
+        color: colors[Math.floor(random() * colors.length)],
         roughness: 0.6,
       })
       const flower = new THREE.Mesh(geom, mat)
       flower.position.set(
-        (Math.random() - 0.5) * 0.6,
-        0.05 + Math.random() * 0.1,
-        (Math.random() - 0.5) * 0.6
+        (random() - 0.5) * 0.6,
+        0.05 + random() * 0.1,
+        (random() - 0.5) * 0.6
       )
       patch.add(flower)
     }
@@ -731,38 +979,38 @@ export class TerrainLOD {
 
   /** Rock outcrop: a cluster of angular boulders + flat strata slabs that
    *  breaks up grassy slopes — grey-brown jittered stone, not smooth pebbles. */
-  private createRockOutcrop(): THREE.Group {
+  private createRockOutcrop(random: RandomSource): THREE.Group {
     const group = new THREE.Group()
-    const boulderCount = 2 + Math.floor(Math.random() * 3)
+    const boulderCount = 2 + Math.floor(random() * 3)
     for (let i = 0; i < boulderCount; i++) {
-      const size = 0.5 + Math.random() * 0.9
+      const size = 0.5 + random() * 0.9
       const geom = new THREE.DodecahedronGeometry(size, 0)
-      const shade = 0.42 + Math.random() * 0.2
+      const shade = 0.42 + random() * 0.2
       const mat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color().setHSL(0.08 + Math.random() * 0.03, 0.06 + Math.random() * 0.08, shade),
+        color: new THREE.Color().setHSL(0.08 + random() * 0.03, 0.06 + random() * 0.08, shade),
         roughness: 0.95,
         flatShading: true,
       })
       const rock = new THREE.Mesh(geom, mat)
       rock.position.set(
-        (Math.random() - 0.5) * 2.2,
-        size * (0.3 + Math.random() * 0.3),
-        (Math.random() - 0.5) * 2.2
+        (random() - 0.5) * 2.2,
+        size * (0.3 + random() * 0.3),
+        (random() - 0.5) * 2.2
       )
-      rock.rotation.set(Math.random() * 0.6, Math.random() * Math.PI, Math.random() * 0.6)
+      rock.rotation.set(random() * 0.6, random() * Math.PI, random() * 0.6)
       rock.castShadow = true
       group.add(rock)
     }
     // Strata slab: a thin tilted slab leaning against the boulders
-    if (Math.random() < 0.7) {
+    if (random() < 0.7) {
       const slabMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color().setHSL(0.09, 0.07, 0.36 + Math.random() * 0.12),
+        color: new THREE.Color().setHSL(0.09, 0.07, 0.36 + random() * 0.12),
         roughness: 0.9,
         flatShading: true,
       })
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(1.6 + Math.random(), 0.22, 0.9 + Math.random() * 0.5), slabMat)
-      slab.position.set((Math.random() - 0.5) * 1.5, 0.35 + Math.random() * 0.4, (Math.random() - 0.5) * 1.5)
-      slab.rotation.set(0.3 + Math.random() * 0.5, Math.random() * Math.PI, (Math.random() - 0.5) * 0.3)
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(1.6 + random(), 0.22, 0.9 + random() * 0.5), slabMat)
+      slab.position.set((random() - 0.5) * 1.5, 0.35 + random() * 0.4, (random() - 0.5) * 1.5)
+      slab.rotation.set(0.3 + random() * 0.5, random() * Math.PI, (random() - 0.5) * 0.3)
       slab.castShadow = true
       group.add(slab)
     }
@@ -774,7 +1022,8 @@ export class TerrainLOD {
     height: number,
     slope: number,
     cols: BiomeColors,
-    params: HeightParams
+    params: HeightParams,
+    grainNoise: number,
   ): { r: number; g: number; b: number; isGround: boolean } {
     const maxH = params.baseHeight + params.amplitude * 1.5
     const snowLine = maxH * 0.75
@@ -797,7 +1046,7 @@ export class TerrainLOD {
       const t = THREE.MathUtils.smoothstep((slope - 1.4) / 1.6, 0, 1) * 0.7
       const ground = this.lerpColor(cols.groundDark, cols.ground, 0.4)
       const scree = this.lerpColor(this.rgbToHexNum(ground), cols.rock, t)
-      const grain = 0.88 + Math.random() * 0.24
+      const grain = 0.88 + grainNoise * 0.24
       return { r: scree.r * grain, g: scree.g * grain, b: scree.b * grain, isGround: false }
     }
 
@@ -811,7 +1060,7 @@ export class TerrainLOD {
     // dominates; the biome hue only tints (field warm, forest cool…).
     const t = Math.max(0, Math.min(1, (height - params.baseHeight) / params.amplitude))
     const groundTint = this.lerpColor(cols.groundDark, cols.ground, t)
-    const tint = this.lerpColor(this.rgbToHexNum(groundTint), 0xffffff, 0.55)
+    const tint = this.lerpColor(this.rgbToHexNum(groundTint), 0xffffff, 0.76)
     return { ...tint, isGround: true }
   }
 

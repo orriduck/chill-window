@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { hash01 } from '../core/procedural'
 
 const PLOT_COUNT = 8
 const PLOT_WINDOW = 1200 // recycle window along Z
@@ -11,6 +12,7 @@ const PLOT_X_MAX = 92
 const BALE_COUNT = 12
 
 type HeightSampler = (x: number, z: number) => number
+type FieldSampler = (z: number) => boolean
 
 /** Farm fields: rectangular crop plots that hug the terrain, painted with
  *  striped canvas textures (wheat, vegetables, ploughed soil, rapeseed),
@@ -24,7 +26,7 @@ export class FieldPlots {
   private colorScratch = new THREE.Color()
 
   private materials: THREE.MeshStandardMaterial[] = []
-  private plots: { mesh: THREE.Mesh; cx: number; cz: number }[] = []
+  private plots: { mesh: THREE.Mesh; cx: number; cz: number; index: number }[] = []
   private bales: THREE.InstancedMesh
   private baleData: { x: number; z: number; rot: number; s: number }[] = []
 
@@ -44,9 +46,11 @@ export class FieldPlots {
       mesh.receiveShadow = true
       const plot = {
         mesh,
-        cx: PLOT_X_MIN + Math.random() * (PLOT_X_MAX - PLOT_X_MIN),
-        cz: -PLOT_BEHIND + (i / PLOT_COUNT) * PLOT_WINDOW + Math.random() * 60,
+        cx: 0,
+        cz: -PLOT_BEHIND + (i / PLOT_COUNT) * PLOT_WINDOW + hash01(i, 0, 1) * 60,
+        index: i,
       }
+      plot.cx = this.plotX(i, plot.cz)
       this.rebuildPlot(plot)
       this.plots.push(plot)
       this.group.add(mesh)
@@ -61,54 +65,75 @@ export class FieldPlots {
     this.bales.castShadow = true
     for (let i = 0; i < BALE_COUNT; i++) {
       this.baleData.push({
-        x: PLOT_X_MIN + Math.random() * (PLOT_X_MAX - PLOT_X_MIN),
-        z: -PLOT_BEHIND + Math.random() * PLOT_WINDOW,
-        rot: Math.random() * Math.PI,
-        s: 0.8 + Math.random() * 0.5,
+        x: 0,
+        z: -PLOT_BEHIND + hash01(i, 0, 11) * PLOT_WINDOW,
+        rot: 0,
+        s: 1,
       })
-      this.colorScratch.setHSL(0.11, 0.45 + Math.random() * 0.15, 0.42 + Math.random() * 0.12)
-      this.bales.setColorAt(i, this.colorScratch)
+      this.resetBale(i, this.baleData[i].z)
     }
     if (this.bales.instanceColor) this.bales.instanceColor.needsUpdate = true
+    this.bales.instanceMatrix.needsUpdate = true
     this.group.add(this.bales)
   }
 
-  /** @param active field biome (or blending into it) — hide plots elsewhere */
-  update(camZ: number, active: boolean) {
-    this.group.visible = active
-    if (!active) return
-
+  /** Each plot follows its own world-space biome, so a whole field never
+   * disappears in one frame when the train crosses a segment boundary. */
+  update(camZ: number, isFieldAt: FieldSampler) {
+    this.group.visible = true
     for (const plot of this.plots) {
       if (plot.cz + PLOT_L / 2 < camZ - PLOT_BEHIND) {
         plot.cz += PLOT_WINDOW
-        plot.cx = PLOT_X_MIN + Math.random() * (PLOT_X_MAX - PLOT_X_MIN)
+        plot.cx = this.plotX(plot.index, plot.cz)
         this.rebuildPlot(plot)
       }
+      plot.mesh.visible = isFieldAt(plot.cz)
     }
 
+    let balesChanged = false
     for (let i = 0; i < BALE_COUNT; i++) {
       const b = this.baleData[i]
       if (b.z < camZ - PLOT_BEHIND) {
-        b.z += PLOT_WINDOW
-        b.x = PLOT_X_MIN + Math.random() * (PLOT_X_MAX - PLOT_X_MIN)
-        b.rot = Math.random() * Math.PI
+        this.resetBale(i, b.z + PLOT_WINDOW)
+        balesChanged = true
       }
-      this.dummy.position.set(b.x, this.sampleHeight(b.x, b.z) + 0.82 * b.s, b.z)
-      this.dummy.rotation.set(0, b.rot, 0)
-      this.dummy.scale.setScalar(b.s)
-      this.dummy.updateMatrix()
-      this.bales.setMatrixAt(i, this.dummy.matrix)
     }
-    this.bales.instanceMatrix.needsUpdate = true
+    if (balesChanged) {
+      this.bales.instanceMatrix.needsUpdate = true
+      if (this.bales.instanceColor) this.bales.instanceColor.needsUpdate = true
+    }
   }
 
   /** Rebuild a plot's geometry at its current centre, conformed to terrain. */
-  private rebuildPlot(plot: { mesh: THREE.Mesh; cx: number; cz: number }) {
+  private rebuildPlot(plot: { mesh: THREE.Mesh; cx: number; cz: number; index: number }) {
     plot.mesh.geometry.dispose()
     plot.mesh.geometry = this.buildPlotGeometry(plot.cx, plot.cz)
-    plot.mesh.material = this.materials[Math.floor(Math.random() * this.materials.length)]
+    plot.mesh.material = this.materials[Math.floor(hash01(plot.index, plot.cz, 2) * this.materials.length)]
     // The geometry is built in world coordinates; keep the mesh at origin
     plot.mesh.position.set(0, 0, 0)
+  }
+
+  private plotX(index: number, z: number): number {
+    return PLOT_X_MIN + hash01(index, z, 3) * (PLOT_X_MAX - PLOT_X_MIN)
+  }
+
+  private resetBale(index: number, z: number) {
+    const bale = this.baleData[index]
+    bale.z = z
+    bale.x = PLOT_X_MIN + hash01(index, z, 12) * (PLOT_X_MAX - PLOT_X_MIN)
+    bale.rot = hash01(index, z, 13) * Math.PI
+    bale.s = 0.8 + hash01(index, z, 14) * 0.5
+    this.colorScratch.setHSL(
+      0.11,
+      0.45 + hash01(index, z, 15) * 0.15,
+      0.42 + hash01(index, z, 16) * 0.12,
+    )
+    this.bales.setColorAt(index, this.colorScratch)
+    this.dummy.position.set(bale.x, this.sampleHeight(bale.x, z) + 0.82 * bale.s, z)
+    this.dummy.rotation.set(0, bale.rot, 0)
+    this.dummy.scale.setScalar(bale.s)
+    this.dummy.updateMatrix()
+    this.bales.setMatrixAt(index, this.dummy.matrix)
   }
 
   private buildPlotGeometry(cx: number, cz: number): THREE.BufferGeometry {

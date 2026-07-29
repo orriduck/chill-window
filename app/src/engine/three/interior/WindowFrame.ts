@@ -4,9 +4,9 @@ const FRAME_DISTANCE = 2
 // Shift the whole cabin down in view so the upper compartment (luggage
 // rack, folded bunk) sits inside the visible band instead of hugging the
 // top edge, where the app UI covers it.
-const GROUP_Y_OFFSET = -0.24
-const OPENING_W = 2.6
-const OPENING_H = 1.6
+const GROUP_Y_OFFSET = -0.1
+const OPENING_W = 3.5
+const OPENING_H = 2.9
 const FRAME_T = 0.14
 const FRAME_D = 0.08
 
@@ -16,10 +16,9 @@ const WALL_W = 12
 const WALL_H = 7
 
 /**
- * European sleeper compartment: walnut-panelled walls, luggage rack with a
- * suitcase, folded upper bunk, brass reading lamp, moquette bench with a
- * lace antimacassar, fold-down table with tea and a book, and a corridor
- * door with frosted glass. Pinned in front of the camera.
+ * Modern European sleeper compartment: a body-aligned panoramic window,
+ * soft-grey panels, aluminium fittings, blue-grey textiles and low-glare
+ * LED lighting. The perspective follows the exterior world axes.
  */
 export class WindowFrame {
   readonly group = new THREE.Group()
@@ -28,37 +27,52 @@ export class WindowFrame {
   private wobblers: { obj: THREE.Object3D; baseY: number; phase: number }[] = []
 
   constructor() {
-    const wood = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.7, metalness: 0.1 })
+    const frame = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x20282d, roughness: 0.5, metalness: 0.28 })
     )
-    const metal = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.35, metalness: 0.8 })
+    const aluminium = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xa8b4b9, roughness: 0.3, metalness: 0.85 })
     )
-    const brass = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xb08d4a, roughness: 0.32, metalness: 0.85 })
+    const accent = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x76b4c8, roughness: 0.38, metalness: 0.45 })
     )
     const wallMat = this.track(
-      new THREE.MeshStandardMaterial({ map: this.makeWalnutTexture(), roughness: 0.75, metalness: 0.05 })
+      new THREE.MeshStandardMaterial({ map: this.makeCabinPanelTexture(), roughness: 0.82, metalness: 0.05 })
     )
-    const curtainMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x6e2f28, roughness: 0.95, metalness: 0 })
+    const blindMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x42505a, roughness: 0.72, metalness: 0.12 })
     )
 
     const halfW = OPENING_W / 2 + FRAME_T / 2
     const halfH = OPENING_H / 2 + FRAME_T / 2
 
     this.buildWall(wallMat)
-    this.buildFrame(wood, metal, halfW, halfH)
-    this.buildTopVent(wood, metal)
-    this.buildCurtains(curtainMat, brass)
+    this.buildFrame(frame, aluminium, halfW, halfH)
+    this.buildTopVent(frame, aluminium)
+    this.buildRollerBlind(blindMat, accent)
     this.buildGlass()
-    this.buildLuggageRack(brass)
-    this.buildFoldedBunk()
-    this.buildReadingLamp(brass)
+    this.buildLuggageRack(aluminium)
+    this.buildFoldedBunk(aluminium)
+    this.buildReadingLamp(aluminium)
     this.buildSeat()
-    this.buildCorridorDoor(brass)
-    this.buildWallPrint()
-    this.addSillObjects(brass)
+    this.buildCorridorDoor(aluminium)
+    this.buildInfoPanel()
+    this.addSillObjects(accent)
+    this.buildCabinLighting()
+    this.promoteToForeground()
+  }
+
+  /** Interior uses its own post-exterior render pass, so normal depth testing
+   * can be retained for correct ordering among seats, fittings and glass. */
+  private promoteToForeground() {
+    this.group.traverse((object) => {
+      if (!(object instanceof THREE.Mesh || object instanceof THREE.Points)) return
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      for (const material of materials) {
+        material.depthTest = true
+        material.depthWrite = !material.transparent
+      }
+    })
   }
 
   // ---- Structure ----
@@ -84,40 +98,40 @@ export class WindowFrame {
 
     // Soft wall trim strip above the window for a finished look
     const trimMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x54462f, roughness: 0.8, metalness: 0.05 })
+      new THREE.MeshStandardMaterial({ color: 0x9daab0, roughness: 0.62, metalness: 0.28 })
     )
     const trim = new THREE.Mesh(this.box(WALL_W, 0.1, 0.06), trimMat)
     trim.position.set(0, OPENING_H / 2 + 0.45, z + 0.01)
     this.group.add(trim)
 
-    // Warm cove light strip near the ceiling: a soft emissive bar that
-    // washes the upper wall in sleeper-train warmth
+    // Diffused ceiling strip: warm enough for a night train, but neutral and
+    // architectural rather than a vintage carriage glow.
     const coveMat = this.track(
-      new THREE.MeshBasicMaterial({ color: 0xffd9a0, transparent: true, opacity: 0.55 })
+      new THREE.MeshBasicMaterial({ color: 0xffe7c2, transparent: true, opacity: 0.6 })
     )
     const cove = new THREE.Mesh(this.track(new THREE.PlaneGeometry(WALL_W * 0.7, 0.06)), coveMat)
     cove.position.set(0, WALL_H / 2 - 0.35, z + 0.04)
     this.group.add(cove)
   }
 
-  private buildFrame(wood: THREE.Material, metal: THREE.Material, halfW: number, halfH: number) {
+  private buildFrame(frame: THREE.Material, metal: THREE.Material, halfW: number, halfH: number) {
     // Left / right pillars
     for (const side of [-1, 1]) {
-      const pillar = new THREE.Mesh(this.box(FRAME_T, OPENING_H + FRAME_T * 2, FRAME_D), wood)
+      const pillar = new THREE.Mesh(this.box(FRAME_T, OPENING_H + FRAME_T * 2, FRAME_D), frame)
       pillar.position.set(side * halfW, 0, 0)
       this.group.add(pillar)
     }
     // Top bar
-    const top = new THREE.Mesh(this.box(OPENING_W + FRAME_T * 2, FRAME_T, FRAME_D), wood)
+    const top = new THREE.Mesh(this.box(OPENING_W + FRAME_T * 2, FRAME_T, FRAME_D), frame)
     top.position.set(0, halfH, 0)
     this.group.add(top)
     // Bottom frame bar
-    const bottom = new THREE.Mesh(this.box(OPENING_W + FRAME_T * 2, FRAME_T, FRAME_D), wood)
+    const bottom = new THREE.Mesh(this.box(OPENING_W + FRAME_T * 2, FRAME_T, FRAME_D), frame)
     bottom.position.set(0, -halfH, 0)
     this.group.add(bottom)
 
     // Window sill: extends toward the viewer, holds small objects
-    const sill = new THREE.Mesh(this.box(OPENING_W + FRAME_T * 2, 0.06, 0.3), wood)
+    const sill = new THREE.Mesh(this.box(OPENING_W + FRAME_T * 2, 0.06, 0.3), frame)
     sill.position.set(0, -halfH - 0.06, 0.16)
     this.group.add(sill)
 
@@ -153,9 +167,9 @@ export class WindowFrame {
 
   /** Top vent: a horizontal division bar splitting off a small hopper
    *  window — the signature of European carriage windows. */
-  private buildTopVent(wood: THREE.Material, metal: THREE.Material) {
+  private buildTopVent(frame: THREE.Material, metal: THREE.Material) {
     const ventY = OPENING_H / 2 - 0.28
-    const bar = new THREE.Mesh(this.box(OPENING_W, 0.05, FRAME_D * 0.8), wood)
+    const bar = new THREE.Mesh(this.box(OPENING_W, 0.05, FRAME_D * 0.8), frame)
     bar.position.set(0, ventY, 0.01)
     this.group.add(bar)
     // Vent hinge knobs
@@ -167,184 +181,135 @@ export class WindowFrame {
     }
   }
 
-  /** Heavy draped curtains with a tieback band on each side. */
-  private buildCurtains(mat: THREE.Material, brass: THREE.Material) {
-    const curtainH = OPENING_H + 0.5
-    const slats = 5
+  /** Flush roller blind cassette and slim guide rails used in new sleepers. */
+  private buildRollerBlind(blindMat: THREE.Material, accent: THREE.Material) {
+    const cassette = new THREE.Mesh(this.box(OPENING_W + FRAME_T * 2, 0.13, 0.12), blindMat)
+    cassette.position.set(0, OPENING_H / 2 + 0.17, 0.08)
+    this.group.add(cassette)
+
+    const blind = new THREE.Mesh(this.box(OPENING_W - 0.08, 0.18, 0.018), blindMat)
+    blind.position.set(0, OPENING_H / 2 - 0.18, 0.06)
+    this.group.add(blind)
+
     for (const side of [-1, 1]) {
-      for (let i = 0; i < slats; i++) {
-        const slat = new THREE.Mesh(this.box(0.09, curtainH, 0.04), mat)
-        slat.position.set(
-          side * (OPENING_W / 2 + FRAME_T + 0.08 + i * 0.085),
-          0.05,
-          0.05 + Math.sin(i * 1.8) * 0.045
-        )
-        this.group.add(slat)
-      }
-      // Tieback band gathering the curtain at mid height
-      const band = new THREE.Mesh(this.box(0.06, 0.09, 0.16), brass)
-      band.position.set(side * (OPENING_W / 2 + FRAME_T + 0.24), -0.25, 0.08)
-      this.group.add(band)
+      const rail = new THREE.Mesh(this.box(0.035, OPENING_H, 0.04), accent)
+      rail.position.set(side * (OPENING_W / 2 - 0.055), 0, 0.055)
+      this.group.add(rail)
     }
   }
 
   // ---- Sleeper fittings ----
 
-  /** Luggage rack above the window: walnut shelf + brass rails, with a
-   *  strapped leather suitcase and a hat box on board. */
-  private buildLuggageRack(brass: THREE.Material) {
-    // Luggage rack sits low enough to stay inside the window view frustum
+  /** Aluminium luggage rail with a compact soft case. */
+  private buildLuggageRack(aluminium: THREE.Material) {
     const rackY = OPENING_H / 2 + 0.15
     const rackZ = 0.3
 
-    // Shelf
     const shelfMat = this.track(
-      new THREE.MeshStandardMaterial({ map: this.makeWalnutTexture(), roughness: 0.7, metalness: 0.05 })
+      new THREE.MeshStandardMaterial({ color: 0xc5cdd0, roughness: 0.5, metalness: 0.4 })
     )
     const shelf = new THREE.Mesh(this.box(3.4, 0.04, 0.5), shelfMat)
     shelf.position.set(0.2, rackY, rackZ)
     this.group.add(shelf)
 
-    // Brass guard rails
     const railGeom = this.track(new THREE.CylinderGeometry(0.015, 0.015, 3.4, 8))
     railGeom.rotateZ(Math.PI / 2)
     for (const dy of [0.1, 0.22]) {
-      const rail = new THREE.Mesh(railGeom, brass)
+      const rail = new THREE.Mesh(railGeom, aluminium)
       rail.position.set(0.2, rackY + dy, rackZ + 0.24)
       this.group.add(rail)
     }
-    // Rail posts
     for (const px of [-1.3, 0.2, 1.7]) {
-      const post = new THREE.Mesh(this.box(0.02, 0.24, 0.02), brass)
+      const post = new THREE.Mesh(this.box(0.02, 0.24, 0.02), aluminium)
       post.position.set(px, rackY + 0.12, rackZ + 0.24)
       this.group.add(post)
     }
 
-    // Leather suitcase with straps
-    const caseMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x6a4226, roughness: 0.7, metalness: 0.05 })
+    const bagMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x4c6677, roughness: 0.88, metalness: 0.02 })
     )
-    const suitcase = new THREE.Group()
-    const caseBody = new THREE.Mesh(this.box(0.58, 0.34, 0.2), caseMat)
-    suitcase.add(caseBody)
-    const strapMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x3a2412, roughness: 0.85 })
+    const bag = new THREE.Group()
+    bag.add(new THREE.Mesh(this.box(0.7, 0.32, 0.27), bagMat))
+    const zipperMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xdee6e8, roughness: 0.32, metalness: 0.72 })
     )
-    for (const sx of [-0.16, 0.16]) {
-      const strap = new THREE.Mesh(this.box(0.035, 0.36, 0.21), strapMat)
-      strap.position.x = sx
-      suitcase.add(strap)
-    }
-    const handle = new THREE.Mesh(this.box(0.14, 0.03, 0.03), strapMat)
-    handle.position.set(0, 0.19, 0.08)
-    suitcase.add(handle)
-    suitcase.position.set(-0.75, rackY + 0.19, rackZ)
-    suitcase.rotation.y = 0.08
-    this.group.add(suitcase)
-    this.wobblers.push({ obj: suitcase, baseY: suitcase.position.y, phase: 2.6 })
-
-    // Hat box (round, flat)
-    const hatMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x8a7a5c, roughness: 0.8 })
-    )
-    const hatBox = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 16)), hatMat)
-    hatBox.position.set(0.95, rackY + 0.08, rackZ)
-    this.group.add(hatBox)
+    const zipper = new THREE.Mesh(this.box(0.62, 0.018, 0.025), zipperMat)
+    zipper.position.set(0, 0.12, 0.14)
+    bag.add(zipper)
+    bag.position.set(-0.75, rackY + 0.19, rackZ)
+    bag.rotation.y = 0.08
+    this.group.add(bag)
+    this.wobblers.push({ obj: bag, baseY: bag.position.y, phase: 2.6 })
   }
 
-  /** Folded upper bunk: cream mattress edge + blanket roll + leather strap,
-   *  tucked against the ceiling at the left. */
-  private buildFoldedBunk() {
-    // Tucked high on the left wall, just peeking into the top of the view
+  /** Folded upper berth with a slim safety rail. */
+  private buildFoldedBunk(aluminium: THREE.Material) {
     const bunkY = 1.35
     const bunk = new THREE.Group()
 
     const mattressMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xe4dcc6, roughness: 0.95 })
+      new THREE.MeshStandardMaterial({ color: 0xd8e0e2, roughness: 0.95 })
     )
     const mattress = new THREE.Mesh(this.box(1.5, 0.16, 0.5), mattressMat)
     bunk.add(mattress)
 
-    // Folded blanket at the front edge
     const blanketMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x7a3b3b, roughness: 1.0 })
+      new THREE.MeshStandardMaterial({ color: 0x31546a, roughness: 1.0 })
     )
     const blanket = new THREE.Mesh(this.box(1.5, 0.1, 0.14), blanketMat)
     blanket.position.set(0, 0.02, 0.22)
     bunk.add(blanket)
 
-    // Retaining straps
-    const strapMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x3a2412, roughness: 0.85 })
-    )
     for (const sx of [-0.45, 0.45]) {
-      const strap = new THREE.Mesh(this.box(0.04, 0.2, 0.52), strapMat)
-      strap.position.x = sx
-      bunk.add(strap)
+      const bracket = new THREE.Mesh(this.box(0.04, 0.2, 0.52), aluminium)
+      bracket.position.x = sx
+      bunk.add(bracket)
     }
 
-    bunk.position.set(-2.1, bunkY, 0.28)
+    bunk.position.set(-1.72, bunkY, 0.28)
     this.group.add(bunk)
   }
 
-  /** Brass reading lamp on the right wall: articulated arm, small shade,
-   *  warm bulb glow + real point light for the sleeper ambiance. */
-  private buildReadingLamp(brass: THREE.Material) {
+  /** Compact LED reading light with a flush wall base. */
+  private buildReadingLamp(aluminium: THREE.Material) {
     const lamp = new THREE.Group()
 
-    // Wall base
-    const base = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.05, 0.06, 0.03, 12)), brass)
-    base.rotation.x = Math.PI / 2
+    const base = new THREE.Mesh(this.box(0.18, 0.12, 0.035), aluminium)
     lamp.add(base)
 
-    // Two-segment arm reaching out of the wall
-    const armGeom = this.track(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6))
-    const arm1 = new THREE.Mesh(armGeom, brass)
-    arm1.position.set(0, 0.08, 0.08)
-    arm1.rotation.x = -0.7
-    lamp.add(arm1)
-    const arm2 = new THREE.Mesh(armGeom, brass)
-    arm2.position.set(0, 0.16, 0.16)
-    arm2.rotation.x = 0.5
-    lamp.add(arm2)
+    const arm = new THREE.Mesh(this.box(0.04, 0.26, 0.04), aluminium)
+    arm.position.set(0, 0.12, 0.07)
+    arm.rotation.x = -0.42
+    lamp.add(arm)
 
-    // Shade: small brass cone, warm interior
-    const shadeMat = this.track(
-      new THREE.MeshStandardMaterial({
-        color: 0xb08d4a, roughness: 0.35, metalness: 0.85, side: THREE.DoubleSide,
-      })
-    )
-    const shade = new THREE.Mesh(this.track(new THREE.ConeGeometry(0.09, 0.1, 12, 1, true)), shadeMat)
-    shade.position.set(0, 0.24, 0.2)
-    lamp.add(shade)
+    const housing = new THREE.Mesh(this.box(0.24, 0.07, 0.13), aluminium)
+    housing.position.set(0, 0.25, 0.16)
+    lamp.add(housing)
 
-    // Bulb: warm emissive sphere
     const bulbMat = this.track(
       new THREE.MeshStandardMaterial({
-        color: 0xffe0b0, emissive: 0xffc78a, emissiveIntensity: 2.2, roughness: 0.3,
+        color: 0xf5fbff, emissive: 0xd8f2ff, emissiveIntensity: 1.8, roughness: 0.2,
       })
     )
-    const bulb = new THREE.Mesh(this.track(new THREE.SphereGeometry(0.028, 10, 8)), bulbMat)
-    bulb.position.set(0, 0.2, 0.2)
+    const bulb = new THREE.Mesh(this.box(0.16, 0.018, 0.07), bulbMat)
+    bulb.position.set(0, 0.22, 0.23)
     lamp.add(bulb)
 
-    // Real warm light, short range so it only kisses the cabin
-    const point = new THREE.PointLight(0xffc78a, 0.55, 3.2, 2)
-    point.position.set(0, 0.18, 0.24)
+    const point = new THREE.PointLight(0xffe8cf, 0.5, 3.2, 2)
+    point.position.set(0, 0.22, 0.24)
     lamp.add(point)
 
-    // Soft glow sprite around the bulb
     const glowMat = this.track(
       new THREE.MeshBasicMaterial({
-        color: 0xffcf96,
+        color: 0xd8f2ff,
         map: this.makeSoftSpotTexture(),
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.28,
         depthWrite: false,
       })
     )
-    const glow = new THREE.Mesh(this.track(new THREE.PlaneGeometry(0.45, 0.45)), glowMat)
-    glow.position.set(0, 0.2, 0.22)
+    const glow = new THREE.Mesh(this.track(new THREE.PlaneGeometry(0.36, 0.36)), glowMat)
+    glow.position.set(0, 0.22, 0.25)
     glow.renderOrder = 12
     lamp.add(glow)
 
@@ -352,107 +317,109 @@ export class WindowFrame {
     this.group.add(lamp)
   }
 
-  /** Opposite bench: moquette fabric back with a white lace antimacassar,
-   *  armrest, and the fold-down table edge. */
+  /** Deep blue-grey berth bench with a compact laminate work surface. */
   private buildSeat() {
     const fabric = this.track(
-      new THREE.MeshStandardMaterial({ map: this.makeMoquetteTexture(), roughness: 1.0, metalness: 0 })
+      new THREE.MeshStandardMaterial({ map: this.makeSeatTextile(), roughness: 1.0, metalness: 0 })
     )
-    // Seat back rising below the window, tilted slightly toward the viewer
-    const seat = new THREE.Mesh(this.box(4.2, 1.6, 0.25), fabric)
-    seat.position.set(0.3, -2.35, 0.55)
+    const seat = new THREE.Mesh(this.box(4.3, 0.72, 0.28), fabric)
+    seat.position.set(0.25, -2.02, 0.62)
     seat.rotation.x = 0.12
     this.group.add(seat)
 
-    // White lace headrest cover (antimacassar) draped over the top
-    const laceMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xf2eee2, roughness: 0.9 })
+    const edgeMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x9fc8d5, roughness: 0.42, metalness: 0.42 })
     )
-    const lace = new THREE.Mesh(this.box(0.62, 0.3, 0.27), laceMat)
-    lace.position.set(0.3, -1.62, 0.53)
-    lace.rotation.x = 0.12
-    this.group.add(lace)
+    const topPiping = new THREE.Mesh(this.box(4.34, 0.03, 0.035), edgeMat)
+    topPiping.position.set(0.25, -1.67, 0.79)
+    topPiping.rotation.x = 0.12
+    this.group.add(topPiping)
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(this.box(0.12, 0.34, 0.4), edgeMat)
+      arm.position.set(0.25 + side * 2.05, -1.92, 0.56)
+      arm.rotation.x = 0.12
+      this.group.add(arm)
+    }
 
-    // Folding table edge attached to the seat back
     const tableMat = this.track(
-      new THREE.MeshStandardMaterial({ map: this.makeWalnutTexture(), roughness: 0.6, metalness: 0.05 })
+      new THREE.MeshStandardMaterial({ map: this.makeCabinPanelTexture(), roughness: 0.58, metalness: 0.08 })
     )
-    const table = new THREE.Mesh(this.box(1.6, 0.05, 0.7), tableMat)
-    table.position.set(-0.4, -1.75, 0.35)
+    const table = new THREE.Mesh(this.box(1.65, 0.05, 0.66), tableMat)
+    table.position.set(-0.55, -1.88, 0.43)
     table.rotation.x = -0.05
     this.group.add(table)
+
+    const blanketMat = this.track(
+      new THREE.MeshStandardMaterial({ map: this.makeBeddingTexture(), roughness: 0.98 })
+    )
+    const blanket = new THREE.Mesh(this.box(1.35, 0.06, 0.35), blanketMat)
+    blanket.position.set(1.25, -1.68, 0.82)
+    blanket.rotation.x = 0.12
+    this.group.add(blanket)
   }
 
-  /** Corridor door at the far left: walnut slab, frosted glass panel that
-   *  glows faintly from the corridor light, brass handle + coat hook. */
-  private buildCorridorDoor(brass: THREE.Material) {
-    const doorX = -3.6
+  /** Neutral warm fills keep the modern interior readable at night. */
+  private buildCabinLighting() {
+    const overhead = new THREE.PointLight(0xffc98e, 0.72, 4.6, 2)
+    overhead.position.set(-0.15, 1.95, 0.48)
+    this.group.add(overhead)
+
+    const berthFill = new THREE.PointLight(0xffd7a2, 0.24, 2.6, 2)
+    berthFill.position.set(-1.2, -0.45, 0.48)
+    this.group.add(berthFill)
+  }
+
+  /** Flush corridor door with a cool frosted-glass insert. */
+  private buildCorridorDoor(aluminium: THREE.Material) {
+    const doorX = -4.05
     const door = new THREE.Group()
 
     const doorMat = this.track(
-      new THREE.MeshStandardMaterial({ map: this.makeWalnutTexture(), roughness: 0.7, metalness: 0.05 })
+      new THREE.MeshStandardMaterial({ map: this.makeCabinPanelTexture(), roughness: 0.72, metalness: 0.08 })
     )
     const slab = new THREE.Mesh(this.box(1.15, 3.4, 0.06), doorMat)
     door.add(slab)
 
-    // Frosted glass upper panel
     const glassMat = this.track(
       new THREE.MeshStandardMaterial({
-        color: 0xf5ead0, transparent: true, opacity: 0.5, roughness: 0.9,
-        emissive: 0xffe8c0, emissiveIntensity: 0.25,
+        color: 0xd4e8ee, transparent: true, opacity: 0.48, roughness: 0.82,
+        emissive: 0xb7e3ed, emissiveIntensity: 0.2,
       })
     )
     const pane = new THREE.Mesh(this.box(0.55, 0.95, 0.02), glassMat)
     pane.position.set(0, 0.75, 0.04)
     door.add(pane)
 
-    // Brass handle + lock plate
-    const handle = new THREE.Mesh(this.box(0.16, 0.03, 0.05), brass)
+    const handle = new THREE.Mesh(this.box(0.16, 0.03, 0.05), aluminium)
     handle.position.set(0.38, -0.1, 0.06)
     door.add(handle)
-    const plate = new THREE.Mesh(this.box(0.06, 0.14, 0.02), brass)
+    const plate = new THREE.Mesh(this.box(0.06, 0.14, 0.02), aluminium)
     plate.position.set(0.38, -0.1, 0.045)
     door.add(plate)
 
-    // Compartment number plaque
-    const plaque = new THREE.Mesh(this.box(0.2, 0.08, 0.02), brass)
+    const plaque = new THREE.Mesh(this.box(0.2, 0.08, 0.02), aluminium)
     plaque.position.set(0, 1.45, 0.045)
     door.add(plaque)
 
     door.position.set(doorX, -0.3, -0.02)
     this.group.add(door)
 
-    // Coat hook with a draped scarf beside the door
-    const hook = new THREE.Mesh(this.track(new THREE.SphereGeometry(0.025, 8, 6)), brass)
-    hook.position.set(doorX + 0.85, 0.9, 0.05)
-    this.group.add(hook)
-    const scarfMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x8a3a4a, roughness: 1.0, side: THREE.DoubleSide })
-    )
-    const scarfTop = new THREE.Mesh(this.box(0.14, 0.5, 0.02), scarfMat)
-    scarfTop.position.set(doorX + 0.85, 0.62, 0.06)
-    scarfTop.rotation.z = 0.06
-    this.group.add(scarfTop)
-    const scarfTail = new THREE.Mesh(this.box(0.12, 0.3, 0.02), scarfMat)
-    scarfTail.position.set(doorX + 0.86, 0.28, 0.055)
-    scarfTail.rotation.z = -0.1
-    this.group.add(scarfTail)
   }
 
-  /** Small framed landscape print on the right wall. */
-  private buildWallPrint() {
+  /** A muted digital route display replaces decorative vintage wall art. */
+  private buildInfoPanel() {
     const frameMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x8a6f3a, roughness: 0.4, metalness: 0.6 })
+      new THREE.MeshStandardMaterial({ color: 0x20282d, roughness: 0.38, metalness: 0.68 })
     )
     const frame = new THREE.Mesh(this.box(0.52, 0.4, 0.03), frameMat)
     frame.position.set(2.75, 0.05, 0.0)
     this.group.add(frame)
-    const printMat = this.track(
-      new THREE.MeshBasicMaterial({ map: this.makePrintTexture() })
+    const displayMat = this.track(
+      new THREE.MeshBasicMaterial({ color: 0x98d6db, transparent: true, opacity: 0.75 })
     )
-    const print = new THREE.Mesh(this.track(new THREE.PlaneGeometry(0.44, 0.32)), printMat)
-    print.position.set(2.75, 0.05, 0.02)
-    this.group.add(print)
+    const display = new THREE.Mesh(this.track(new THREE.PlaneGeometry(0.42, 0.08)), displayMat)
+    display.position.set(2.75, 0.09, 0.02)
+    this.group.add(display)
   }
 
   // ---- Glass & sill ----
@@ -522,86 +489,44 @@ export class WindowFrame {
     this.group.add(dust)
   }
 
-  private addSillObjects(brass: THREE.Material) {
+  private addSillObjects(accent: THREE.Material) {
     const sillTop = -(OPENING_H / 2 + FRAME_T) - 0.03
 
-    // Teacup on a saucer
-    const saucer = new THREE.Mesh(
-      this.track(new THREE.CylinderGeometry(0.065, 0.05, 0.012, 14)),
-      this.track(new THREE.MeshStandardMaterial({ color: 0xf0ead8, roughness: 0.4 }))
+    const bottleMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x7ca5b0, roughness: 0.3, metalness: 0.38 })
     )
-    saucer.position.set(-0.8, sillTop + 0.035, 0.16)
-    this.group.add(saucer)
-    const cup = new THREE.Mesh(
-      this.track(new THREE.CylinderGeometry(0.045, 0.035, 0.1, 12)),
-      this.track(new THREE.MeshStandardMaterial({ color: 0xd4553a, roughness: 0.5 }))
-    )
-    cup.position.set(-0.8, sillTop + 0.09, 0.16)
-    this.group.add(cup)
-    this.wobblers.push({ obj: cup, baseY: cup.position.y, phase: 0 })
+    const bottle = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.05, 0.06, 0.22, 12)), bottleMat)
+    bottle.position.set(-0.95, sillTop + 0.13, 0.16)
+    this.group.add(bottle)
+    this.wobblers.push({ obj: bottle, baseY: bottle.position.y, phase: 0 })
 
-    // Open book: two angled leaves meeting at the spine
-    const pageMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xf2ecd8, roughness: 0.9 })
+    const tabletMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x182126, roughness: 0.32, metalness: 0.52 })
     )
-    const coverMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x2a4a6a, roughness: 0.8 })
-    )
-    const book = new THREE.Group()
-    const cover = new THREE.Mesh(this.box(0.46, 0.015, 0.17), coverMat)
-    book.add(cover)
-    for (const side of [-1, 1]) {
-      const leaf = new THREE.Mesh(this.box(0.21, 0.012, 0.16), pageMat)
-      leaf.position.set(side * 0.105, 0.018, 0)
-      leaf.rotation.z = -side * 0.12
-      book.add(leaf)
-    }
-    book.position.set(0.3, sillTop + 0.045, 0.18)
-    book.rotation.y = 0.3
-    this.group.add(book)
+    const tablet = new THREE.Mesh(this.box(0.52, 0.02, 0.26), tabletMat)
+    tablet.position.set(0.24, sillTop + 0.045, 0.19)
+    tablet.rotation.y = 0.22
+    this.group.add(tablet)
+    const screen = new THREE.Mesh(this.box(0.43, 0.005, 0.18), accent)
+    screen.position.set(0.24, sillTop + 0.058, 0.2)
+    screen.rotation.y = 0.22
+    this.group.add(screen)
 
-    // Ticket slip poking out from under the book
-    const ticketMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0xe8d8a8, roughness: 0.85 })
-    )
-    const ticket = new THREE.Mesh(this.box(0.2, 0.006, 0.08), ticketMat)
-    ticket.position.set(0.42, sillTop + 0.032, 0.24)
-    ticket.rotation.y = -0.35
-    this.group.add(ticket)
-
-    // Small plant pot
-    const pot = new THREE.Mesh(
-      this.track(new THREE.CylinderGeometry(0.05, 0.04, 0.08, 10)),
-      this.track(new THREE.MeshStandardMaterial({ color: 0xa0643c, roughness: 0.9 }))
-    )
-    pot.position.set(0.85, sillTop + 0.07, 0.15)
-    this.group.add(pot)
-    const plant = new THREE.Mesh(
-      this.track(new THREE.IcosahedronGeometry(0.06, 0)),
-      this.track(new THREE.MeshStandardMaterial({ color: 0x3f7a3f, roughness: 0.8, flatShading: true }))
-    )
-    plant.position.set(0.85, sillTop + 0.16, 0.15)
-    this.group.add(plant)
-    this.wobblers.push({ obj: plant, baseY: plant.position.y, phase: 1.7 })
-
-    // Brass pocket watch on the sill corner
-    const watch = new THREE.Mesh(
-      this.track(new THREE.CylinderGeometry(0.035, 0.035, 0.012, 16)),
-      brass
-    )
-    watch.position.set(-0.45, sillTop + 0.035, 0.2)
-    this.group.add(watch)
+    const socket = new THREE.Mesh(this.box(0.11, 0.045, 0.025), accent)
+    socket.position.set(0.92, sillTop + 0.055, 0.2)
+    this.group.add(socket)
   }
 
-  /** Pin the interior to the camera: always the same spot in view.
-   *  Small items on the sill wobble with the carriage vibration. */
+  /** Keep a real side-window plane beside the moving camera. */
   update(camera: THREE.PerspectiveCamera, time = 0) {
     camera.getWorldDirection(this.tmpDir)
-    this.group.position.copy(camera.position).addScaledVector(this.tmpDir, FRAME_DISTANCE)
-    this.group.quaternion.copy(camera.quaternion)
-    // Drop the cabin slightly (in camera space) — see GROUP_Y_OFFSET
-    this.tmpDir.set(0, GROUP_Y_OFFSET, 0).applyQuaternion(camera.quaternion)
-    this.group.position.add(this.tmpDir)
+    const forwardX = Math.max(0.001, this.tmpDir.x)
+    this.group.position.set(
+      camera.position.x + FRAME_DISTANCE,
+      camera.position.y + GROUP_Y_OFFSET,
+      camera.position.z + (this.tmpDir.z / forwardX) * FRAME_DISTANCE,
+    )
+    this.group.rotation.set(0, -Math.PI / 2, 0)
 
     for (const w of this.wobblers) {
       w.obj.position.y = w.baseY + Math.sin(time * 23 + w.phase) * 0.004
@@ -611,51 +536,22 @@ export class WindowFrame {
 
   // ---- Canvas textures ----
 
-  /** Walnut panelling: warm brown base, vertical grain streaks, panel
-   *  grooves — the classic sleeper-compartment wall. */
-  private makeWalnutTexture(): THREE.Texture {
+  /** Light-grey composite panels with recessed joins. */
+  private makeCabinPanelTexture(): THREE.Texture {
     const size = 256
     const canvas = document.createElement('canvas')
     canvas.width = size
     canvas.height = size
     const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#54341f'
+    ctx.fillStyle = '#c8d0d1'
     ctx.fillRect(0, 0, size, size)
 
-    // Vertical grain streaks
-    for (let i = 0; i < 220; i++) {
-      const x = Math.random() * size
-      const light = Math.random() < 0.5
-      ctx.strokeStyle = light
-        ? `rgba(150,100,60,${0.05 + Math.random() * 0.1})`
-        : `rgba(30,16,8,${0.06 + Math.random() * 0.12})`
-      ctx.lineWidth = 0.6 + Math.random() * 1.8
-      ctx.beginPath()
-      ctx.moveTo(x, -10)
-      ctx.bezierCurveTo(
-        x + (Math.random() - 0.5) * 14, size * 0.33,
-        x + (Math.random() - 0.5) * 14, size * 0.66,
-        x + (Math.random() - 0.5) * 8, size + 10
-      )
-      ctx.stroke()
+    for (let y = 32; y < size; y += 64) {
+      ctx.fillStyle = 'rgba(37,52,58,0.18)'
+      ctx.fillRect(0, y, size, 2)
+      ctx.fillStyle = 'rgba(255,255,255,0.24)'
+      ctx.fillRect(0, y + 2, size, 1)
     }
-
-    // Panel grooves (vertical boards)
-    const boards = 5
-    for (let b = 1; b < boards; b++) {
-      const x = (b / boards) * size
-      ctx.fillStyle = 'rgba(20,10,5,0.55)'
-      ctx.fillRect(x - 1.5, 0, 3, size)
-      ctx.fillStyle = 'rgba(180,130,85,0.28)'
-      ctx.fillRect(x + 1.5, 0, 1, size)
-    }
-
-    // Soft sheen band
-    const sheen = ctx.createLinearGradient(0, 0, 0, size)
-    sheen.addColorStop(0, 'rgba(255,220,170,0.10)')
-    sheen.addColorStop(0.4, 'rgba(255,220,170,0.0)')
-    ctx.fillStyle = sheen
-    ctx.fillRect(0, 0, size, size)
 
     const tex = new THREE.CanvasTexture(canvas)
     tex.wrapS = THREE.RepeatWrapping
@@ -664,34 +560,25 @@ export class WindowFrame {
     return this.track(tex)
   }
 
-  /** Moquette upholstery: deep red base with a small diamond dot pattern —
-   *  the indestructible classic railway fabric. */
-  private makeMoquetteTexture(): THREE.Texture {
+  /** Blue-grey woven seat textile with a restrained geometric weave. */
+  private makeSeatTextile(): THREE.Texture {
     const size = 128
     const canvas = document.createElement('canvas')
     canvas.width = size
     canvas.height = size
     const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#5e2c31'
+    ctx.fillStyle = '#334b5c'
     ctx.fillRect(0, 0, size, size)
 
-    const step = 16
+    const step = 12
     for (let ry = 0; ry < size / step; ry++) {
       for (let rx = 0; rx < size / step; rx++) {
         const x = rx * step + (ry % 2 === 0 ? 0 : step / 2)
         const y = ry * step
-        // Tiny diamond
-        ctx.fillStyle = 'rgba(200,168,106,0.55)'
-        ctx.beginPath()
-        ctx.moveTo(x, y - 3)
-        ctx.lineTo(x + 3, y)
-        ctx.lineTo(x, y + 3)
-        ctx.lineTo(x - 3, y)
-        ctx.closePath()
-        ctx.fill()
-        // Offset blue-grey pin dot
-        ctx.fillStyle = 'rgba(90,110,140,0.5)'
-        ctx.fillRect(x + step / 2 - 1, y + step / 2 - 1, 2, 2)
+        ctx.fillStyle = 'rgba(190,220,225,0.3)'
+        ctx.fillRect(x, y, 2, 2)
+        ctx.fillStyle = 'rgba(23,35,46,0.28)'
+        ctx.fillRect(x + step / 2, y + step / 2, 2, 2)
       }
     }
 
@@ -703,40 +590,24 @@ export class WindowFrame {
     return this.track(tex)
   }
 
-  /** Miniature landscape print for the wall frame. */
-  private makePrintTexture(): THREE.Texture {
-    const w = 128, h = 96
+  /** Navy bedding with a subtle cool pinstripe. */
+  private makeBeddingTexture(): THREE.Texture {
+    const size = 96
     const canvas = document.createElement('canvas')
-    canvas.width = w
-    canvas.height = h
+    canvas.width = size
+    canvas.height = size
     const ctx = canvas.getContext('2d')!
-    const sky = ctx.createLinearGradient(0, 0, 0, h * 0.6)
-    sky.addColorStop(0, '#e8d8b0')
-    sky.addColorStop(1, '#c8d8e0')
-    ctx.fillStyle = sky
-    ctx.fillRect(0, 0, w, h * 0.6)
-    // Distant hills
-    ctx.fillStyle = '#8a9a7a'
-    ctx.beginPath()
-    ctx.moveTo(0, h * 0.55)
-    ctx.quadraticCurveTo(w * 0.3, h * 0.35, w * 0.6, h * 0.52)
-    ctx.quadraticCurveTo(w * 0.8, h * 0.62, w, h * 0.5)
-    ctx.lineTo(w, h * 0.65)
-    ctx.lineTo(0, h * 0.65)
-    ctx.closePath()
-    ctx.fill()
-    // Field
-    ctx.fillStyle = '#a89858'
-    ctx.fillRect(0, h * 0.62, w, h * 0.38)
-    // A copse
-    ctx.fillStyle = '#5a6a42'
-    ctx.beginPath()
-    ctx.arc(w * 0.75, h * 0.58, 8, 0, Math.PI * 2)
-    ctx.arc(w * 0.82, h * 0.6, 6, 0, Math.PI * 2)
-    ctx.fill()
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.colorSpace = THREE.SRGBColorSpace
-    return this.track(tex)
+    ctx.fillStyle = '#34546a'
+    ctx.fillRect(0, 0, size, size)
+    ctx.fillStyle = 'rgba(202,224,230,0.38)'
+    for (let x = 8; x < size; x += 24) ctx.fillRect(x, 0, 1, size)
+    for (let y = 12; y < size; y += 20) ctx.fillRect(0, y, size, 1)
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(3, 2)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return this.track(texture)
   }
 
   /** Radial-gradient white spot: opaque center fading to transparent edge. */

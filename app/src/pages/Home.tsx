@@ -6,6 +6,7 @@ import {
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Coffee, Settings2 } from 'lucide-react';
+import { CabinOverlay } from '@/components/CabinOverlay';
 import ThreeCanvas, { type TrainControl } from '@/engine/three/ThreeCanvas';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
@@ -43,6 +44,7 @@ export default function Home() {
   const focusDoneRef = useRef(0);
   const dwellLeftRef = useRef(0);
   const arrivingRef = useRef(false);
+  const stationPreparedRef = useRef(false);
   const distanceRef = useRef(0);
   const soundRef = useRef(true);
   const hudTimerRef = useRef(0);
@@ -56,6 +58,7 @@ export default function Home() {
   const [sound, setSound] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmAbort, setConfirmAbort] = useState(false);
+  const [plan, setPlan] = useState<JourneyPlan | null>(null);
 
   const [hud, setHud] = useState<HudState>({
     phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speed: 0, distance: 0,
@@ -92,12 +95,14 @@ export default function Home() {
           segElapsedRef.current += dt;
           focusDoneRef.current += dt;
           const left = seg.focusSec - segElapsedRef.current;
+          if (!stationPreparedRef.current && left <= 32 && trainControlRef.current) {
+            stationPreparedRef.current = true;
+            trainControlRef.current.prepareStation(seg.name);
+          }
           if (!arrivingRef.current && left <= 16) {
             arrivingRef.current = true;
             eng.arrive(seg.name);
-            // Show the approaching station ~16s ahead at cruise speed
-            const camZ = trainControlRef.current?.getZ() ?? 0;
-            trainControlRef.current?.showStation(seg.name, camZ + 16 * 15);
+            trainControlRef.current?.approachStation(seg.name);
             if (audioRef.current?.isRunning) audioRef.current.chime();
           }
           if (left <= 0 && eng.speed < 0.02) {
@@ -109,7 +114,7 @@ export default function Home() {
             } else {
               phaseRef.current = 'dwell';
               dwellLeftRef.current = plan.dwellSec;
-              trainControlRef.current?.setSpeed(0); // 到站停车
+              trainControlRef.current?.setSpeed(0);
             }
           }
         } else if (phase === 'dwell') {
@@ -118,10 +123,10 @@ export default function Home() {
             segIdxRef.current += 1;
             segElapsedRef.current = 0;
             arrivingRef.current = false;
+            stationPreparedRef.current = false;
             phaseRef.current = 'ride';
             eng.depart();
-            trainControlRef.current?.setSpeed(15); // 离站发车
-            trainControlRef.current?.hideStation(); // 收起站台
+            trainControlRef.current?.departStation();
           }
         }
       }
@@ -150,12 +155,14 @@ export default function Home() {
   const startJourney = useCallback(() => {
     const plan = mode === 'free' ? buildFreeJourney(focusMin, stops) : buildPomodoroJourney(rounds);
     planRef.current = plan;
+    setPlan(plan);
     originRef.current = pickStations(1)[0];
     segIdxRef.current = 0;
     segElapsedRef.current = 0;
     focusDoneRef.current = 0;
     distanceRef.current = 0;
     arrivingRef.current = false;
+    stationPreparedRef.current = false;
     const eng = engineRef.current;
     if (eng) {
       // 列车已在始发站停稳，检票上车后稍候发车（关门-启动的节奏）
@@ -166,7 +173,7 @@ export default function Home() {
       trainControlRef.current?.showStation(originRef.current, camZ);
       window.setTimeout(() => {
         eng.depart();
-        trainControlRef.current?.setSpeed(15); // 缓缓加速开出车站
+        trainControlRef.current?.departStation();
         // 车站会在完全离开视野后由 StationManager 自动隐藏（0.8s 缓冲）
       }, 2600);
     }
@@ -193,6 +200,7 @@ export default function Home() {
 
   const backToSetup = useCallback(() => {
     planRef.current = null;
+    setPlan(null);
     phaseRef.current = 'setup';
     audioRef.current?.stop();
     audioRef.current = null;
@@ -240,74 +248,13 @@ export default function Home() {
   }, []);
 
   const riding = hud.phase === 'ride' || hud.phase === 'dwell';
-  const focusDone = planRef.current ? planRef.current.totalFocusSec - hud.focusLeft : 0;
+  const focusDone = plan ? plan.totalFocusSec - hud.focusLeft : 0;
 
   return (
     <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
-      <ThreeCanvas className="absolute inset-0" controlRef={trainControlRef} />
+      <ThreeCanvas className="absolute inset-0" controlRef={trainControlRef} timePreset={tod} />
 
-      {/* 车窗框（橡胶密封条 + 内框 + 车身壁板，加厚） */}
-      <div className="pointer-events-none absolute inset-0 z-10"
-        style={{
-          boxShadow: 'inset 0 0 0 10px #0a0b0d, inset 0 0 0 16px #1a1c20, inset 0 0 0 26px #2c2f35, inset 0 0 0 30px #141518, inset 0 0 100px 34px rgba(0,0,0,0.42)',
-          borderRadius: 34,
-        }} />
-      {/* 玻璃反光 */}
-      <div className="pointer-events-none absolute inset-0 z-10"
-        style={{
-          background: 'linear-gradient(115deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 22%, transparent 30%, transparent 70%, rgba(255,255,255,0.04) 82%, transparent 90%)',
-          borderRadius: 30,
-        }} />
-      {/* 窗台（更宽，带小桌板凹槽和杯槽） */}
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-14"
-        style={{ background: 'linear-gradient(to bottom, #42464e, #26292f 55%, #17191d)', borderRadius: '0 0 20px 20px' }}>
-        {/* 杯槽 */}
-        <div className="absolute right-[16%] top-2 h-6 w-14 rounded-full"
-          style={{ background: 'radial-gradient(ellipse at center, #101114 0%, #1e2025 70%, #2c2e34 100%)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6)' }} />
-        {/* 窗台前沿高光 */}
-        <div className="absolute inset-x-8 top-0 h-[2px] rounded" style={{ background: 'rgba(255,255,255,0.10)' }} />
-      </div>
-
-      {/* ===== 车厢内部景物 ===== */}
-      {/* 左侧乘客座椅靠背剪影 */}
-      <div className="pointer-events-none absolute bottom-6 left-0 z-[15]"
-        style={{
-          width: '8.5vw', height: '20vh', minWidth: 90,
-          background: 'linear-gradient(to right, #0c0d10 0%, #191a1f 75%, #232529 100%)',
-          borderRadius: '0 64px 10px 0',
-          boxShadow: 'inset -8px 0 16px rgba(255,255,255,0.05)',
-        }} />
-      {/* 头枕 */}
-      <div className="pointer-events-none absolute left-0 z-[15]"
-        style={{
-          bottom: 'calc(6px + 20vh - 2px)', width: '7vw', height: '5.5vh', minWidth: 74,
-          background: 'linear-gradient(to right, #0b0c0f, #1c1d22)',
-          borderRadius: '0 30px 6px 0',
-        }} />
-      {/* 顶部：车厢内壁（背光剪影）+ 行李架 */}
-      <div className="pointer-events-none absolute left-0 right-0 top-4 z-[15] h-[9vh]"
-        style={{ background: 'linear-gradient(to bottom, #131417 0%, #1c1e23 55%, rgba(28,30,35,0) 100%)' }} />
-      {/* 行李架外沿 */}
-      <div className="pointer-events-none absolute left-0 right-0 z-[15]"
-        style={{
-          top: 'calc(4px + 9vh)', height: 10,
-          background: 'linear-gradient(to bottom, rgba(40,42,48,0.9), rgba(20,21,25,0))',
-        }} />
-      {/* 行李架上的行李剪影 */}
-      <div className="pointer-events-none absolute z-[15]" style={{ left: '16%', top: 'calc(4px + 3.5vh)' }}>
-        <div style={{ width: 120, height: '5vh', background: '#101114', borderRadius: '10px 10px 4px 4px' }} />
-      </div>
-      <div className="pointer-events-none absolute z-[15]" style={{ left: '62%', top: 'calc(4px + 4.5vh)' }}>
-        <div style={{ width: 84, height: '4vh', background: '#0e0f12', borderRadius: '14px 14px 4px 4px' }} />
-      </div>
-      {/* 左右车窗立柱（宽厚的窗间壁，背光剪影） */}
-      <div className="pointer-events-none absolute left-0 top-4 bottom-10 z-[15] w-[3.2vw] min-w-[34px]"
-        style={{ background: 'linear-gradient(to right, #0d0e11, #1e2025 70%, #26282e)', borderRadius: '0 10px 10px 0' }} />
-      <div className="pointer-events-none absolute right-0 top-4 bottom-10 z-[15] w-[3.2vw] min-w-[34px]"
-        style={{ background: 'linear-gradient(to left, #0d0e11, #1e2025 70%, #26282e)', borderRadius: '10px 0 0 10px' }} />
-      {/* 遮光帘（右侧垂下一截，背光） */}
-      <div className="pointer-events-none absolute right-[3.2vw] top-4 z-[16] w-[2.6vw] min-w-[30px] h-[16vh]"
-        style={{ background: 'linear-gradient(to left, #17181d, #22242a 60%, #2a2c33)', borderRadius: '0 0 14px 4px' }} />
+      <CabinOverlay />
 
       {/* ================= 设置页 ================= */}
       {hud.phase === 'setup' && (
@@ -437,10 +384,10 @@ export default function Home() {
           <div className="absolute bottom-16 left-1/2 z-20 w-[min(620px,80vw)] -translate-x-1/2">
             <div className="relative h-1 rounded bg-white/25">
               <div className="absolute h-1 rounded bg-amber-400 transition-all duration-500"
-                style={{ width: `${planRef.current ? (focusDone / planRef.current.totalFocusSec) * 100 : 0}%` }} />
-              {planRef.current?.segments.map((s, i) => {
-                const acc = planRef.current!.segments.slice(0, i + 1).reduce((a, x) => a + x.focusSec, 0);
-                const pct = (acc / planRef.current!.totalFocusSec) * 100;
+                style={{ width: `${plan ? (focusDone / plan.totalFocusSec) * 100 : 0}%` }} />
+              {plan?.segments.map((s, i) => {
+                const acc = plan.segments.slice(0, i + 1).reduce((a, x) => a + x.focusSec, 0);
+                const pct = (acc / plan.totalFocusSec) * 100;
                 return (
                   <div key={i} className="group absolute -top-1" style={{ left: `calc(${pct}% - 5px)` }}>
                     <div className={`h-3 w-3 rounded-full border-2 ${i < hud.segIdx ? 'border-amber-400 bg-amber-400' : 'border-white/60 bg-black/60'}`} />
@@ -460,9 +407,9 @@ export default function Home() {
       {/* ================= 到达终点 ================= */}
       {hud.phase === 'done' && (
         <EndCard
-          title={`列车已到达 ${planRef.current?.terminal ?? ''}站`}
+          title={`列车已到达 ${plan?.terminal ?? ''}站`}
           lines={[
-            `本次旅程专注 ${Math.round((planRef.current?.totalFocusSec ?? 0) / 60)} 分钟`,
+            `本次旅程专注 ${Math.round((plan?.totalFocusSec ?? 0) / 60)} 分钟`,
             `途经 ${hud.segCount} 个区间 · 行驶 ${hud.distance.toFixed(1)} km`,
             '感谢乘坐，愿每一段专注都有风景相伴。',
           ]}

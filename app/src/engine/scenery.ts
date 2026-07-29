@@ -464,7 +464,7 @@ export const dTreeBare: DecorMaker = (rng, pal) => {
 };
 
 // 树丛（密集排布，可遮挡后方景物）
-export const dTreeCluster: DecorMaker = (rng, _pal) => {
+export const dTreeCluster: DecorMaker = (rng) => {
   const trees: { dx: number; s: number; kind: number; f: number }[] = [];
   const n = 4 + Math.floor(rng() * 4);
   const span = 60 + n * 34;
@@ -554,7 +554,7 @@ export const dWindmill: DecorMaker = (rng, pal) => {
   const s = 60 + rng() * 20;
   const body = pal.night ? '#1c1814' : '#e2d8c4';
   const blade = pal.night ? '#100d0a' : '#8a7a64';
-  return (ctx, x, y, _p) => {
+  return (ctx, x, y) => {
     ctx.fillStyle = body;
     ctx.beginPath();
     ctx.moveTo(x - s * 0.18, y);
@@ -1311,7 +1311,7 @@ export class SceneryEngine {
     ctx.fillRect(0, hz - 2, w, h * 0.08);
 
     // 远山 / 中景（受控滚动切换：新场景作为独立条带从右侧驶入，边界清晰、自然衔接）
-    this.drawSceneBands(ctx, this.sceneA, w, h, 1);
+    this.drawSceneBands(ctx, this.sceneA, h);
     if (this.transition) {
       const tr = this.transition;
       const farH = hz * 0.95;
@@ -1392,7 +1392,7 @@ export class SceneryEngine {
     ctx.restore();
   }
 
-  private drawSceneBands(ctx: CanvasRenderingContext2D, sc: Scene, _w: number, h: number, _alpha: number) {
+  private drawSceneBands(ctx: CanvasRenderingContext2D, sc: Scene, h: number) {
     const hz = h * this.horizon;
     const farH = hz * 0.95;
     const offFar = (this.worldX * P_FAR) % BAND_W;

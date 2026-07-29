@@ -3,6 +3,8 @@ import * as THREE from 'three'
 const CRUISE_SPEED = 15 // units/sec, matches original
 const ACCEL_RATE = 3.5 // speed units/sec² — gentle departure
 const DECEL_RATE = 4.5 // slightly faster braking
+const STATION_BRAKE_DECEL = 0.94
+const STATION_DEPART_ACCEL = 1.5
 const LOOK_AHEAD_X = 50
 const LOOK_AHEAD_Z = 12
 const LOOK_Y = 1.5
@@ -12,6 +14,12 @@ const LOOK_Y = 1.5
  * Vibration scales with current speed — smooth when stopped, gentle at cruise.
  */
 export class TrainCamera {
+  static readonly STATION_STOP_DISTANCE = (CRUISE_SPEED * CRUISE_SPEED) / (2 * STATION_BRAKE_DECEL)
+  static readonly STATION_BRAKE_SECONDS = CRUISE_SPEED / STATION_BRAKE_DECEL
+  /** Preload while the complete platform is still outside the side-window frustum. */
+  static readonly STATION_PREPARE_DISTANCE =
+    CRUISE_SPEED * TrainCamera.STATION_BRAKE_SECONDS + TrainCamera.STATION_STOP_DISTANCE
+
   camera: THREE.PerspectiveCamera
   private time = 0
 
@@ -24,6 +32,8 @@ export class TrainCamera {
   private vibY = 0
   private vibX = 0
   private vibRoll = 0
+  private stationStopZ: number | null = null
+  private departingStation = false
 
   constructor() {
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.1, 2000)
@@ -41,23 +51,66 @@ export class TrainCamera {
 
   /** Set desired travel speed. Camera accelerates/decelerates toward it. */
   setTargetSpeed(speed: number) {
+    this.stationStopZ = null
+    this.departingStation = false
     this.targetSpeed = Math.max(0, speed)
+  }
+
+  /** Brake along a smooth physical curve and stop at the middle of a station. */
+  beginStationApproach(stopZ: number) {
+    this.stationStopZ = Math.max(stopZ, this.camera.position.z)
+    this.departingStation = false
+    this.targetSpeed = 0
+  }
+
+  /** Leave a station with a gentler acceleration than ordinary speed changes. */
+  departStation(speed = CRUISE_SPEED) {
+    this.stationStopZ = null
+    this.departingStation = true
+    this.targetSpeed = Math.max(0, speed)
+  }
+
+  /** Debug-only travel shortcut that preserves the normal side-window pose. */
+  setZ(z: number) {
+    this.stationStopZ = null
+    this.departingStation = false
+    this.camera.position.set(0, 2, z)
+    this.camera.lookAt(LOOK_AHEAD_X, LOOK_Y, z + LOOK_AHEAD_Z)
   }
 
   update(dt: number) {
     this.time += dt
 
-    // --- Speed smoothing ---
-    const diff = this.targetSpeed - this.currentSpeed
-    if (Math.abs(diff) > 0.01) {
-      const rate = diff > 0 ? ACCEL_RATE : DECEL_RATE
-      this.currentSpeed += Math.sign(diff) * Math.min(rate * dt, Math.abs(diff))
+    const currentZ = this.camera.position.z
+    if (this.stationStopZ !== null) {
+      const remaining = this.stationStopZ - currentZ
+      if (remaining <= 0.02) {
+        this.currentSpeed = 0
+      } else {
+        const brakingSpeed = Math.sqrt(2 * STATION_BRAKE_DECEL * remaining)
+        this.currentSpeed = Math.min(this.currentSpeed, brakingSpeed)
+      }
     } else {
-      this.currentSpeed = this.targetSpeed
+      // --- Speed smoothing ---
+      const diff = this.targetSpeed - this.currentSpeed
+      if (Math.abs(diff) > 0.01) {
+        const rate = diff > 0
+          ? (this.departingStation ? STATION_DEPART_ACCEL : ACCEL_RATE)
+          : DECEL_RATE
+        this.currentSpeed += Math.sign(diff) * Math.min(rate * dt, Math.abs(diff))
+      } else {
+        this.currentSpeed = this.targetSpeed
+        this.departingStation = false
+      }
     }
 
     // --- Position ---
-    const z = this.camera.position.z + this.currentSpeed * dt
+    const z = this.stationStopZ === null
+      ? currentZ + this.currentSpeed * dt
+      : Math.min(this.stationStopZ, currentZ + this.currentSpeed * dt)
+    if (this.stationStopZ !== null && z >= this.stationStopZ) {
+      this.currentSpeed = 0
+    }
     this.camera.position.set(0, 2, z)
     this.camera.lookAt(LOOK_AHEAD_X, LOOK_Y, z + LOOK_AHEAD_Z)
 

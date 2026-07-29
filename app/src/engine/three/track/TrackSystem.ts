@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { ballastGravelTex } from '../textures'
 
 const RAIL_GAUGE = 1.5
 const SEGMENT = 400 // track length that follows the camera (uniform, no seam)
@@ -15,36 +16,19 @@ export class TrackSystem {
   private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
   private sleepers: THREE.InstancedMesh
   private dummy = new THREE.Object3D()
-
-  /** Procedural gravel speckle so the ballast reads as crushed stone up close. */
-  private makeBallastTexture(): THREE.Texture {
-    const size = 128
-    const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#8a8078'
-    ctx.fillRect(0, 0, size, size)
-    // Scatter stones: mixed light/dark angular specks, a few warm ones
-    const tones = ['#9a9188', '#7a7068', '#6a6158', '#a39a8e', '#5f564c', '#948a7a']
-    for (let i = 0; i < 900; i++) {
-      const s = 1 + Math.random() * 2.5
-      ctx.fillStyle = tones[Math.floor(Math.random() * tones.length)]
-      ctx.fillRect(Math.random() * size, Math.random() * size, s, s * (0.6 + Math.random() * 0.8))
-    }
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.wrapS = THREE.RepeatWrapping
-    tex.wrapT = THREE.RepeatWrapping
-    tex.repeat.set(2, 60)
-    tex.colorSpace = THREE.SRGBColorSpace
-    return this.track(tex)
-  }
+  private ballastTexture: THREE.Texture
 
   constructor() {
+    this.ballastTexture = this.track(ballastGravelTex.clone())
+    this.ballastTexture.wrapS = THREE.RepeatWrapping
+    this.ballastTexture.wrapT = THREE.RepeatWrapping
+    this.ballastTexture.repeat.set(3, 90)
+    this.ballastTexture.anisotropy = 8
+    this.ballastTexture.needsUpdate = true
     const ballastMat = this.track(
       new THREE.MeshStandardMaterial({
-        color: 0xbdb4a8, // tinted down by the texture's own mid-grey
-        map: this.makeBallastTexture(),
+        color: 0xd0c7bc,
+        map: this.ballastTexture,
         roughness: 1.0,
         metalness: 0,
       })
@@ -136,6 +120,12 @@ export class TrackSystem {
   update(camZ: number) {
     this.group.position.z = camZ
     this.sleepers.position.z = -(camZ % SLEEPER_SPACING)
+    // The geometry follows the train for precision, but the texture remains
+    // in world space so the crushed stone visibly passes beneath the window.
+    this.ballastTexture.offset.y = THREE.MathUtils.euclideanModulo(
+      (camZ / SEGMENT) * this.ballastTexture.repeat.y,
+      1,
+    )
   }
 
   private box(w: number, h: number, d: number): THREE.BoxGeometry {

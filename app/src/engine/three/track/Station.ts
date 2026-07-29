@@ -1,21 +1,21 @@
 import * as THREE from 'three'
 
 // Platform dimensions — long enough to feel like a real station
-const PLATFORM_LENGTH = 300
-const PLATFORM_WIDTH = 7
+const PLATFORM_LENGTH = 180
+const PLATFORM_WIDTH = 8
 const PLATFORM_HEIGHT = 1.1
 const PLATFORM_X = 6 // center of platform from track center
 const EDGE_LINE_W = 0.35
 
 // Canopy
-const CANOPY_LENGTH = 180
+const CANOPY_LENGTH = 132
 const CANOPY_HEIGHT = 4.5
 const CANOPY_OVERHANG = 1.5
 
 // Furniture
 const BENCH_COUNT = 6
-const LIGHT_COUNT = 8
-const SIGN_COUNT = 3
+const LIGHT_COUNT = 7
+const SIGN_COUNT = 2
 
 /**
  * A train station platform placed alongside the track.
@@ -23,13 +23,18 @@ const SIGN_COUNT = 3
  */
 export class Station {
   readonly group = new THREE.Group()
-  private disposables: (THREE.BufferGeometry | THREE.Material)[] = []
+  private disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
 
   constructor(name: string, zCenter: number) {
     this.group.position.z = zCenter
 
     const concreteMat = this.track(
-      new THREE.MeshStandardMaterial({ color: 0x9a9590, roughness: 0.85, metalness: 0.05 })
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: this.makePlatformTexture(),
+        roughness: 0.9,
+        metalness: 0.03,
+      })
     )
     const edgeMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0xddcc44, roughness: 0.6, metalness: 0.1 })
@@ -58,12 +63,28 @@ export class Station {
     const lightBulbMat = this.track(
       new THREE.MeshStandardMaterial({ color: 0xffffdd, emissive: 0xffffdd, emissiveIntensity: 0.8, roughness: 0.2 })
     )
+    const asphaltMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x4b4d4e, roughness: 0.95 })
+    )
+    const facadeMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xc9baa0, roughness: 0.88 })
+    )
+    const facadeTrimMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x766b5c, roughness: 0.78 })
+    )
+    const facadeGlassMat = this.track(
+      new THREE.MeshStandardMaterial({
+        color: 0x344a5c, roughness: 0.25, metalness: 0.35,
+        emissive: 0xffd68a, emissiveIntensity: 0.18,
+      })
+    )
 
     this.buildPlatform(concreteMat, edgeMat)
     this.buildCanopy(roofMat, pillarMat)
     this.buildBenches(benchWoodMat, benchMetalMat)
     this.buildLights(lightMat, lightBulbMat)
     this.buildSigns(name, signMat, signTextMat)
+    this.buildDistrict(name, asphaltMat, facadeMat, facadeTrimMat, facadeGlassMat, lightMat, lightBulbMat)
   }
 
   /** Platform surface + safety edge line */
@@ -214,11 +235,215 @@ export class Station {
     }
   }
 
+  /** The station frontage is intentionally separate from the platform: it reads as a place, not a prop beside the rails. */
+  private buildDistrict(
+    name: string,
+    asphaltMat: THREE.Material,
+    facadeMat: THREE.Material,
+    trimMat: THREE.Material,
+    glassMat: THREE.Material,
+    lightMat: THREE.Material,
+    bulbMat: THREE.Material,
+  ) {
+    const pavingMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xb9b1a4, roughness: 0.9 })
+    )
+    const curbMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0xd7d2c8, roughness: 0.82 })
+    )
+    const roofMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x555b61, roughness: 0.76, metalness: 0.16 })
+    )
+
+    const road = new THREE.Mesh(this.box(7.2, 0.08, PLATFORM_LENGTH + 96), asphaltMat)
+    road.position.set(18, 0.05, 0)
+    road.receiveShadow = true
+    this.group.add(road)
+
+    for (const side of [-1, 1]) {
+      const curb = new THREE.Mesh(this.box(0.22, 0.16, PLATFORM_LENGTH + 96), curbMat)
+      curb.position.set(18 + side * 3.7, 0.1, 0)
+      this.group.add(curb)
+    }
+
+    const forecourt = new THREE.Mesh(this.box(17, 0.09, 38), pavingMat)
+    forecourt.position.set(18.5, 0.07, 0)
+    forecourt.receiveShadow = true
+    this.group.add(forecourt)
+
+    for (const z of [-112, 112]) {
+      const crossing = new THREE.Mesh(this.box(13, 0.1, 5.6), pavingMat)
+      crossing.position.set(12.5, 0.08, z)
+      this.group.add(crossing)
+    }
+
+    const hall = new THREE.Group()
+    const hallBody = new THREE.Mesh(this.box(10.5, 4.6, 20), facadeMat)
+    hallBody.position.y = 2.3
+    hallBody.castShadow = true
+    hall.add(hallBody)
+
+    for (const side of [-1, 1]) {
+      const roof = new THREE.Mesh(this.box(5.9, 0.2, 20.7), roofMat)
+      roof.position.set(side * 2.7, 5.05, 0)
+      roof.rotation.z = -side * 0.42
+      roof.castShadow = true
+      hall.add(roof)
+    }
+
+    const entranceCanopy = new THREE.Mesh(this.box(0.9, 0.14, 11), trimMat)
+    entranceCanopy.position.set(-5.45, 3.45, 0)
+    hall.add(entranceCanopy)
+
+    const door = new THREE.Mesh(this.box(0.09, 2.25, 2.5), glassMat)
+    door.position.set(-5.3, 1.15, 0)
+    hall.add(door)
+
+    for (const z of [-6.2, -3.3, 3.3, 6.2]) {
+      const window = new THREE.Mesh(this.box(0.08, 1.55, 1.9), glassMat)
+      window.position.set(-5.31, 2.15, z)
+      hall.add(window)
+    }
+
+    const sign = new THREE.Mesh(
+      this.track(new THREE.PlaneGeometry(6.4, 0.86)),
+      this.track(new THREE.MeshBasicMaterial({ map: this.makeStationNameTexture(name) }))
+    )
+    sign.position.set(-5.36, 4.25, 0)
+    sign.rotation.y = -Math.PI / 2
+    hall.add(sign)
+
+    hall.position.set(26, 0, 0)
+    this.group.add(hall)
+
+    this.addStreetBuilding(34, -78, 8.5, 12, 4.1, facadeMat, roofMat, glassMat)
+    this.addStreetBuilding(34, 74, 7.2, 10, 3.5, trimMat, roofMat, glassMat)
+    this.addStreetBuilding(28, 126, 9.5, 13, 4.5, facadeMat, roofMat, glassMat)
+    this.addStreetBuilding(29, -128, 8, 11, 3.8, trimMat, roofMat, glassMat)
+
+    const shelter = new THREE.Group()
+    const shelterRoof = new THREE.Mesh(this.box(3.5, 0.16, 6.2), roofMat)
+    shelterRoof.position.set(0, 2.9, 0)
+    shelter.add(shelterRoof)
+    const shelterBack = new THREE.Mesh(this.box(0.08, 2.6, 5.4), glassMat)
+    shelterBack.position.set(1.7, 1.45, 0)
+    shelter.add(shelterBack)
+    for (const z of [-2.6, 2.6]) {
+      const post = new THREE.Mesh(this.box(0.12, 2.9, 0.12), lightMat)
+      post.position.set(-1.55, 1.45, z)
+      shelter.add(post)
+    }
+    shelter.position.set(14.1, 0.02, 20)
+    this.group.add(shelter)
+
+    for (const z of [-190, -142, -94, -46, 46, 94, 142, 190]) {
+      const pole = new THREE.Mesh(this.box(0.13, 4.2, 0.13), lightMat)
+      pole.position.set(13.4, 2.1, z)
+      this.group.add(pole)
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), bulbMat)
+      bulb.position.set(13.4, 4.2, z)
+      this.group.add(bulb)
+    }
+  }
+
+  private addStreetBuilding(
+    x: number,
+    z: number,
+    width: number,
+    depth: number,
+    height: number,
+    wallMat: THREE.Material,
+    roofMat: THREE.Material,
+    glassMat: THREE.Material,
+  ) {
+    const building = new THREE.Group()
+    const body = new THREE.Mesh(this.box(width, height, depth), wallMat)
+    body.position.y = height / 2
+    body.castShadow = true
+    building.add(body)
+
+    const roof = new THREE.Mesh(this.box(width + 0.5, 0.24, depth + 0.5), roofMat)
+    roof.position.y = height + 0.12
+    roof.castShadow = true
+    building.add(roof)
+
+    const door = new THREE.Mesh(this.box(0.08, 2.05, 1.6), glassMat)
+    door.position.set(-width / 2 - 0.05, 1.04, 0)
+    building.add(door)
+
+    for (const offset of [-depth * 0.27, depth * 0.27]) {
+      const window = new THREE.Mesh(this.box(0.08, 1.25, 1.45), glassMat)
+      window.position.set(-width / 2 - 0.05, height * 0.62, offset)
+      building.add(window)
+    }
+
+    building.position.set(x, 0, z)
+    this.group.add(building)
+  }
+
+  private makeStationNameTexture(name: string): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas')
+    canvas.width = 640
+    canvas.height = 86
+    const context = canvas.getContext('2d')
+    if (context) {
+      context.fillStyle = '#17344e'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.fillStyle = '#e8d99e'
+      context.font = '700 50px sans-serif'
+      context.textAlign = 'center'
+      context.textBaseline = 'middle'
+      context.fillText(name, canvas.width / 2, canvas.height / 2 + 2)
+    }
+    const texture = this.track(new THREE.CanvasTexture(canvas))
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+  }
+
+  private makePlatformTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas')
+    canvas.width = 160
+    canvas.height = 160
+    const context = canvas.getContext('2d')!
+    context.fillStyle = '#a9a7a0'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+
+    context.strokeStyle = 'rgba(64, 64, 58, 0.26)'
+    context.lineWidth = 1
+    for (let y = 0; y <= canvas.height; y += 32) {
+      context.beginPath()
+      context.moveTo(0, y)
+      context.lineTo(canvas.width, y)
+      context.stroke()
+    }
+    for (let x = 0; x <= canvas.width; x += 40) {
+      context.beginPath()
+      context.moveTo(x, 0)
+      context.lineTo(x, canvas.height)
+      context.stroke()
+    }
+
+    for (let i = 0; i < 720; i++) {
+      const x = (i * 47.71) % canvas.width
+      const y = (i * 91.37) % canvas.height
+      const shade = 104 + (i * 37) % 45
+      context.fillStyle = `rgba(${shade}, ${shade}, ${shade - 4}, 0.18)`
+      context.fillRect(x, y, 1.2, 1.2)
+    }
+
+    const texture = this.track(new THREE.CanvasTexture(canvas))
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(PLATFORM_WIDTH / 2, PLATFORM_LENGTH / 7.5)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+  }
+
   private box(w: number, h: number, d: number): THREE.BoxGeometry {
     return this.track(new THREE.BoxGeometry(w, h, d))
   }
 
-  private track<T extends THREE.BufferGeometry | THREE.Material>(resource: T): T {
+  private track<T extends THREE.BufferGeometry | THREE.Material | THREE.Texture>(resource: T): T {
     this.disposables.push(resource)
     return resource
   }
@@ -241,6 +466,8 @@ export class StationManager {
   private hideTimer = 0
 
   static readonly PLATFORM_LENGTH = PLATFORM_LENGTH
+  /** Place the station building just ahead of the final side-window sightline. */
+  static readonly APPROACH_STATION_LEAD = 18
   /** Extra distance past the platform edge before hiding (units). */
   private static readonly HIDE_BUFFER = 60
   /** Grace period after the station leaves view before hiding (seconds). */

@@ -15,6 +15,14 @@ const PARTICLE_BOX = { x: 140, y: 80, z: 140 }
 const MAX_SPLASHES = 40
 const MIN_SWITCH_SECONDS = 120
 const MAX_SWITCH_SECONDS = 180
+// Keep precipitation outside the carriage: transparent particles otherwise
+// render over interior panels after the opaque scene pass.
+const WINDOW_EXTERIOR_NEAR = 4
+
+// Reused fog-tint colors — avoids per-frame allocation in applyToEnvironment()
+const FOGGY_FOG_COLOR = new THREE.Color(0x9aa4ad)
+const RAIN_FOG_COLOR = new THREE.Color(0x5a6570)
+const SNOW_FOG_COLOR = new THREE.Color(0xe8eef2)
 
 interface Cloud {
   mesh: THREE.Mesh
@@ -36,6 +44,8 @@ export class WeatherSystem {
   private velocities = new Float32Array(MAX_PARTICLES * 3)
   private activeParticles = 0
   private particleKind: 'rain' | 'snow' | null = null
+  private weatherForward = new THREE.Vector3()
+  private weatherRight = new THREE.Vector3()
 
   // Pooled rain splashes
   private splashes: { mesh: THREE.Mesh; life: number }[] = []
@@ -101,7 +111,8 @@ export class WeatherSystem {
     return next
   }
 
-  update(dt: number, cameraPos: THREE.Vector3) {
+  update(dt: number, camera: THREE.PerspectiveCamera) {
+    const cameraPos = camera.position
     this.time += dt
     this.switchTimer -= dt
     if (this.switchTimer <= 0) {
@@ -110,7 +121,7 @@ export class WeatherSystem {
 
     this.group.position.set(0, 0, 0)
     this.updateClouds(dt, cameraPos)
-    this.updateParticles(dt, cameraPos)
+    this.updateParticles(dt, camera)
     this.updateSplashes(dt)
   }
 
@@ -122,7 +133,7 @@ export class WeatherSystem {
         state.fogFar = 400
         state.sunIntensity = 0
         state.dirIntensity *= 0.5
-        state.fogColor.lerp(new THREE.Color(0x9aa4ad), 0.5)
+        state.fogColor.lerp(FOGGY_FOG_COLOR, 0.5)
         break
       case WeatherType.RAIN:
         state.fogNear *= 0.6
@@ -130,13 +141,13 @@ export class WeatherSystem {
         state.dirIntensity *= 0.6
         state.ambientIntensity *= 0.85
         state.sunIntensity *= 0.3
-        state.fogColor.lerp(new THREE.Color(0x5a6570), 0.4)
+        state.fogColor.lerp(RAIN_FOG_COLOR, 0.4)
         break
       case WeatherType.SNOW:
         state.fogNear *= 0.7
         state.fogFar *= 0.75
         state.dirIntensity *= 0.8
-        state.fogColor.lerp(new THREE.Color(0xe8eef2), 0.6)
+        state.fogColor.lerp(SNOW_FOG_COLOR, 0.6)
         break
       case WeatherType.CLOUDY:
         state.dirIntensity *= 0.7
@@ -224,9 +235,11 @@ export class WeatherSystem {
   }
 
   private respawnParticle(i: number, cameraPos: THREE.Vector3) {
-    this.positions[i * 3] = cameraPos.x + (Math.random() - 0.5) * PARTICLE_BOX.x
-    this.positions[i * 3 + 1] = cameraPos.y + Math.random() * PARTICLE_BOX.y
-    this.positions[i * 3 + 2] = cameraPos.z + (Math.random() - 0.5) * PARTICLE_BOX.z
+    const depth = WINDOW_EXTERIOR_NEAR + Math.random() * (PARTICLE_BOX.x - WINDOW_EXTERIOR_NEAR)
+    const lateral = (Math.random() - 0.5) * PARTICLE_BOX.z
+    this.positions[i * 3] = cameraPos.x + this.weatherForward.x * depth + this.weatherRight.x * lateral
+    this.positions[i * 3 + 1] = cameraPos.y - 2 + Math.random() * PARTICLE_BOX.y
+    this.positions[i * 3 + 2] = cameraPos.z + this.weatherForward.z * depth + this.weatherRight.z * lateral
     if (this.particleKind === 'rain') {
       this.velocities[i * 3] = -3
       this.velocities[i * 3 + 1] = -55 - Math.random() * 10
@@ -238,8 +251,11 @@ export class WeatherSystem {
     }
   }
 
-  private updateParticles(dt: number, cameraPos: THREE.Vector3) {
+  private updateParticles(dt: number, camera: THREE.PerspectiveCamera) {
     if (this.particleKind === null) return
+    const cameraPos = camera.position
+    camera.getWorldDirection(this.weatherForward)
+    this.weatherRight.set(this.weatherForward.z, 0, -this.weatherForward.x).normalize()
     const groundY = cameraPos.y - 2
 
     for (let i = 0; i < this.activeParticles; i++) {
@@ -255,10 +271,12 @@ export class WeatherSystem {
 
       const dx = this.positions[i * 3] - cameraPos.x
       const dz = this.positions[i * 3 + 2] - cameraPos.z
+      const forwardDepth = dx * this.weatherForward.x + dz * this.weatherForward.z
       if (
         this.positions[i * 3 + 1] < groundY ||
         Math.abs(dx) > PARTICLE_BOX.x / 2 ||
-        Math.abs(dz) > PARTICLE_BOX.z / 2
+        Math.abs(dz) > PARTICLE_BOX.z / 2 ||
+        forwardDepth < WINDOW_EXTERIOR_NEAR
       ) {
         if (this.particleKind === 'rain' && this.positions[i * 3 + 1] < groundY) {
           this.spawnSplash(this.positions[i * 3], groundY + 0.02, this.positions[i * 3 + 2])
