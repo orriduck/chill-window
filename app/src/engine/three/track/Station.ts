@@ -660,15 +660,80 @@ export class Station {
 
   /** A short pedestrian bridge makes the urban track bundle legible in profile. */
   private buildUrbanFootbridge(metalMat: THREE.Material) {
+    const deckY = 5.4
+    const bridgeZ = -38
     const deck = new THREE.Mesh(this.box(18, 0.18, 2.2), metalMat)
-    deck.position.set(0, 5.4, -38)
+    deck.position.set(0, deckY, bridgeZ)
     deck.castShadow = true
     this.group.add(deck)
     for (const x of [-7.8, 7.8]) {
       const support = new THREE.Mesh(this.box(0.36, 5.3, 0.36), metalMat)
-      support.position.set(x, 2.65, -38)
+      support.position.set(x, 2.65, bridgeZ)
       support.castShadow = true
       this.group.add(support)
+    }
+
+    const guardMat = this.track(new THREE.MeshStandardMaterial({
+      color: 0x65747a, roughness: 0.45, metalness: 0.66,
+    }))
+    for (const side of [-1, 1]) {
+      const guard = new THREE.Mesh(this.box(18.2, 0.1, 0.1), guardMat)
+      guard.position.set(0, deckY + 0.84, bridgeZ + side * 0.96)
+      this.group.add(guard)
+      for (let x = -8; x <= 8; x += 2) {
+        const post = new THREE.Mesh(this.box(0.08, 0.82, 0.08), guardMat)
+        post.position.set(x, deckY + 0.4, bridgeZ + side * 0.96)
+        this.group.add(post)
+      }
+    }
+
+    // Stairs and compact lift towers make the bridge a usable station link,
+    // rather than a free-floating frame over the tracks.
+    for (const x of [-7.8, 7.8]) {
+      this.buildUrbanFootbridgeStair(x, bridgeZ, x < 0 ? -1 : 1, metalMat, guardMat)
+      const lift = new THREE.Mesh(this.box(1.7, deckY, 1.7), guardMat)
+      lift.position.set(x, deckY / 2, bridgeZ)
+      lift.castShadow = true
+      this.group.add(lift)
+      const liftGlass = new THREE.Mesh(
+        this.box(1.76, 3.4, 0.05),
+        this.track(new THREE.MeshStandardMaterial({ color: 0x9fb5bf, transparent: true, opacity: 0.38, roughness: 0.22, metalness: 0.28 })),
+      )
+      liftGlass.position.set(x, 2.65, bridgeZ + 0.88)
+      this.group.add(liftGlass)
+    }
+  }
+
+  private buildUrbanFootbridgeStair(
+    x: number,
+    bridgeZ: number,
+    direction: number,
+    stairMat: THREE.Material,
+    railMat: THREE.Material,
+  ) {
+    const steps = 13
+    const rise = 5.15 / steps
+    const run = 0.52
+    for (let index = 0; index < steps; index++) {
+      const y = (index + 1) * rise / 2
+      const z = bridgeZ + direction * (1.15 + index * run)
+      const step = new THREE.Mesh(this.box(1.8, (index + 1) * rise, run), stairMat)
+      step.position.set(x, y, z)
+      step.castShadow = true
+      this.group.add(step)
+    }
+    for (const side of [-1, 1]) {
+      const rail = new THREE.Mesh(this.box(0.08, 0.08, Math.hypot(5.15, steps * run)), railMat)
+      rail.position.set(x + side * 0.82, 3.08, bridgeZ + direction * 4.2)
+      rail.rotation.x = direction * Math.atan2(5.15, steps * run)
+      this.group.add(rail)
+      for (let index = 1; index < steps; index += 3) {
+        const y = index * rise + 0.42
+        const z = bridgeZ + direction * (1.15 + index * run)
+        const post = new THREE.Mesh(this.box(0.08, 0.84, 0.08), railMat)
+        post.position.set(x + side * 0.82, y, z)
+        this.group.add(post)
+      }
     }
   }
 
