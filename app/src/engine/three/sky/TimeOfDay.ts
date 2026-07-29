@@ -124,6 +124,12 @@ export class TimeOfDay {
     this.elapsed = FULL_CYCLE_SECONDS * PRESET_CYCLE_POSITION[initialPreset]
   }
 
+  /** Debug probes can lock a reproducible light state without changing the
+   * journey's selected departure preset. */
+  setPreset(preset: TimeOfDayPreset) {
+    this.elapsed = FULL_CYCLE_SECONDS * PRESET_CYCLE_POSITION[preset]
+  }
+
   get phase(): Phase {
     return (Math.floor((this.elapsed / FULL_CYCLE_SECONDS) * PHASE_COUNT) % PHASE_COUNT) as Phase
   }

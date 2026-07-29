@@ -13,6 +13,7 @@ const CHUNK_SIZE = 256
  *   F7  — toggle terrain surface-mask diagnostics
  *   F8  — freeze / resume terrain streaming
  *   F9/F10/F11 — jump to the planned town, lakeshore, or mountain debug probes
+ *   F12 — fixed daytime grass inspection probe (clear weather, stopped train)
  */
 export class DebugMode {
   // ---- HUD level ----
@@ -24,6 +25,7 @@ export class DebugMode {
   sceneHidden = false
   terrainDebugView: 0 | 1 = 0
   streamingFrozen = false
+  grassProbe = false
   private jumpTarget: number | null = null
   private stationProbeRequested = false
 
@@ -105,6 +107,10 @@ export class DebugMode {
       case 'F11':
         e.preventDefault()
         this.jumpTarget = 6400
+        break
+      case 'F12':
+        e.preventDefault()
+        this.grassProbe = !this.grassProbe
         break
     }
   }
