@@ -18,7 +18,7 @@ const BASE_VIEW_YAW = Math.atan2(LOOK_AHEAD_X, LOOK_AHEAD_Z)
 const BASE_VIEW_PITCH = Math.atan2(LOOK_Y - CAMERA_Y, LOOK_DISTANCE)
 // A passenger can turn far enough to read the neighbouring bays, but not far
 // enough to expose the artificial edge of the surrounding world.
-export const MAX_PASSENGER_VIEW_YAW = 0.4
+export const MAX_PASSENGER_VIEW_YAW = 0.65
 const MAX_VIEW_PITCH = 0.1
 const VIEW_SENSITIVITY = 0.0028
 const DESKTOP_FOV = 70

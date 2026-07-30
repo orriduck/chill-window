@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { cameraFovForAspect, compactViewportFactor, CRUISE_SPEED, cruiseSpeedForScheduledStop } from './Camera'
+import {
+  cameraFovForAspect,
+  compactViewportFactor,
+  CRUISE_SPEED,
+  cruiseSpeedForScheduledStop,
+  MAX_PASSENGER_VIEW_YAW,
+} from './Camera'
 
 describe('compact viewport camera', () => {
   it('keeps the authored field of view on desktop proportions', () => {
@@ -23,5 +29,12 @@ describe('scheduled station cruise speed', () => {
     expect(cruiseSpeedForScheduledStop(CRUISE_SPEED * 600, 600)).toBeCloseTo(CRUISE_SPEED)
     expect(cruiseSpeedForScheduledStop(1, 600)).toBeCloseTo(CRUISE_SPEED * 0.65)
     expect(cruiseSpeedForScheduledStop(100000, 60)).toBeCloseTo(CRUISE_SPEED * 1.25)
+  })
+})
+
+describe('passenger coach view range', () => {
+  it('permits inspection of neighbouring bays without a full turn away from the window', () => {
+    expect(MAX_PASSENGER_VIEW_YAW).toBeCloseTo(0.65)
+    expect(MAX_PASSENGER_VIEW_YAW).toBeLessThan(Math.PI / 4)
   })
 })
