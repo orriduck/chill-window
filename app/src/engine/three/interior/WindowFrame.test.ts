@@ -25,8 +25,8 @@ describe('rainDropFallSpeed', () => {
   })
 
   it('spawns foreground rain inside the glass aperture', () => {
-    expect(rainDropInitialY(0)).toBeCloseTo(-1.375)
-    expect(rainDropInitialY(1)).toBeCloseTo(1.375)
+    expect(rainDropInitialY(0)).toBeCloseTo(-1.1)
+    expect(rainDropInitialY(1)).toBeCloseTo(1.1)
     expect(rainDropInitialY(-1)).toBeCloseTo(rainDropInitialY(0))
     expect(rainDropInitialY(2)).toBeCloseTo(rainDropInitialY(1))
   })
@@ -49,9 +49,9 @@ describe('window HUD surfaces', () => {
   it('keeps the consolidated physical rail within the glazed opening', () => {
     const layout = windowHudSurfaceLayout()
 
-    expect(layout.rail.y - layout.rail.height / 2).toBeGreaterThan(-1.1)
-    expect(layout.rail.y + layout.rail.height / 2).toBeLessThan(1.8)
-    expect(layout.rail.y).toBeLessThan(-0.55)
+    expect(layout.rail.y - layout.rail.height / 2).toBeGreaterThan(-0.76)
+    expect(layout.rail.y + layout.rail.height / 2).toBeLessThan(1.6)
+    expect(layout.rail.y).toBeLessThan(-0.35)
     expect(layout.rail.height).toBeLessThan(0.6)
   })
 
@@ -131,7 +131,8 @@ describe('modern coach bay layout', () => {
     expect(cabin.windowCenters).toEqual([-5.3, 0, 5.3])
     expect(cabin.windowCenters[1] - cabin.windowCenters[0]).toBeGreaterThan(4.45)
     expect(cabin.ceilingY).toBeLessThan(2.2)
-    expect(cabin.windowBottomY - cabin.floorY).toBeGreaterThan(0.9)
-    expect(cabin.seatBackrestTop).toBeGreaterThan(0)
+    expect(cabin.windowBottomY - cabin.floorY).toBeGreaterThan(1.2)
+    expect(cabin.seatBackrestTop).toBeGreaterThan(0.75)
+    expect(cabin.endDoorX).toBeGreaterThan(cabin.windowCenters[2] + 2.5)
   })
 })

@@ -8,13 +8,14 @@ const FRAME_DISTANCE = 3.1
 const WINDOW_FORWARD_OFFSET = 0.5
 const GROUP_Y_OFFSET = 0
 const OPENING_W = 4.45
-const OPENING_H = 2.85
+const OPENING_H = 2.3
 const FRAME_T = 0.14
 const CABIN_FLOOR_Y = -2.03
-const WINDOW_CENTER_Y = 0.35
+const WINDOW_CENTER_Y = 0.4
 const WINDOW_BOTTOM_Y = WINDOW_CENTER_Y - OPENING_H / 2
 const COACH_CEILING_Y = 2.06
 const COACH_WINDOW_CENTERS = [-5.3, 0, 5.3] as const
+const COACH_END_DOOR_X = COACH_WINDOW_CENTERS[COACH_WINDOW_CENTERS.length - 1] + OPENING_W / 2 + 0.34
 
 // The physical cabin wall extends past the widened view volume, so the exterior
 // can only be visible through the glazed opening at every supported aspect.
@@ -23,11 +24,11 @@ const WALL_H = 10
 const RAIN_DROP_COUNT = 96
 const RAIN_GLASS_TOP = OPENING_H / 2 - 0.05
 const WINDOW_BAY = {
-  seatCenterX: 1.95,
-  seatCenterZ: 1.28,
-  seatWidth: 0.7,
-  seatLength: 1.6,
-  tableY: -1.57,
+  seatCenterX: 2.04,
+  seatCenterZ: 1.38,
+  seatWidth: 0.82,
+  seatLength: 1.72,
+  tableY: -0.92,
   tableWidth: 1.55,
   tableDepth: 0.86,
   tableHeight: 0.075,
@@ -97,6 +98,7 @@ export type CoachCabinLayout = {
   floorY: number
   windowBottomY: number
   seatBackrestTop: number
+  endDoorX: number
 }
 
 /** The coach bay is deliberately authored around the glazed view: seats enter
@@ -113,7 +115,8 @@ export function coachCabinLayout(): CoachCabinLayout {
     ceilingY: COACH_CEILING_Y,
     floorY: CABIN_FLOOR_Y,
     windowBottomY: WINDOW_BOTTOM_Y,
-    seatBackrestTop: 0.55,
+    seatBackrestTop: 0.81,
+    endDoorX: COACH_END_DOOR_X,
   }
 }
 
@@ -134,7 +137,7 @@ export function windowFrameViewportLayout(aspect: number): WindowFrameViewportLa
  * CSS approximation. Keeping it low leaves the upper aperture for scenery. */
 export function windowHudSurfaceLayout(): WindowHudSurfaceLayout {
   return {
-    rail: { x: -0.02, y: WINDOW_CENTER_Y - 1.18, z: 0.035, width: 2.82, height: 0.46 },
+    rail: { x: -0.02, y: WINDOW_BOTTOM_Y + 0.25, z: 0.035, width: 2.82, height: 0.46 },
   }
 }
 
@@ -251,6 +254,7 @@ export class WindowFrame {
     this.buildWindowSconces(aluminium)
     this.buildCompartmentLounge(aluminium, accent)
     this.buildCabinFittings(aluminium, accent)
+    this.buildCoachEndVestibule(aluminium, accent)
     this.buildCabinLighting()
     this.promoteToForeground()
   }
@@ -694,8 +698,8 @@ export class WindowFrame {
   }
 
   /** A pair of inward-facing long seats associated with one physical window.
-   * The seat depth is deliberately bounded behind the glass, while its length
-   * runs into the cabin and stays clear of the scenery render pass. */
+   * Their continuous cushions preserve a usable two-person sitting surface,
+   * while the whole bay stays behind the glass plane. */
   private buildWindowSeatBay(
     windowCenterX: number,
     bayIndex: number,
@@ -707,61 +711,59 @@ export class WindowFrame {
     for (const [seatIndex, side] of [-1, 1].entries()) {
       const couch = new THREE.Group()
       const base = new THREE.Mesh(
-        this.roundedBox(WINDOW_BAY.seatWidth, 0.34, WINDOW_BAY.seatLength, 0.1),
+        this.roundedBox(WINDOW_BAY.seatWidth, 0.42, WINDOW_BAY.seatLength, 0.1),
         shellMat,
       )
-      base.position.set(0, -1.42, 0)
+      base.position.set(0, -1.26, 0)
       couch.add(base)
       const backShell = new THREE.Mesh(
-        this.roundedBox(0.22, 1.75, WINDOW_BAY.seatLength, 0.09),
+        this.roundedBox(0.24, 1.98, WINDOW_BAY.seatLength, 0.09),
         shellMat,
       )
-      backShell.position.set(side * 0.26, -0.32, 0)
+      backShell.position.set(side * 0.29, -0.18, 0)
       couch.add(backShell)
       const back = new THREE.Mesh(
-        this.roundedBox(0.14, 1.53, WINDOW_BAY.seatLength - 0.14, 0.07),
+        this.roundedBox(0.16, 1.74, WINDOW_BAY.seatLength - 0.16, 0.07),
         fabric,
       )
       // The upholstered face must point into the shared table space. Placing
       // it on the outer shell left a large black slab between passenger and seat.
-      back.position.set(side * 0.075, -0.29, 0)
+      back.position.set(side * 0.09, -0.15, 0)
       couch.add(back)
 
-      for (const z of [-0.5, 0.5]) {
-        const cushion = new THREE.Mesh(this.roundedBox(0.54, 0.22, 0.9, 0.08), fabric)
-        cushion.position.set(-side * 0.03, -1.14, z)
-        couch.add(cushion)
-        const headrest = new THREE.Mesh(this.roundedBox(0.06, 0.42, 0.58, 0.026), pipingMat)
-        headrest.position.set(side * 0.075, 0.2, z)
-        couch.add(headrest)
-      }
+      const cushion = new THREE.Mesh(this.roundedBox(0.66, 0.28, 1.42, 0.08), fabric)
+      cushion.position.set(-side * 0.04, -0.9, 0)
+      couch.add(cushion)
+      const headrest = new THREE.Mesh(this.roundedBox(0.07, 0.46, 1.18, 0.026), pipingMat)
+      headrest.position.set(side * 0.09, 0.31, 0)
+      couch.add(headrest)
 
-      for (const z of [-0.76, 0, 0.76]) {
-        const seam = new THREE.Mesh(this.box(0.018, 1.4, 0.018), pipingMat)
-        seam.position.set(side * 0.075, -0.28, z)
+      for (const z of [-0.48, 0.48]) {
+        const seam = new THREE.Mesh(this.box(0.018, 1.58, 0.018), pipingMat)
+        seam.position.set(side * 0.09, -0.15, z)
         couch.add(seam)
       }
 
       for (const z of [-WINDOW_BAY.seatLength / 2 + 0.1, WINDOW_BAY.seatLength / 2 - 0.1]) {
-        const arm = new THREE.Mesh(this.roundedBox(WINDOW_BAY.seatWidth, 0.4, 0.18, 0.045), shellMat)
-        arm.position.set(-side * 0.02, -1.03, z)
+        const arm = new THREE.Mesh(this.roundedBox(WINDOW_BAY.seatWidth, 0.5, 0.18, 0.045), shellMat)
+        arm.position.set(-side * 0.02, -0.76, z)
         couch.add(arm)
       }
       for (const z of [-0.72, 0.72]) {
-        const leg = new THREE.Mesh(this.box(0.42, 0.6, 0.14), shellMat)
-        leg.position.set(0, -1.72, z)
+        const leg = new THREE.Mesh(this.box(0.48, 0.78, 0.14), shellMat)
+        leg.position.set(0, -1.64, z)
         couch.add(leg)
       }
 
       const labelTexture = this.makeSeatReservationTexture(`${21 + bayIndex} ${seatIndex === 0 ? 'A' : 'B'}`)
       const labelBack = new THREE.Mesh(this.roundedBox(0.66, 0.24, 0.05, 0.025), edgeMat)
-      labelBack.position.set(0, 0.06, WINDOW_BAY.seatLength / 2 + 0.1)
+      labelBack.position.set(0, 0.32, WINDOW_BAY.seatLength / 2 + 0.1)
       couch.add(labelBack)
       const label = new THREE.Mesh(
         this.track(new THREE.PlaneGeometry(0.56, 0.16)),
         this.track(new THREE.MeshBasicMaterial({ map: labelTexture, transparent: true })),
       )
-      label.position.set(0, 0.06, WINDOW_BAY.seatLength / 2 + 0.13)
+      label.position.set(0, 0.32, WINDOW_BAY.seatLength / 2 + 0.13)
       couch.add(label)
 
       couch.position.set(windowCenterX + side * WINDOW_BAY.seatCenterX, 0, WINDOW_BAY.seatCenterZ)
@@ -806,8 +808,8 @@ export class WindowFrame {
       this.group.add(cupInset)
     }
 
-    const tableSupport = new THREE.Mesh(this.box(0.14, 0.65, 0.16), shellMat)
-    tableSupport.position.set(centerX, -1.91, WINDOW_BAY.seatCenterZ - 0.13)
+    const tableSupport = new THREE.Mesh(this.box(0.14, 1.05, 0.16), shellMat)
+    tableSupport.position.set(centerX, -1.49, WINDOW_BAY.seatCenterZ - 0.13)
     tableSupport.rotation.x = -0.16
     this.group.add(tableSupport)
     const hinge = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.045, 0.045, 0.54, 12)), aluminium)
@@ -886,6 +888,64 @@ export class WindowFrame {
       port.position.set(side * 1.77, -1.66, 0.17)
       this.group.add(port)
     }
+  }
+
+  /** Close the final bay with a real vestibule bulkhead rather than ending the
+   * seating row in open darkness. The glazed door signals a connected coach
+   * while retaining a shallow, affordable interior volume. */
+  private buildCoachEndVestibule(aluminium: THREE.Material, accent: THREE.Material) {
+    const wallMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x566260, roughness: 0.78, metalness: 0.12 }),
+    )
+    const doorMat = this.track(
+      new THREE.MeshStandardMaterial({ color: 0x2c3d42, roughness: 0.58, metalness: 0.26 }),
+    )
+    const glassMat = this.track(
+      new THREE.MeshBasicMaterial({
+        color: 0xa9cdd5,
+        transparent: true,
+        opacity: 0.68,
+      }),
+    )
+    const endWall = new THREE.Mesh(this.box(0.14, 4.02, 8.2), wallMat)
+    endWall.position.set(COACH_END_DOOR_X, -0.01, 0.45)
+    this.group.add(endWall)
+
+    const door = new THREE.Group()
+    const slab = new THREE.Mesh(this.box(0.08, 3.55, 1.54), doorMat)
+    slab.position.set(0, -0.24, 0)
+    door.add(slab)
+    for (const side of [-1, 1]) {
+      const pane = new THREE.Mesh(this.box(0.018, 1.05, 0.88), glassMat)
+      pane.position.set(side * 0.055, 0.91, 0)
+      door.add(pane)
+    }
+    const lowerKick = new THREE.Mesh(this.box(0.025, 0.52, 1.28), aluminium)
+    lowerKick.position.set(-0.06, -1.48, 0)
+    door.add(lowerKick)
+    const handle = new THREE.Mesh(this.box(0.04, 0.06, 0.24), aluminium)
+    handle.position.set(-0.105, -0.48, 0.46)
+    door.add(handle)
+    const status = new THREE.Mesh(this.box(0.025, 0.06, 0.38), accent)
+    status.position.set(-0.11, 1.47, 0)
+    door.add(status)
+
+    for (const z of [-0.9, 0.9]) {
+      const jamb = new THREE.Mesh(this.box(0.12, 3.7, 0.14), aluminium)
+      jamb.position.set(-0.1, -0.17, z)
+      door.add(jamb)
+    }
+    const head = new THREE.Mesh(this.box(0.12, 0.14, 1.94), aluminium)
+    head.position.set(-0.1, 1.68, 0)
+    door.add(head)
+    const threshold = new THREE.Mesh(this.box(0.38, 0.04, 2.02), aluminium)
+    threshold.position.set(-0.02, CABIN_FLOOR_Y + 0.025, 0)
+    door.add(threshold)
+    const doorLight = new THREE.PointLight(0xa8e4ef, 0.28, 2.6, 2)
+    doorLight.position.set(-0.24, 0.5, 0)
+    door.add(doorLight)
+    door.position.set(COACH_END_DOOR_X - 0.11, 0, 1.48)
+    this.group.add(door)
   }
 
   /** Reading and table fill remain local to the passenger's bay. The repeated
