@@ -24,9 +24,12 @@ const WALL_H = 10
 const RAIN_DROP_COUNT = 96
 const RAIN_GLASS_TOP = OPENING_H / 2 - 0.05
 const WINDOW_BAY = {
-  seatCenterX: 2.04,
+  // Keep the inner edge clear of the table and journey HUD while making the
+  // usable part of each opposing seat substantially deeper.
+  seatCenterX: 2.245,
   seatCenterZ: 1.38,
-  seatWidth: 0.82,
+  seatWidth: 1.23,
+  cushionWidth: 0.99,
   seatLength: 1.72,
   tableY: -0.92,
   tableWidth: 1.55,
@@ -85,6 +88,7 @@ export type WindowBayLayout = {
   seatCenterX: number
   seatCenterZ: number
   seatWidth: number
+  cushionWidth: number
   seatLength: number
   tableY: number
   tableWidth: number
@@ -710,6 +714,10 @@ export class WindowFrame {
   ) {
     for (const [seatIndex, side] of [-1, 1].entries()) {
       const couch = new THREE.Group()
+      // Keep the backs at the outer shell so the new width becomes usable
+      // sitting depth rather than a wider, unsupported centre slab.
+      const backShellX = side * (WINDOW_BAY.seatWidth / 2 - 0.12)
+      const backX = side * (WINDOW_BAY.seatWidth / 2 - 0.32)
       const base = new THREE.Mesh(
         this.roundedBox(WINDOW_BAY.seatWidth, 0.42, WINDOW_BAY.seatLength, 0.1),
         shellMat,
@@ -720,7 +728,7 @@ export class WindowFrame {
         this.roundedBox(0.24, 1.98, WINDOW_BAY.seatLength, 0.09),
         shellMat,
       )
-      backShell.position.set(side * 0.29, -0.18, 0)
+      backShell.position.set(backShellX, -0.18, 0)
       couch.add(backShell)
       const back = new THREE.Mesh(
         this.roundedBox(0.16, 1.74, WINDOW_BAY.seatLength - 0.16, 0.07),
@@ -728,19 +736,19 @@ export class WindowFrame {
       )
       // The upholstered face must point into the shared table space. Placing
       // it on the outer shell left a large black slab between passenger and seat.
-      back.position.set(side * 0.09, -0.15, 0)
+      back.position.set(backX, -0.15, 0)
       couch.add(back)
 
-      const cushion = new THREE.Mesh(this.roundedBox(0.66, 0.28, 1.42, 0.08), fabric)
+      const cushion = new THREE.Mesh(this.roundedBox(WINDOW_BAY.cushionWidth, 0.28, 1.42, 0.08), fabric)
       cushion.position.set(-side * 0.04, -0.9, 0)
       couch.add(cushion)
       const headrest = new THREE.Mesh(this.roundedBox(0.07, 0.46, 1.18, 0.026), pipingMat)
-      headrest.position.set(side * 0.09, 0.31, 0)
+      headrest.position.set(backX, 0.31, 0)
       couch.add(headrest)
 
       for (const z of [-0.48, 0.48]) {
         const seam = new THREE.Mesh(this.box(0.018, 1.58, 0.018), pipingMat)
-        seam.position.set(side * 0.09, -0.15, z)
+        seam.position.set(backX, -0.15, z)
         couch.add(seam)
       }
 
@@ -750,7 +758,7 @@ export class WindowFrame {
         couch.add(arm)
       }
       for (const z of [-0.72, 0.72]) {
-        const leg = new THREE.Mesh(this.box(0.48, 0.78, 0.14), shellMat)
+        const leg = new THREE.Mesh(this.box(0.72, 0.78, 0.14), shellMat)
         leg.position.set(0, -1.64, z)
         couch.add(leg)
       }
