@@ -2,9 +2,15 @@ import * as THREE from 'three'
 import { hash01 } from '../core/procedural'
 import { roadCenterX, ROAD_VERGE } from '../terrain/TerrainGen'
 import { applyAtlasUV, grassSpriteTex } from '../textures'
+import {
+  CATENARY_POLE_X,
+  catenaryPoleBaseHeight,
+  contactWireHeight,
+  contactWirePose,
+  type HeightSampler,
+} from './LinesideLayout'
 
 // Catenary poles
-const POLE_X = 8 // beside the track, inside the flattened corridor
 const POLE_SPACING = 50
 const POLE_WINDOW = 600 // recycle window along Z
 const POLE_COUNT = Math.ceil(POLE_WINDOW / POLE_SPACING)
@@ -28,8 +34,6 @@ const FENCE_X = 13
 const FENCE_POST_SPACING = 4
 const FENCE_WINDOW = 600
 const FENCE_POST_COUNT = Math.ceil(FENCE_WINDOW / FENCE_POST_SPACING)
-
-type HeightSampler = (x: number, z: number) => number
 
 /**
  * Lineside props that scroll past the side window: catenary poles with the
@@ -92,7 +96,7 @@ export class LinesideProps {
       new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.7 })
     )
     const wire = new THREE.Mesh(this.box(0.04, 0.04, POLE_WINDOW), wireMat)
-    wire.position.set(0.8, 5.9, 0)
+    wire.position.set(0.8, contactWireHeight(), 0)
     wire.name = 'contactWire'
     this.group.add(wire)
 
@@ -192,7 +196,11 @@ export class LinesideProps {
 
     // Contact wire follows the camera (uniform along Z)
     const wire = this.group.getObjectByName('contactWire')
-    if (wire) wire.position.z = camZ
+    if (wire) {
+      const pose = contactWirePose(camZ)
+      wire.position.set(0.8, pose.y, camZ)
+      wire.rotation.x = pose.pitch
+    }
 
     let grassChanged = false
     for (let i = 0; i < GRASS_COUNT; i++) {
@@ -236,7 +244,11 @@ export class LinesideProps {
   }
 
   private writePole(i: number) {
-    this.dummy.position.set(POLE_X, 0, this.poleZ[i])
+    this.dummy.position.set(
+      CATENARY_POLE_X,
+      catenaryPoleBaseHeight(this.sampleHeight, this.poleZ[i]),
+      this.poleZ[i],
+    )
     this.dummy.rotation.set(0, 0, 0)
     this.dummy.scale.setScalar(1)
     this.dummy.updateMatrix()
