@@ -119,6 +119,10 @@ describe('modern coach bay layout', () => {
   it('uses real opposing couch and shared-table proportions', () => {
     const bay = windowBayLayout()
 
+    expect(bay.seatWidth).toBeCloseTo(1.23)
+    expect(bay.cushionWidth).toBeCloseTo(0.99)
+    expect(bay.cushionWidth / 0.66).toBeCloseTo(1.5)
+    expect(bay.cushionWidth).toBeLessThan(bay.seatWidth)
     expect(bay.seatLength).toBeGreaterThan(1.5)
     expect(bay.seatCenterZ - bay.seatLength / 2).toBeGreaterThan(0.45)
     expect(bay.tableWidth).toBeGreaterThan(1.4)
