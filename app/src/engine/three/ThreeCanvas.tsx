@@ -6,6 +6,7 @@ import { CRUISE_SPEED, CRUISE_SPEED_KMH, cruiseSpeedForScheduledStop, TrainCamer
 import { WebGLRenderer } from './core/Renderer'
 import { TerrainLOD } from './terrain/TerrainLOD'
 import { WaterSystem } from './terrain/WaterSystem'
+import { DistantHills } from './terrain/DistantHills'
 import { FieldPlots } from './terrain/FieldPlots'
 import { SkyDome } from './sky/SkyDome'
 import { TimeOfDay } from './sky/TimeOfDay'
@@ -129,6 +130,7 @@ export default function ThreeCanvas({
     const terrain = new TerrainLOD(exteriorGroup, 'field', routePlan)
     const water = new WaterSystem(routePlan)
     const fields = new FieldPlots((x, z) => terrain.sampleHeight(x, z))
+    const distantHills = new DistantHills()
     const skyDome = new SkyDome()
     const timeOfDay = new TimeOfDay(timePreset)
     const weather = new WeatherSystem()
@@ -165,6 +167,7 @@ export default function ThreeCanvas({
     exteriorGroup.add(levelCrossings.group)
     exteriorGroup.add(water.mesh)
     exteriorGroup.add(fields.group)
+    exteriorGroup.add(distantHills.group)
 
     // The cabin renders in a dedicated foreground pass after the exterior.
     // This keeps weather and other transparent world effects behind the
@@ -176,6 +179,7 @@ export default function ThreeCanvas({
     // Wire debug mode
     debugMode.init(scene.scene, exteriorGroup)
     debugMode.perfMonitor = perfMonitor
+    debugMode.attachCarriageInspector((part, visible) => windowFrame.setDebugPartVisible(part, visible))
 
     // Show the origin station at the camera's starting position
     stations.showStation('Origin', camera.z)
@@ -282,9 +286,9 @@ export default function ThreeCanvas({
     scene.add(dirLight)
     scene.add(dirLight.target)
 
-    const interiorAmbient = new THREE.AmbientLight(0xf4f8f7, 0.46)
+    const interiorAmbient = new THREE.AmbientLight(0xf4f8f7, 0.85)
     interiorScene.add(interiorAmbient)
-    const interiorKey = new THREE.DirectionalLight(0xffe5c5, 0.34)
+    const interiorKey = new THREE.DirectionalLight(0xffe5c5, 0.65)
     interiorKey.position.set(-2, 3, 2)
     interiorScene.add(interiorKey)
 
@@ -314,6 +318,23 @@ export default function ThreeCanvas({
       if (debugMode.grassProbe) {
         timeOfDay.setPreset('day')
         camera.setTargetSpeed(0)
+      }
+
+      const passengerView = debugMode.consumePassengerView()
+      if (passengerView) {
+        camera.setPassengerView(passengerView)
+        windowFrame.setPassengerView(passengerView)
+      }
+      const scenePreset = debugMode.consumeScenePreset()
+      if (scenePreset) {
+        debugMode.grassProbe = false
+        const biome = scenePreset === 'forest' ? 'forest' : scenePreset === 'lake' ? 'river' : scenePreset === 'mountain' ? 'mountain' : 'field'
+        const segment = routePlan.beats.findIndex(beat => beat.biome === biome)
+        camera.setZ(Math.max(0, segment) * 1500 + (scenePreset === 'lake' ? 1090 : 650))
+        camera.resetView()
+        camera.setTargetSpeed(CRUISE_SPEED)
+        timeOfDay.setPreset(scenePreset === 'night' ? 'night' : 'day')
+        weather.setOverride(scenePreset === 'rain' ? WeatherType.RAIN : WeatherType.CLEAR)
       }
 
       // ---- Top-down camera toggle ----
@@ -370,6 +391,9 @@ export default function ThreeCanvas({
       // Time of day drives sky, sun and lighting; weather modulates on top
       timeOfDay.update(simulationDt)
       const state = timeOfDay.state
+      const cabinDarkness = Math.max(state.starOpacity, tunnelD)
+      interiorAmbient.intensity = THREE.MathUtils.lerp(0.85, 0.4, cabinDarkness)
+      interiorKey.intensity = THREE.MathUtils.lerp(0.65, 0.2, cabinDarkness)
       weather.update(simulationDt, cam, sampleRouteFeature(camPos.z, routePlan).current.biome)
       weather.setShelter(tunnelD)
       weather.applyToEnvironment(state)
@@ -393,6 +417,7 @@ export default function ThreeCanvas({
       fog.near = THREE.MathUtils.lerp(state.fogNear, 8, tunnelD)
       fog.far = THREE.MathUtils.lerp(state.fogFar, 130, tunnelD)
 
+      distantHills.update(camPos.z, state.fogColor, state.ambientIntensity, tunnelD)
       terrain.setDebugView(debugMode.terrainDebugView)
       terrain.setStreamingFrozen(debugMode.streamingFrozen)
       terrain.updateWind(elapsedTime)
@@ -497,6 +522,7 @@ export default function ThreeCanvas({
       terrain.dispose()
       water.dispose()
       fields.dispose()
+      distantHills.dispose()
       skyDome.dispose()
       weather.dispose()
       windowFrame.dispose()

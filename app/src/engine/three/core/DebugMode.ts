@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import type { PassengerView } from './PassengerView'
+import type { CarriageDebugPart } from '../interior/WindowFrame'
 
 const CHUNK_SIZE = 256
 
@@ -6,6 +8,7 @@ const CHUNK_SIZE = 256
  * Unified debug mode with HUD overlay.
  *
  * Keys:
+ *   F2  — toggle the seated-coach inspection panel
  *   F3  — cycle HUD: off → perf only → full debug → off
  *   F4  — trigger the station arrival motion probe
  *   F5  — toggle top-down aerial view (follows train, shows boundaries)
@@ -26,11 +29,26 @@ export class DebugMode {
   terrainDebugView: 0 | 1 = 0
   streamingFrozen = false
   grassProbe = false
+  carriageInspectorVisible = false
   private jumpTarget: number | null = null
   private stationProbeRequested = false
+  private scenePreset: string | null = null
+  private passengerView: PassengerView | null = null
 
   // ---- HUD DOM ----
   private hudEl: HTMLDivElement
+  private carriageInspectorEl: HTMLDivElement
+  private carriagePartController: ((part: CarriageDebugPart, visible: boolean) => void) | null = null
+  private carriagePartInputs = new Map<CarriageDebugPart, HTMLInputElement>()
+  private exteriorInput: HTMLInputElement | null = null
+  private carriagePartVisibility: Record<CarriageDebugPart, boolean> = {
+    shell: true,
+    seats: true,
+    fixtures: true,
+    glass: true,
+    lighting: true,
+    hud: true,
+  }
 
   // ---- Saved camera state for top-down toggle ----
   private savedPos = new THREE.Vector3()
@@ -57,7 +75,20 @@ export class DebugMode {
       display: none; white-space: pre; min-width: 280px;
     `
     document.body.appendChild(this.hudEl)
+    this.carriageInspectorEl = this.createCarriageInspector()
+    document.body.appendChild(this.carriageInspectorEl)
+    if (new URLSearchParams(window.location.search).has('debugCarriage')) {
+      this.carriageInspectorVisible = true
+      this.carriageInspectorEl.style.display = 'block'
+    }
     window.addEventListener('keydown', this.onKey)
+  }
+
+  attachCarriageInspector(controller: (part: CarriageDebugPart, visible: boolean) => void) {
+    this.carriagePartController = controller
+    for (const [part, visible] of Object.entries(this.carriagePartVisibility)) {
+      controller(part as CarriageDebugPart, visible)
+    }
   }
 
   /** Register the scene and the exterior group that scene-hidden mode toggles. */
@@ -72,6 +103,11 @@ export class DebugMode {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
     switch (e.key) {
+      case 'F2':
+        e.preventDefault()
+        this.carriageInspectorVisible = !this.carriageInspectorVisible
+        this.carriageInspectorEl.style.display = this.carriageInspectorVisible ? 'block' : 'none'
+        break
       case 'F3':
         e.preventDefault()
         this.cycleHud()
@@ -150,11 +186,141 @@ export class DebugMode {
     if (this.exteriorGroup) {
       this.exteriorGroup.visible = !this.sceneHidden
     }
+    if (this.exteriorInput) this.exteriorInput.checked = !this.sceneHidden
+  }
+
+  private createCarriageInspector() {
+    const panel = document.createElement('div')
+    panel.dataset.carriageDebugPanel = 'true'
+    panel.style.cssText = `
+      position: fixed; top: 52px; right: 16px; z-index: 10001;
+      width: 218px; padding: 14px 14px 12px;
+      border: 1px solid rgba(255,255,255,0.18); border-radius: 10px;
+      background: rgba(24, 23, 20, 0.9); color: #f4efe3;
+      box-shadow: 0 16px 48px rgba(28, 19, 12, 0.3);
+      backdrop-filter: blur(14px); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      pointer-events: auto; display: none;
+    `
+
+    const title = document.createElement('div')
+    title.textContent = '窗边软座 · 场景检查'
+    title.style.cssText = 'font: 700 13px/1.2 ui-sans-serif, system-ui, sans-serif; letter-spacing: .02em;'
+    panel.appendChild(title)
+    const subtitle = document.createElement('div')
+    subtitle.textContent = '面对面坐席 / 材质与窗景 · F2'
+    subtitle.style.cssText = 'margin: 4px 0 10px; color: rgba(244,239,227,.62); font-size: 10px;'
+    panel.appendChild(subtitle)
+
+    const viewLabel = document.createElement('label')
+    viewLabel.textContent = '乘客眼位 '
+    viewLabel.style.cssText = 'display:flex;align-items:center;gap:8px;margin:10px 0;'
+    const viewSelect = document.createElement('select')
+    viewSelect.setAttribute('aria-label', '乘客眼位')
+    viewSelect.style.cssText = 'min-width:0;flex:1;background:#343b36;color:#f4efe3;border:1px solid #ffffff30;border-radius:4px;padding:5px;'
+    for (const [value, text] of [['window', '靠窗座位'], ['aisle', '原走道眼位']]) {
+      const option = document.createElement('option')
+      option.value = value
+      option.textContent = text
+      viewSelect.appendChild(option)
+    }
+    viewSelect.addEventListener('change', () => { this.passengerView = viewSelect.value as PassengerView })
+    viewLabel.appendChild(viewSelect)
+    panel.appendChild(viewLabel)
+
+    const options: [CarriageDebugPart | 'exterior', string][] = [
+      ['exterior', '窗外场景'],
+      ['shell', '车体与窗框'],
+      ['seats', '软座、桌面与窗帘'],
+      ['fixtures', '行李架与设备'],
+      ['glass', '玻璃与反射'],
+      ['lighting', '车内灯光'],
+      ['hud', '旅程信息条'],
+    ]
+    for (const [part, labelText] of options) {
+      const label = document.createElement('label')
+      label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;user-select:none;'
+      const input = document.createElement('input')
+      input.type = 'checkbox'
+      input.checked = true
+      input.style.accentColor = '#9c4055'
+      label.append(input, document.createTextNode(labelText))
+      panel.appendChild(label)
+      if (part === 'exterior') {
+        this.exteriorInput = input
+        input.addEventListener('change', () => {
+          this.sceneHidden = !input.checked
+          if (this.exteriorGroup) this.exteriorGroup.visible = input.checked
+        })
+      } else {
+        this.carriagePartInputs.set(part, input)
+        input.addEventListener('change', () => {
+          this.carriagePartVisibility[part] = input.checked
+          this.carriagePartController?.(part, input.checked)
+        })
+      }
+    }
+
+    const buttons = document.createElement('div')
+    buttons.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;'
+    const cabinOnly = document.createElement('button')
+    cabinOnly.type = 'button'
+    cabinOnly.textContent = '只看车厢'
+    const reset = document.createElement('button')
+    reset.type = 'button'
+    reset.textContent = '全部恢复'
+    for (const button of [cabinOnly, reset]) {
+      button.style.cssText = `
+        border:1px solid rgba(255,255,255,.16);border-radius:6px;padding:6px 8px;
+        background:rgba(255,255,255,.06);color:inherit;font:inherit;cursor:pointer;
+      `
+    }
+    cabinOnly.addEventListener('click', () => {
+      this.sceneHidden = true
+      if (this.exteriorGroup) this.exteriorGroup.visible = false
+      if (this.exteriorInput) this.exteriorInput.checked = false
+    })
+    reset.addEventListener('click', () => {
+      this.sceneHidden = false
+      if (this.exteriorGroup) this.exteriorGroup.visible = true
+      if (this.exteriorInput) this.exteriorInput.checked = true
+      for (const part of Object.keys(this.carriagePartVisibility) as CarriageDebugPart[]) {
+        this.carriagePartVisibility[part] = true
+        const input = this.carriagePartInputs.get(part)
+        if (input) input.checked = true
+        this.carriagePartController?.(part, true)
+      }
+    })
+    buttons.append(cabinOnly, reset)
+    panel.appendChild(buttons)
+    const presets = document.createElement('div')
+    presets.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;'
+    for (const [id, label] of [['field', '晴日田野'], ['forest', '林间行驶'], ['lake', '湖畔远山'], ['mountain', '山地铁路'], ['rain', '雨天窗边'], ['night', '夜间软座']]) {
+      const button = document.createElement('button')
+      button.textContent = label
+      button.type = 'button'
+      button.style.cssText = 'padding:7px 4px;border:1px solid #ffffff28;border-radius:5px;background:#ffffff0d;color:inherit;cursor:pointer;'
+      button.addEventListener('click', () => { this.scenePreset = id })
+      presets.appendChild(button)
+    }
+    panel.appendChild(presets)
+    return panel
   }
 
   /** Whether the debug camera should override the normal camera. */
   get isTopDown(): boolean {
     return this.topDown
+  }
+
+  consumePassengerView(): PassengerView | null {
+    const view = this.passengerView
+    this.passengerView = null
+    return view
+  }
+
+  consumeScenePreset(): string | null {
+    const preset = this.scenePreset
+    this.scenePreset = null
+    return preset
   }
 
   consumeJumpTarget(): number | null {
@@ -315,7 +481,7 @@ export class DebugMode {
     const distToEnd = segEnd - info.camPos.z
 
     this.hudEl.textContent =
-      `[DEBUG]  F3 HUD  F5 ${info.topDown ? 'Cabin view' : 'Aerial view'}  F6 Exterior\n` +
+      `[DEBUG]  F2 Hard sleeper  F3 HUD  F5 ${info.topDown ? 'Cabin view' : 'Aerial view'}  F6 Exterior\n` +
       `F7 ${info.terrainDebugView ? 'Surface weights' : 'Normal'}  F8 ${info.streamingFrozen ? 'Stream frozen' : 'Streaming'}\n` +
       `F4 Station  F9 Town  F10 Lakeshore  F11 Highlands\n` +
       `\n` +
@@ -344,6 +510,7 @@ export class DebugMode {
   dispose() {
     window.removeEventListener('keydown', this.onKey)
     this.hudEl.remove()
+    this.carriageInspectorEl.remove()
     if (this.biomeLines) {
       this.biomeLines.geometry.dispose()
       ;(this.biomeLines.material as THREE.Material).dispose()

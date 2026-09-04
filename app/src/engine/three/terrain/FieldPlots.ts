@@ -1,11 +1,11 @@
 import * as THREE from 'three'
+import { FIELD_LANES, FIELD_LENGTH, FIELD_PITCH } from './FieldLayout'
 import { hash01 } from '../core/procedural'
 
-const PLOT_COUNT = 8
+const PLOT_COUNT = 36
 const PLOT_WINDOW = 1200 // recycle window along Z
 const PLOT_BEHIND = 120
-const PLOT_W = 36
-const PLOT_L = 68
+const PLOT_L = FIELD_LENGTH
 const PLOT_X_MIN = 32
 const PLOT_X_MAX = 92
 
@@ -51,7 +51,7 @@ export class FieldPlots {
       const plot = {
         mesh,
         cx: 0,
-        cz: -PLOT_BEHIND + (i / PLOT_COUNT) * PLOT_WINDOW + hash01(i, 0, 1) * 60,
+        cz: Math.floor(i / FIELD_LANES.length) * FIELD_PITCH + FIELD_PITCH / 2,
         index: i,
       }
       plot.cx = this.plotX(i, plot.cz)
@@ -87,9 +87,10 @@ export class FieldPlots {
   update(camZ: number, isFieldAt: FieldSampler) {
     this.group.visible = true
     for (const plot of this.plots) {
-      if (plot.cz + PLOT_L / 2 < camZ - PLOT_BEHIND) {
-        plot.cz += PLOT_WINDOW
-        plot.cx = this.plotX(plot.index, plot.cz)
+      const baseZ = Math.floor(plot.index / FIELD_LANES.length) * FIELD_PITCH + FIELD_PITCH / 2
+      const desiredZ = baseZ + Math.ceil((camZ - PLOT_BEHIND - PLOT_L / 2 - baseZ) / PLOT_WINDOW) * PLOT_WINDOW
+      if (desiredZ !== plot.cz) {
+        plot.cz = desiredZ
         this.rebuildPlot(plot)
       }
       plot.mesh.visible = isFieldAt(plot.cz)
@@ -98,8 +99,8 @@ export class FieldPlots {
     let balesChanged = false
     for (let i = 0; i < BALE_COUNT; i++) {
       const b = this.baleData[i]
-      if (b.z < camZ - PLOT_BEHIND) {
-        this.resetBale(i, b.z + PLOT_WINDOW)
+      if (b.z < camZ - PLOT_BEHIND || b.z >= camZ - PLOT_BEHIND + PLOT_WINDOW) {
+        this.resetBale(i, b.z + Math.ceil((camZ - PLOT_BEHIND - b.z) / PLOT_WINDOW) * PLOT_WINDOW)
         balesChanged = true
       }
       const visible = shouldShowFieldBale(isFieldAt(b.z))
@@ -118,14 +119,14 @@ export class FieldPlots {
   /** Rebuild a plot's geometry at its current centre, conformed to terrain. */
   private rebuildPlot(plot: { mesh: THREE.Mesh; cx: number; cz: number; index: number }) {
     plot.mesh.geometry.dispose()
-    plot.mesh.geometry = this.buildPlotGeometry(plot.cx, plot.cz)
+    plot.mesh.geometry = this.buildPlotGeometry(plot.cx, plot.cz, FIELD_LANES[plot.index % FIELD_LANES.length].width)
     plot.mesh.material = this.materials[Math.floor(hash01(plot.index, plot.cz, 2) * this.materials.length)]
     // The geometry is built in world coordinates; keep the mesh at origin
     plot.mesh.position.set(0, 0, 0)
   }
 
-  private plotX(index: number, z: number): number {
-    return PLOT_X_MIN + hash01(index, z, 3) * (PLOT_X_MAX - PLOT_X_MIN)
+  private plotX(index: number, _z: number): number {
+    return FIELD_LANES[index % FIELD_LANES.length].x
   }
 
   private resetBale(index: number, z: number) {
@@ -153,8 +154,8 @@ export class FieldPlots {
     this.bales.setMatrixAt(index, this.dummy.matrix)
   }
 
-  private buildPlotGeometry(cx: number, cz: number): THREE.BufferGeometry {
-    const geom = new THREE.PlaneGeometry(PLOT_W, PLOT_L, 5, 9)
+  private buildPlotGeometry(cx: number, cz: number, width: number = 52): THREE.BufferGeometry {
+    const geom = new THREE.PlaneGeometry(width, PLOT_L, width / 4, PLOT_L / 4)
     geom.rotateX(-Math.PI / 2)
     const pos = geom.attributes.position.array as Float32Array
     for (let i = 0; i < pos.length; i += 3) {
@@ -186,14 +187,15 @@ export class FieldPlots {
     }
     // Grain noise so the rows aren't razor-flat
     for (let i = 0; i < 900; i++) {
-      const v = Math.floor((Math.random() - 0.5) * 255 * noiseAmp)
+      const v = Math.floor((hash01(i, 1, 89) - 0.5) * 255 * noiseAmp)
       ctx.fillStyle = v > 0 ? `rgba(255,255,240,${v / 255})` : `rgba(20,16,8,${-v / 255})`
-      ctx.fillRect(Math.random() * size, Math.random() * size, 1.5, 1.5)
+      ctx.fillRect(hash01(i, 2, 89) * size, hash01(i, 3, 89) * size, 1.5, 1.5)
     }
     const tex = this.track(new THREE.CanvasTexture(canvas))
     tex.wrapS = THREE.RepeatWrapping
     tex.wrapT = THREE.RepeatWrapping
-    tex.repeat.set(3, 6)
+    tex.repeat.set(1, 2)
+    tex.anisotropy = 4
     tex.colorSpace = THREE.SRGBColorSpace
     return this.track(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0 }))
   }
