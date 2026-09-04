@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { PASSENGER_VIEWS, type PassengerView } from './PassengerView'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 
 export const CRUISE_SPEED = 15 // units/sec, matches original
@@ -11,11 +12,8 @@ const STATION_BRAKE_DECEL = 0.94
 const STATION_DEPART_ACCEL = 1.5
 const LOOK_AHEAD_X = 50
 const LOOK_AHEAD_Z = 12
-const LOOK_Y = 1.5
 const CAMERA_Y = 2
 const LOOK_DISTANCE = Math.hypot(LOOK_AHEAD_X, LOOK_AHEAD_Z)
-const BASE_VIEW_YAW = Math.atan2(LOOK_AHEAD_X, LOOK_AHEAD_Z)
-const BASE_VIEW_PITCH = Math.atan2(LOOK_Y - CAMERA_Y, LOOK_DISTANCE)
 // A passenger can turn far enough to read the neighbouring bays, but not far
 // enough to expose the artificial edge of the surrounding world.
 export const MAX_PASSENGER_VIEW_YAW = 0.65
@@ -63,6 +61,7 @@ export class TrainCamera {
 
   camera: THREE.PerspectiveCamera
   private time = 0
+  private passengerView: PassengerView = 'window'
 
   /** Target speed the camera accelerates toward (units/sec). */
   targetSpeed = CRUISE_SPEED
@@ -116,6 +115,13 @@ export class TrainCamera {
     this.stationStopZ = null
     this.departingStation = true
     this.targetSpeed = Math.max(0, speed)
+  }
+
+  setPassengerView(view: PassengerView) {
+    this.passengerView = view
+    this.resetView()
+    this.viewYaw = 0
+    this.viewPitch = 0
   }
 
   /** Move the passenger's head within the side-window viewing range. */
@@ -221,8 +227,9 @@ export class TrainCamera {
   }
 
   private applyViewPose(z: number, vibration: number) {
-    const yaw = BASE_VIEW_YAW + this.viewYaw
-    const pitch = BASE_VIEW_PITCH + this.viewPitch
+    const pose = PASSENGER_VIEWS[this.passengerView]
+    const yaw = pose.yaw + this.viewYaw
+    const pitch = pose.pitch + this.viewPitch
     const cosPitch = Math.cos(pitch)
     this.camera.position.set(
       this.vibX * vibration,

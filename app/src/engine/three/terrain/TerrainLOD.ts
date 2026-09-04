@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { isPlantedField } from './FieldLayout'
 import {
   TerrainGen, TRACK_FLAT_HALF,
   waterChannelAt,
@@ -606,6 +607,7 @@ gl_Position = projectionMatrix * mvPosition;`,
 
   private disposeDecoration(decor: THREE.Object3D) {
     decor.traverse((obj) => {
+      if (obj instanceof THREE.InstancedMesh) obj.dispose()
       if (obj instanceof THREE.Mesh && !obj.userData.sharedTerrainResource) {
         obj.geometry.dispose()
         const disposeMat = (m: THREE.Material) => {
@@ -665,6 +667,7 @@ gl_Position = projectionMatrix * mvPosition;`,
         const x = worldX + startX + ci * layerSpacing + layerSpacing / 2 + jx
         const z = worldZ + ri * layerSpacing + layerSpacing / 2 + jz
         const biome = this.getBiomeAt(z)
+        if (biome.type === 'field' && isPlantedField(x, z)) continue
         const riverStrength = biome.params.river ?? 0
         const channel = waterChannelAt(z, this.routePlan)
 
@@ -968,6 +971,7 @@ gl_Position = projectionMatrix * mvPosition;`,
       cityClusters++
     }
 
+    decorations.push(...this.createWoodland(worldX, worldZ, densityScale, sampleChunkSurface))
     const attempts = Math.floor(biome.decorDensity * 58 * densityScale)
 
     for (let i = 0; i < attempts; i++) {
@@ -975,6 +979,7 @@ gl_Position = projectionMatrix * mvPosition;`,
       const z = worldZ + random() * CHUNK_SIZE
       if (!isDecorationInsideChunk(x, z, worldX, worldZ)) continue
       const localBiome = this.getBiomeAt(z)
+      if (localBiome.type === 'field' && isPlantedField(x, z)) continue
       const localRiverStrength = localBiome.params.river ?? 0
       const channel = waterChannelAt(z, this.routePlan)
 
@@ -1118,6 +1123,42 @@ gl_Position = projectionMatrix * mvPosition;`,
   // ---- Vegetation billboards ----
 
   /** Tree silhouettes are tied to route ecology, not selected as anonymous atlas cells. */
+  /** Shared atlas instances form a canopy at real tree height, instead of
+   * widely separated saplings. World-space cells keep chunk edges consistent. */
+  private createWoodland(worldX: number, worldZ: number, density: number, sampleHeight: SurfaceHeightSampler): THREE.InstancedMesh[] {
+    const geometries = density >= 0.5 ? this.treeGeomsNear : this.treeGeomsFar
+    const material = density >= 0.5 ? this.treeMatNear : this.treeMatFar
+    const matrices: THREE.Matrix4[][] = geometries.map(() => [])
+    const dummy = new THREE.Object3D()
+    const spacing = density >= 0.5 ? 13 : 23
+    for (let gx = Math.ceil(worldX / spacing); gx * spacing < worldX + CHUNK_SIZE; gx++) {
+      for (let gz = Math.ceil(worldZ / spacing); gz * spacing < worldZ + CHUNK_SIZE; gz++) {
+        const x = gx * spacing + hash01(gx, gz, 71) * 5
+        const z = gz * spacing + hash01(gx, gz, 72) * 5
+        if (!isDecorationInsideChunk(x, z, worldX, worldZ)) continue
+        if (this.getBiomeAt(z).type !== 'forest' || x < 34) continue
+        if (Math.abs(x - roadCenterX(z)) < ROAD_VERGE + 5) continue
+        if (hash01(gx, gz, 73) < 0.18) continue
+        const scale = 2.2 + hash01(gx, gz, 74) * 1.6
+        dummy.position.set(x, sampleHeight(x, z) - 0.15, z)
+        dummy.rotation.set(0, hash01(gx, gz, 75) * Math.PI, 0)
+        dummy.scale.set(scale * 1.4, scale, scale * 1.4)
+        dummy.updateMatrix()
+        matrices[Math.floor(hash01(gx, gz, 76) * geometries.length)].push(dummy.matrix.clone())
+      }
+    }
+    return matrices.flatMap((values, variant) => {
+      if (!values.length) return []
+      const trees = new THREE.InstancedMesh(geometries[variant], material, values.length)
+      trees.userData.sharedTerrainResource = true
+      trees.name = 'woodland-canopy'
+      values.forEach((matrix, i) => trees.setMatrixAt(i, matrix))
+      trees.instanceMatrix.needsUpdate = true
+      trees.computeBoundingSphere()
+      return [trees]
+    })
+  }
+
   private createTreeBillboard(
     densityScale: number,
     random: RandomSource,

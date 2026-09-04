@@ -183,8 +183,8 @@ export class LinesideProps {
     // shimmer and consumed enough CPU to make the terrain stream stutter.
     let polesChanged = false
     for (let i = 0; i < POLE_COUNT; i++) {
-      if (this.poleZ[i] < camZ - POLE_BEHIND) {
-        this.poleZ[i] += POLE_WINDOW
+      if (this.poleZ[i] < camZ - POLE_BEHIND || this.poleZ[i] >= camZ - POLE_BEHIND + POLE_WINDOW) {
+        this.poleZ[i] += Math.ceil((camZ - POLE_BEHIND - this.poleZ[i]) / POLE_WINDOW) * POLE_WINDOW
         this.writePole(i)
         polesChanged = true
       }
@@ -205,8 +205,8 @@ export class LinesideProps {
     let grassChanged = false
     for (let i = 0; i < GRASS_COUNT; i++) {
       const g = this.grassData[i]
-      if (g.z < camZ - POLE_BEHIND) {
-        this.resetGrass(i, g.z + GRASS_WINDOW)
+      if (g.z < camZ - POLE_BEHIND || g.z >= camZ - POLE_BEHIND + GRASS_WINDOW) {
+        this.resetGrass(i, g.z + Math.ceil((camZ - POLE_BEHIND - g.z) / GRASS_WINDOW) * GRASS_WINDOW)
         grassChanged = true
       }
     }
@@ -220,8 +220,8 @@ export class LinesideProps {
     let flowersChanged = false
     for (let i = 0; i < FLOWER_COUNT; i++) {
       const f = this.flowerData[i]
-      if (f.z < camZ - POLE_BEHIND) {
-        this.resetFlower(i, f.z + GRASS_WINDOW)
+      if (f.z < camZ - POLE_BEHIND || f.z >= camZ - POLE_BEHIND + GRASS_WINDOW) {
+        this.resetFlower(i, f.z + Math.ceil((camZ - POLE_BEHIND - f.z) / GRASS_WINDOW) * GRASS_WINDOW)
         flowersChanged = true
       }
     }
@@ -229,8 +229,8 @@ export class LinesideProps {
 
     let fenceChanged = false
     for (let i = 0; i < FENCE_POST_COUNT; i++) {
-      if (this.fenceZ[i] < camZ - POLE_BEHIND) {
-        this.fenceZ[i] += FENCE_WINDOW
+      if (this.fenceZ[i] < camZ - POLE_BEHIND || this.fenceZ[i] >= camZ - POLE_BEHIND + FENCE_WINDOW) {
+        this.fenceZ[i] += Math.ceil((camZ - POLE_BEHIND - this.fenceZ[i]) / FENCE_WINDOW) * FENCE_WINDOW
         this.writeFence(i)
         fenceChanged = true
       }
