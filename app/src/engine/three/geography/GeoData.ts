@@ -50,7 +50,7 @@ export interface MappedFeature extends Omit<GeographicFeature, 'coordinates' | '
 export interface MappedBuildingPart {
   id: string; parentFeatureId: string; coordinates: GeoPoint[]; holes: GeoPoint[][]; bounds: [number, number, number, number]
   height: number | null; minHeight: number; roofShape: string | null; facadeMaterial: string | null; roofMaterial: string | null; sourceDatasets: string[]
-  roofColor: string | null
+  roofColor: string | null; facadeColor: string | null; sourceRecordIds: string[]
 }
 export interface RoutePose extends GeoPoint { s: number; dx: number; dz: number; heading: number; longitude: number; latitude: number }
 export type BuildingHeightStatus = 'tagged' | 'estimated-from-levels' | 'source-tag' | 'source-estimate' | 'floors-only' | 'missing'
@@ -147,6 +147,8 @@ export class GeoData {
           facadeMaterial: typeof properties.facade_material === 'string' ? properties.facade_material : null,
           roofMaterial: typeof properties.roof_material === 'string' ? properties.roof_material : null,
           roofColor: typeof properties.roof_color === 'string' ? properties.roof_color : null,
+          facadeColor: typeof properties.facade_color === 'string' ? properties.facade_color : null,
+          sourceRecordIds: Array.isArray(properties.sources) ? [...new Set(properties.sources.flatMap(source => source && typeof source === 'object' && 'record_id' in source && typeof source.record_id === 'string' ? [source.record_id] : []))] : [],
           sourceDatasets: part.buildingHeight.sourceDatasets ?? [] }
       })
     })
@@ -216,7 +218,11 @@ export class GeoData {
     const status = (key: BuildingHeightStatus) => buildings.filter(feature => buildingHeight(feature).status === key).length
     const roof = buildings.filter(feature => feature.overtureProperties?.roof_shape || feature.tags['roof:shape'] || feature.tags['building:roof:shape']).length
     const floors = buildings.filter(feature => feature.overtureProperties?.num_floors || feature.tags['building:levels']).length
-    return { total: buildings.length, tagged: status('tagged'), estimated: status('estimated-from-levels'), sourceTag: status('source-tag'), sourceEstimate: status('source-estimate'), floorsOnly: status('floors-only'), missing: status('missing'), shelters: buildings.filter(feature => buildingStructureKind(feature) === 'open-shelter').length, floorTags: floors, roof, parts: this.buildingParts.length, added: buildings.filter(feature => String(feature.id).startsWith('overture/')).length }
+    const has = (feature: MappedFeature, property: string, ...tags: string[]) => !!feature.overtureProperties?.[property] || tags.some(tag => !!feature.tags[tag])
+    const roofMaterials = buildings.filter(feature => has(feature, 'roof_material', 'roof:material')).length
+    const facadeMaterials = buildings.filter(feature => has(feature, 'facade_material', 'building:material')).length
+    const sourceColors = buildings.filter(feature => has(feature, 'roof_color', 'roof:colour', 'roof:color') || has(feature, 'facade_color', 'building:colour', 'building:color')).length
+    return { total: buildings.length, tagged: status('tagged'), estimated: status('estimated-from-levels'), sourceTag: status('source-tag'), sourceEstimate: status('source-estimate'), floorsOnly: status('floors-only'), missing: status('missing'), shelters: buildings.filter(feature => buildingStructureKind(feature) === 'open-shelter').length, floorTags: floors, roof, roofMaterials, facadeMaterials, sourceColors, parts: this.buildingParts.length, added: buildings.filter(feature => String(feature.id).startsWith('overture/')).length }
   }
   buildingAt(x: number, z: number) {
     return this.nearbyFeatures(x, z).find(feature => feature.kind === 'building' && contains(feature, x, z)) ?? null

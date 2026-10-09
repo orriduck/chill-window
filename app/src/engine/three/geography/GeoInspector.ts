@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { buildingHeight, buildingStructureKind, platformRise, type GeoData, type MappedFeature } from './GeoData'
+import { buildingAppearance } from './GeoBuilding'
 import type { RealWorld } from './RealWorld'
 import { LAND_COVER } from './GeoLandCover'
 
@@ -23,7 +24,7 @@ export class GeoInspector {
   private jump: HTMLButtonElement
   private time = document.createElement('select')
   private weather = document.createElement('select')
-  readonly layers = { ground: true, vegetation: true, settlements: true, water: true, farmland: true, stations: true, sourceLandCover: false }
+  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, water: true, farmland: true, stations: true, sourceLandCover: false }
   private pending: GeoCommand = {}
   private data: GeoData | null = null
   private real = true
@@ -38,6 +39,7 @@ export class GeoInspector {
   private landCoverReadout = document.createElement('output')
   private buildingQuery = document.createElement('input')
   private buildingSource = document.createElement('output')
+  private buildingCase: HTMLButtonElement
   private lastPointer: [number, number] = [0, 0]
   private canvas: HTMLCanvasElement
   private ray = new THREE.Raycaster()
@@ -84,6 +86,8 @@ export class GeoInspector {
     this.landCoverReadout.setAttribute('aria-label', '真实土地覆盖来源'); this.landCoverReadout.style.cssText = this.streamingStats.style.cssText
     this.buildingQuery.type = 'search'; this.buildingQuery.placeholder = '查询 OSM ID / GERS ID'; this.buildingQuery.setAttribute('aria-label', '查询建筑源记录 ID 或 GERS ID'); this.buildingQuery.style.cssText = this.checkpoint.style.cssText + 'margin:4px 0;'
     this.buildingQuery.addEventListener('change', () => this.showBuildingById(this.buildingQuery.value))
+    this.buildingCase = this.button('定位 Peekskill 源建筑案例', () => this.locateBuildingCase())
+    this.buildingCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
     this.buildingSource.setAttribute('aria-label', '建筑来源记录详情'); this.buildingSource.style.cssText = 'display:block;min-height:44px;font-size:11px;line-height:1.6;overflow-wrap:anywhere;'
     this.jump = this.button('列车跳到这个位置', () => { this.pending.jump = Number(this.progress.value) })
     this.jump.style.cssText += 'width:100%;background:#4d684a;color:#f5f1e3;'
@@ -93,20 +97,20 @@ export class GeoInspector {
     }
     this.time.onchange = () => { this.pending.time = this.time.value as 'day' | 'night' }
     this.weather.onchange = () => { this.pending.weather = this.weather.value as 'clear' | 'rain' }
-    const notes = document.createElement('p'); notes.textContent = '地形：USGS 3DEP，约 20m 采样。轨面/水位为可视化近似。绿色=源 height 标签；琥珀色=Microsoft 模型高度估计；灰蓝 footprint=高度缺失或仅有楼层数，不补造高度。紫色仅用于本地旧数据按楼层换算。OSM/Overture 标记的 shelter 使用开放式顶棚与估算支柱，不画实墙；无源高度时顶棚高度是可视化估值。已标 roof_height 的可建模 pyramidal 屋顶保留源高度；其他屋顶形状保留属性待接入；来源有 roof_color 时使用其颜色。立面细节数据覆盖有限。'; notes.style.cssText = 'font-size:11px;color:#697566;margin:14px 0 8px;'
+    const notes = document.createElement('p'); notes.textContent = '地形：USGS 3DEP，约 20m 采样。轨面/水位为可视化近似。建筑只在来源高度可用时挤出；Microsoft 高度保持模型估计，缺失高度或仅有楼层数时只画 footprint。OSM/Overture 的 shelter 使用开放顶棚与估算支柱，不画实墙。源颜色优先保留；只有材料标签时用调色板表达材质类别，不是实景立面采样。屋顶形状保留源属性，只有 roof_height 有来源值时才生成坡顶。'; notes.style.cssText = 'font-size:11px;color:#697566;margin:14px 0 8px;'
     const credits = document.createElement('div'); credits.style.cssText = 'font-size:11px;display:flex;gap:10px;'
     for (const [name, url] of [['FRA / Amtrak', 'https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0'], ['USGS', 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer'], ['© OSM', 'https://www.openstreetmap.org/copyright'], ['Overture Maps', 'https://docs.overturemaps.org/guides/buildings/']]) {
       const link = document.createElement('a'); link.textContent = name; link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.style.color = '#506b51'; credits.append(link)
     }
     const layers = document.createElement('div'); layers.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin:10px 0;'
-    for (const [key, name] of [['ground', '地表'], ['vegetation', '林木'], ['settlements', '建筑 / 道路'], ['stations', 'Metro-North 站台'], ['water', '水域'], ['sourceLandCover', 'NLCD 分类对照']] as const) {
+    for (const [key, name] of [['ground', '地表'], ['vegetation', '林木'], ['buildings', '建筑'], ['settlements', '道路'], ['stations', 'Metro-North 站台'], ['water', '水域'], ['sourceLandCover', 'NLCD 分类对照']] as const) {
       const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.checked = this.layers[key]
       input.setAttribute('aria-label', `真实地理${name}`); input.onchange = () => { this.layers[key] = input.checked }
       label.append(input, document.createTextNode(name)); layers.append(label)
     }
     const diagnostics = document.createElement('details'), summary = document.createElement('summary')
     summary.textContent = '数据来源与加载诊断'; summary.style.cssText = 'cursor:pointer;font-size:12px;margin-top:14px;'
-    diagnostics.append(summary, this.buildingStats, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingSource, notes, credits)
+    diagnostics.append(summary, this.buildingStats, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
@@ -120,7 +124,7 @@ export class GeoInspector {
   setData(data: GeoData) {
     this.data = data
     const stats = data.buildingStats
-    this.buildingStats.textContent = `建筑组件 ${stats.total.toLocaleString()} 个（新增 Overture ${stats.added.toLocaleString()}）\n源高度标签 ${stats.sourceTag.toLocaleString()} · Microsoft 模型估计 ${stats.sourceEstimate.toLocaleString()} · 仅楼层数 ${stats.floorsOnly.toLocaleString()} · 高度缺失 ${stats.missing.toLocaleString()}\n开放遮棚 ${stats.shelters} · 已记录楼层 ${stats.floorTags.toLocaleString()} · 屋顶记录 ${stats.roof.toLocaleString()} · 建筑分段 ${stats.parts}\n数据：Overture ${data.buildingOverlay?.release ?? '未加载'} · 原始 OSM footprint ${(stats.total - stats.added).toLocaleString()}`
+    this.buildingStats.textContent = `建筑组件 ${stats.total.toLocaleString()} 个（新增 Overture ${stats.added.toLocaleString()}）\n源高度标签 ${stats.sourceTag.toLocaleString()} · Microsoft 模型估计 ${stats.sourceEstimate.toLocaleString()} · 仅楼层数 ${stats.floorsOnly.toLocaleString()} · 高度缺失 ${stats.missing.toLocaleString()}\n屋顶/立面材质 ${stats.roofMaterials}/${stats.facadeMaterials} · 有来源颜色 ${stats.sourceColors} · 屋顶记录 ${stats.roof.toLocaleString()} · 构件 ${stats.parts}\n开放遮棚 ${stats.shelters} · 已记录楼层 ${stats.floorTags.toLocaleString()}\n数据：Overture ${data.buildingOverlay?.release ?? '未加载'} · 原始 OSM footprint ${(stats.total - stats.added).toLocaleString()}`
     this.progress.max = String(data.length); this.progress.value = String(data.checkpoints[0].s)
     for (const point of data.checkpoints) { const option = document.createElement('option'); option.value = String(point.s); option.textContent = point.label; this.checkpoint.append(option) }
     this.refreshPreview(); this.applyVisibility()
@@ -199,6 +203,7 @@ export class GeoInspector {
     const provenance = feature.provenance
     const overture = provenance?.geometry.gersId ?? provenance?.overtureMatches[0]?.gersId ?? (String(feature.id).startsWith('overture/') ? String(feature.id).slice('overture/'.length) : null)
     const properties = feature.overtureProperties ?? {}
+    const appearance = buildingAppearance(feature)
     const sources = Array.isArray(properties.sources) ? properties.sources as Array<{ dataset?: string; record_id?: string; property?: string; version?: string }> : []
     const sourceNames = [...new Set([...(height.sources ?? []), ...sources.map(source => source.dataset).filter((name): name is string => !!name)])]
     this.buildingSource.replaceChildren()
@@ -208,7 +213,7 @@ export class GeoInspector {
     const shelter = buildingStructureKind(feature) === 'open-shelter'
       ? `开放式遮棚 · ${height.metres === null ? `屋顶高度 ${3.6}m 应用估算，侧墙不绘制` : '依据来源高度'} `
       : ''
-    label.textContent = `${feature.id} · ${shelter}${heightLabel}${sourceNames.length ? ` · 来源：${sourceNames.join(' / ')}` : ''}${roof ? ` · roof=${String(roof)}` : ''}${properties.roof_height ? ` · roof rise=${String(properties.roof_height)}m` : ''}${properties.roof_orientation ? ` · orientation=${String(properties.roof_orientation)}` : ''}${properties.roof_color ? ` · roof color=${String(properties.roof_color)}` : ''}${properties.facade_material ? ` · facade=${String(properties.facade_material)}` : ''}${properties.roof_material ? ` · roof material=${String(properties.roof_material)}` : ''}`
+    label.textContent = `${feature.id} · ${shelter}${heightLabel}${sourceNames.length ? ` · 来源：${sourceNames.join(' / ')}` : ''}${roof ? ` · roof=${String(roof)}` : ''}${properties.roof_height ? ` · roof rise=${String(properties.roof_height)}m` : roof ? ' · roof_height 缺失，未补造坡高' : ''}${properties.roof_orientation ? ` · orientation=${String(properties.roof_orientation)}` : ''}${appearance.roofMaterial ? ` · roof material=${appearance.roofMaterial}` : ''} ${appearance.roofColorSource ? `· roof color ${appearance.roofColor} (${appearance.roofColorSource})` : ''}${appearance.facadeMaterial ? ` · facade=${appearance.facadeMaterial}` : ''} ${appearance.facadeColorSource ? `· facade color ${appearance.facadeColor} (${appearance.facadeColorSource})` : ''}`
     this.buildingSource.append(label)
     if (osm) {
       const link = document.createElement('a'); link.href = `https://www.openstreetmap.org/${osm[1]}/${osm[2]}`; link.textContent = '打开该建筑源记录'; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.style.cssText = 'display:block;color:#506b51;margin-top:3px;'
@@ -219,16 +224,46 @@ export class GeoInspector {
       this.buildingSource.append(source)
     }
     for (const source of sources.filter(item => item.record_id)) {
-      const record = document.createElement('span'); record.textContent = `${source.dataset ?? '数据源'} source record ${source.record_id} · ${source.property || 'geometry'}`; record.style.cssText = 'display:block;margin-top:2px;overflow-wrap:anywhere;'; this.buildingSource.append(record)
+      const recordId = source.record_id!
+      const osmRecord = source.dataset === 'OpenStreetMap' ? /^([wnr])(\d+)(?:@\d+)?$/.exec(recordId) : null
+      const record = document.createElement(osmRecord ? 'a' : 'span')
+      if (record instanceof HTMLAnchorElement && osmRecord) {
+        const type = { w: 'way', n: 'node', r: 'relation' }[osmRecord[1] as 'w' | 'n' | 'r']
+        record.href = `https://www.openstreetmap.org/${type}/${osmRecord[2]}`; record.target = '_blank'; record.rel = 'noopener noreferrer'
+      }
+      record.textContent = `${source.dataset ?? '数据源'} source record ${recordId} · ${source.property || 'geometry'}`
+      record.style.cssText = 'display:block;margin-top:2px;overflow-wrap:anywhere;color:#506b51;'; this.buildingSource.append(record)
+    }
+    const gers = provenance?.geometry.gersId ?? (String(feature.id).startsWith('overture/') ? String(feature.id).slice('overture/'.length) : null)
+    const parts = this.data?.buildingParts.filter(part => part.parentFeatureId === `overture/${gers}`) ?? []
+    for (const part of parts) {
+      const info = document.createElement('span'); info.textContent = `building_part ${part.id} · ${part.height ?? 'height missing'}m · min_height=${part.minHeight}m · facade=${part.facadeMaterial ?? 'missing'} · sources ${part.sourceRecordIds.join(', ') || 'unavailable'}`; info.style.cssText = 'display:block;margin-top:3px;overflow-wrap:anywhere;'; this.buildingSource.append(info)
     }
   }
-  private showBuildingById(query: string) {
-    if (!this.data) return
+  private showBuildingById(query: string, focus = false) {
+    if (!this.data) return false
     const normalized = query.trim().toLowerCase()
     const feature = this.data.features.find(item => item.kind === 'building' && String(item.id).toLowerCase() === normalized)
       ?? this.data.features.find(item => item.kind === 'building' && (String(item.id).toLowerCase().endsWith(`/${normalized}`) || item.provenance?.geometry.gersId?.toLowerCase() === normalized || item.provenance?.overtureMatches.some(match => match.gersId.toLowerCase() === normalized)))
-    if (feature) this.showBuilding(feature)
-    else this.buildingSource.textContent = '未在当前真实数据包中找到该建筑 ID。'
+    if (feature) {
+      this.showBuilding(feature)
+      if (focus) this.focusBuilding(feature)
+      return true
+    }
+    this.buildingSource.textContent = '未在当前真实数据包中找到该建筑 ID。'
+    return false
+  }
+  private locateBuildingCase() {
+    this.showBuildingById('b00509c4-82e0-47d0-8708-cc9c8465530b', true)
+  }
+  private focusBuilding(feature: MappedFeature) {
+    if (!this.data) return
+    const x = (feature.bounds[0] + feature.bounds[2]) / 2, z = (feature.bounds[1] + feature.bounds[3]) / 2
+    const y = this.data.heightAt(x, z) ?? 0
+    const damping = this.controls.enableDamping; this.controls.enableDamping = false
+    this.controls.update()
+    this.controls.target.set(x, y, z); this.camera.position.set(x + 70, y + 110, z + 70)
+    this.controls.update(); this.controls.enableDamping = damping
   }
   get focus() { return this.controls.target }
   consume() { const result = this.pending; this.pending = {}; return result }

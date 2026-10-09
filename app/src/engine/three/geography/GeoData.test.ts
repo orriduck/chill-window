@@ -41,7 +41,7 @@ describe('Hudson source alignment', () => {
     expect(contains(polygon,2,2)).toBe(true); expect(contains(polygon,5,5)).toBe(false)
   })
   it('reports source-backed building height coverage without inventing heights', () => {
-    expect(data.buildingStats).toEqual({ total: 6302, tagged: 3567, estimated: 9, sourceTag: 0, sourceEstimate: 0, floorsOnly: 0, missing: 2726, shelters: 15, floorTags: 12, roof: 1, parts: 0, added: 0 })
+    expect(data.buildingStats).toEqual({ total: 6302, tagged: 3567, estimated: 9, sourceTag: 0, sourceEstimate: 0, floorsOnly: 0, missing: 2726, shelters: 15, floorTags: 12, roof: 1, roofMaterials: 0, facadeMaterials: 0, sourceColors: 0, parts: 0, added: 0 })
     expect(buildingHeight({ tags: { height: '30 ft' } })).toMatchObject({ status: 'tagged', metres: 9.144 })
     expect(buildingHeight({ tags: { 'building:levels': '2' } })).toMatchObject({ status: 'estimated-from-levels', metres: 6.2 })
     expect(buildingHeight({ tags: { building: 'house' } })).toMatchObject({ status: 'missing', metres: null })

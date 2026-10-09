@@ -15,7 +15,7 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
@@ -70,6 +70,7 @@ jobs:
               performance: await page.getByLabel('地理渲染性能', { exact: true }).textContent(),
               motionGate: await page.getByLabel('地理运动门控', { exact: true }).textContent(),
               landCover: await page.getByLabel('真实土地覆盖来源', { exact: true }).textContent(),
+              buildingSource: await page.getByLabel('建筑来源记录详情', { exact: true }).textContent(),
               capturedAt: new Date().toISOString(),
               viewport: page.viewportSize() });
             await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
@@ -151,6 +152,20 @@ jobs:
               await snapshot('03b-nlcd-classification');
               await page.getByLabel('真实地理NLCD 分类对照', { exact: true }).uncheck();
               await page.getByLabel('真实地理林木', { exact: true }).check();
+              await page.getByText('数据来源与加载诊断', { exact: true }).click();
+              await page.getByRole('button', { name: '定位 Peekskill 源建筑案例', exact: true }).click();
+              await ready();
+              health.buildingCaseSource = await page.getByLabel('建筑来源记录详情', { exact: true }).textContent();
+              if (!['b00509c4-82e0-47d0-8708-cc9c8465530b', 'tar_paper', '#ffffff', '模型估计'].every(value => health.buildingCaseSource.includes(value))) throw new Error(`Source building attributes are missing: ${health.buildingCaseSource}`);
+              await page.getByLabel('真实地理林木', { exact: true }).uncheck();
+              await page.getByLabel('真实地理道路', { exact: true }).uncheck();
+              await snapshot('03e-source-church-building');
+              await page.getByLabel('真实地理建筑', { exact: true }).uncheck();
+              await snapshot('03f-source-church-buildings-hidden');
+              await page.getByLabel('真实地理建筑', { exact: true }).check();
+              await page.getByLabel('真实地理林木', { exact: true }).check();
+              await page.getByLabel('真实地理道路', { exact: true }).check();
+              await page.getByText('数据来源与加载诊断', { exact: true }).click();
               const beforeRemoteMap = await page.getByLabel('真实列车位置', { exact: true }).textContent();
               for (const station of ['Manitou', 'Peekskill']) {
                 const preset = page.getByLabel('真实路线片段', { exact: true });
@@ -204,7 +219,7 @@ jobs:
             }
           })();
           NODE
-          timeout 1200s node "$RUNNER_TEMP/chill-review.cjs"
+          timeout 1500s node "$RUNNER_TEMP/chill-review.cjs"
       - uses: actions/upload-artifact@v5
         if: always()
         with:

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { buildingHeight, buildingStructureKind, platformRise, GeoData, type GeoPoint, type MappedFeature, type BuildingHeightStatus } from './GeoData'
+import { applyBuildingAppearance, buildingAppearance } from './GeoBuilding'
 import { GeoForest, type ForestPlacement } from './GeoForest'
 import { pyramidalRoof } from './GeoRoof'
 import { LAND_COVER } from './GeoLandCover'
@@ -84,10 +85,10 @@ export class RealWorld {
   private shelterOutlineMaterial = new THREE.LineBasicMaterial({ color: 0x58645e, depthTest: true })
   private platformMaterial = new THREE.MeshStandardMaterial({ color: 0x737b77, roughness: 0.88, side: THREE.DoubleSide })
   private platformOutlineMaterial = new THREE.LineBasicMaterial({ color: 0xe6c786, depthTest: false, transparent: true, opacity: 0.9 })
-  private wallMaterial = new THREE.MeshStandardMaterial({ color: 0xb0aea3, roughness: 1 })
-  private taggedWallMaterial = new THREE.MeshStandardMaterial({ color: 0x74906d, roughness: 1 })
-  private estimatedWallMaterial = new THREE.MeshStandardMaterial({ color: 0xc9894f, roughness: 1 })
-  private floorsOnlyWallMaterial = new THREE.MeshStandardMaterial({ color: 0x8f79a7, roughness: 1 })
+  private wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, vertexColors: true })
+  private taggedWallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, vertexColors: true })
+  private estimatedWallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, vertexColors: true })
+  private floorsOnlyWallMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, vertexColors: true })
   private footprintMaterial = new THREE.MeshStandardMaterial({ color: 0x87919a, roughness: 1, side: THREE.DoubleSide })
   private tieMaterial = new THREE.MeshStandardMaterial({ color: 0x736353, roughness: 1 })
   private engineeringGeometry = new THREE.BoxGeometry(1, 1, 1)
@@ -212,7 +213,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     }
     return raw
   }
-  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
+  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
     const pose = this.data.pose(s)
     this.group.visible = this.presentable || inspection
     if (inspection) { this.group.position.set(0, 0, 0); this.group.rotation.y = 0 }
@@ -285,12 +286,9 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       for (const child of chunk.group.children) {
         const layer = child.userData.geoLayer
         if (layer === 'vegetation') child.visible = layers.vegetation
+        if (layer === 'building') child.visible = layers.buildings ?? true
         if (layer === 'settlement') {
           child.visible = layers.settlements
-          if (child instanceof THREE.Mesh && Array.isArray(child.material) && child.userData.geoHeightSource) {
-            const estimate = ['source-estimate', 'estimated-from-levels'].includes(child.userData.geoHeightSource)
-            child.material[1] = inspection ? (estimate ? this.estimatedWallMaterial : this.taggedWallMaterial) : this.wallMaterial
-          }
         }
         if (layer === 'farmland') child.visible = layers.farmland
         if (layer === 'inspection') child.visible = inspection
@@ -366,14 +364,13 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
         // perimeter walls are never substituted for the missing value.
         const height = measurement.metres ?? SHELTER_HEIGHT_ESTIMATE
         const roof = new THREE.ShapeGeometry(shapeOf(feature))
-        const roofColor = feature.overtureProperties?.roof_color
-        const color = new THREE.Color(typeof roofColor === 'string' && /^#[0-9a-f]{6}$/i.test(roofColor) ? roofColor : 0x77817c)
+        const color = new THREE.Color(buildingAppearance(feature).roofColor)
         const colors: number[] = []
         for (let i = 0; i < roof.getAttribute('position').count; i++) colors.push(color.r, color.g, color.b)
         roof.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
         roof.rotateX(-Math.PI / 2); roof.translate(0, base + height, 0)
         const canopy = new THREE.Mesh(roof, this.roofMaterial)
-        canopy.userData.geoLayer = 'settlement'; canopy.userData.geoStructureKind = 'open-shelter'
+        canopy.userData.geoLayer = 'building'; canopy.userData.geoStructureKind = 'open-shelter'
         canopy.userData.geoSourceId = String(feature.id); canopy.userData.geoHeightSource = measurement.status
         canopy.userData.geoHeightEstimateMetres = measurement.metres === null ? height : undefined
         canopy.renderOrder = 6; group.add(canopy)
@@ -402,11 +399,11 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
           supportMatrix.scale.set(1, height, 1); supportMatrix.updateMatrix(); supports.setMatrixAt(i, supportMatrix.matrix)
         }
         supports.instanceMatrix.needsUpdate = true
-        supports.userData.geoLayer = 'settlement'; supports.userData.geoStructureKind = 'open-shelter'
+        supports.userData.geoLayer = 'building'; supports.userData.geoStructureKind = 'open-shelter'
         supports.userData.geoSourceId = String(feature.id); supports.userData.geoStructurePartsAreEstimates = true
         supports.userData.sharedGeometry = true; group.add(supports)
         const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ring.map(point => new THREE.Vector3(point.x, base + height + 0.025, point.z))), this.shelterOutlineMaterial)
-        outline.userData.geoLayer = 'settlement'; outline.userData.geoStructureKind = 'open-shelter'; outline.userData.geoSourceId = String(feature.id)
+        outline.userData.geoLayer = 'building'; outline.userData.geoStructureKind = 'open-shelter'; outline.userData.geoSourceId = String(feature.id)
         group.add(outline)
         continue
       }
@@ -416,10 +413,11 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
         continue
       }
       const properties = feature.overtureProperties ?? {}
+      const appearance = buildingAppearance(feature)
       const minHeight = Number(properties.min_height) > 0 ? Number(properties.min_height) : 0
       const top = Math.min(500, measurement.metres!)
       const roofHeight = Number(properties.roof_height) > 0 ? Math.min(Number(properties.roof_height), top * 0.45) : 0
-      const roofShape = properties.roof_shape ?? feature.tags['roof:shape'] ?? feature.tags['building:roof:shape']
+      const roofShape = appearance.roofShape
       const roofMesh = roofShape === 'pyramidal' && (measurement.status === 'source-tag' || measurement.status === 'source-estimate')
         ? pyramidalRoof(feature.coordinates, feature.holes, roofHeight) : null
       const modeledRoof = roofMesh !== null
@@ -429,17 +427,14 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       // ExtrudeGeometry's first material is the roof and second is the wall.
       // Source roof metadata is kept with each building; the base palettes
       // distinguish recorded heights from upstream model estimates.
-      const roofColor = typeof properties.roof_color === 'string' && /^#[0-9a-f]{6}$/i.test(properties.roof_color) ? properties.roof_color : null
-      const color = new THREE.Color(roofColor ?? 0x72756f), colors: number[] = []
-      for (let i = 0; i < geometry.getAttribute('position').count; i++) colors.push(color.r, color.g, color.b)
-      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+      applyBuildingAppearance(geometry, appearance)
       geometry.rotateX(-Math.PI / 2); geometry.translate(0, base + minHeight - 0.1, 0)
       geometry.userData.roofShape = roofShape
       buildingGeometry.get(measurement.status)!.push(geometry)
       if (modeledRoof && (measurement.status === 'source-tag' || measurement.status === 'source-estimate')) {
         const roof = roofMesh!
         const positions = roof.getAttribute('position')
-        const color = new THREE.Color(roofColor ?? 0x72756f), colors: number[] = []
+        const color = new THREE.Color(appearance.roofColor), colors: number[] = []
         for (let i = 0; i < positions.count; i++) colors.push(color.r, color.g, color.b)
         roof.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
         roof.translate(0, base + top - roofHeight + 0.025, 0)
@@ -451,7 +446,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       const merged = mergeBuildingGeometry(geometries)
       if (merged) {
         const wall = status === 'estimated-from-levels' || status === 'source-estimate' ? this.estimatedWallMaterial : status === 'floors-only' ? this.floorsOnlyWallMaterial : this.wallMaterial
-        const mesh = new THREE.Mesh(merged, [this.roofMaterial, wall]); mesh.userData.geoLayer = 'settlement'; mesh.userData.geoHeightSource = status; mesh.receiveShadow = true; group.add(mesh)
+        const mesh = new THREE.Mesh(merged, [this.roofMaterial, wall]); mesh.userData.geoLayer = 'building'; mesh.userData.geoHeightSource = status; mesh.userData.geoSourceStyle = true; mesh.receiveShadow = true; group.add(mesh)
       }
       for (const geometry of geometries) geometry.dispose()
     }
@@ -460,7 +455,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       const merged = mergeGeometries(geometries, false)
       if (merged) {
         const mesh = new THREE.Mesh(merged, this.roofMaterial)
-        mesh.userData.geoLayer = 'settlement'; mesh.userData.geoHeightSource = status; mesh.userData.geoRoofShapeSource = true
+        mesh.userData.geoLayer = 'building'; mesh.userData.geoHeightSource = status; mesh.userData.geoRoofShapeSource = true
         group.add(mesh)
       }
       geometries.forEach(geometry => geometry.dispose())
@@ -468,18 +463,17 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     if (missingFootprints.length) {
       const merged = mergeGeometries(missingFootprints, false)
       for (const geometry of missingFootprints) geometry.dispose()
-      if (merged) { const mesh = new THREE.Mesh(merged, this.footprintMaterial); mesh.userData.geoLayer = 'settlement'; mesh.userData.geoHeightSource = 'missing'; group.add(mesh) }
+      if (merged) { const mesh = new THREE.Mesh(merged, this.footprintMaterial); mesh.userData.geoLayer = 'building'; mesh.userData.geoHeightSource = 'missing'; group.add(mesh) }
     }
     const partGeometry = new Map<BuildingHeightStatus, THREE.BufferGeometry[]>([['source-tag', []], ['source-estimate', []]])
     for (const part of this.data.buildingParts.filter(item => item.bounds[0] <= x0 + TILE && item.bounds[2] >= x0 && item.bounds[1] <= z0 + TILE && item.bounds[3] >= z0 && Math.floor((item.bounds[0] + item.bounds[2]) / 2 / TILE) === cx && Math.floor((item.bounds[1] + item.bounds[3]) / 2 / TILE) === cz)) {
       const base = this.terrainHeight((part.bounds[0] + part.bounds[2]) / 2, (part.bounds[1] + part.bounds[3]) / 2)
       if (base === null || part.height === null || part.height <= part.minHeight) continue
-      const feature: MappedFeature = { id: part.id, kind: 'building', tags: {}, coordinates: part.coordinates, holes: part.holes, bounds: part.bounds }
+      const feature: MappedFeature = { id: part.id, kind: 'building', tags: {}, coordinates: part.coordinates, holes: part.holes, bounds: part.bounds,
+        overtureProperties: { roof_shape: part.roofShape, facade_material: part.facadeMaterial, roof_material: part.roofMaterial, roof_color: part.roofColor, facade_color: part.facadeColor } }
       const shape = shapeOf(feature)
       const geometry = new THREE.ExtrudeGeometry(shape, { depth: Math.min(500, part.height - part.minHeight), bevelEnabled: false, steps: 1 })
-      const color = new THREE.Color(part.roofColor && /^#[0-9a-f]{6}$/i.test(part.roofColor) ? part.roofColor : 0x72756f), colors: number[] = []
-      for (let i = 0; i < geometry.getAttribute('position').count; i++) colors.push(color.r, color.g, color.b)
-      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+      applyBuildingAppearance(geometry, buildingAppearance(feature))
       geometry.rotateX(-Math.PI / 2); geometry.translate(0, base + part.minHeight, 0)
       partGeometry.get('source-tag')!.push(geometry)
     }
@@ -488,7 +482,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       const merged = mergeBuildingGeometry(geometries)
       if (merged) {
         const mesh = new THREE.Mesh(merged, [this.roofMaterial, this.wallMaterial])
-        mesh.userData.geoLayer = 'settlement'; mesh.userData.geoHeightSource = status; mesh.userData.geoBuildingParts = geometries.length
+        mesh.userData.geoLayer = 'building'; mesh.userData.geoHeightSource = status; mesh.userData.geoBuildingParts = geometries.length
         mesh.userData.geoSource = 'Overture building_part'; mesh.receiveShadow = true; group.add(mesh)
       }
       geometries.forEach(geometry => geometry.dispose())
