@@ -64,6 +64,7 @@ jobs:
             health.states.push({ name, url: page.url(), title: await page.title(),
               status: await page.getByLabel('真实地理加载状态', { exact: true }).textContent(),
               position: await page.getByLabel('真实列车位置', { exact: true }).textContent(),
+              capturedAt: new Date().toISOString(),
               viewport: page.viewportSize() });
           }
           async function ready() {
@@ -78,6 +79,14 @@ jobs:
             // Wait for actual animation frames, then retain screenshots that a
             // human must inspect; this is not an automatic visual acceptance.
             await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          }
+          async function boardInDaylight() {
+            await page.getByText('Advanced settings', { exact: true }).click();
+            await page.getByRole('button', { name: 'Daylight', exact: true }).click();
+            await page.getByRole('button', { name: 'Clear', exact: true }).click();
+            await page.getByRole('button', { name: 'Board train', exact: true }).click();
+            await page.getByRole('button', { name: 'Board train', exact: true }).waitFor({ state: 'hidden' });
+            await ready();
           }
           (async () => {
             try {
@@ -94,9 +103,13 @@ jobs:
               });
               await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=3123.283', { waitUntil: 'domcontentloaded' });
               await ready();
+              await boardInDaylight();
               await snapshot('01-cold-spring-ride-initial');
+              const initialPosition = await page.getByLabel('真实列车位置', { exact: true }).textContent();
               await page.waitForTimeout(12000);
-              await snapshot('02-cold-spring-ride-after-12s');
+              await page.waitForFunction(initial => document.querySelector('[aria-label="真实列车位置"]')?.textContent !== initial, initialPosition, { timeout: 90000 });
+              health.movementVerified = true;
+              await snapshot('02-cold-spring-ride-moving');
               await page.keyboard.press('F5');
               await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
               await snapshot('03-geography-debug');
@@ -112,6 +125,7 @@ jobs:
               for (const [name, metres] of [['manitou', 13247.272], ['peekskill', 21083.216]]) {
                 await page.goto(`http://127.0.0.1:4173/?world=hudson&routeMetres=${metres}`, { waitUntil: 'domcontentloaded' });
                 await ready();
+                await boardInDaylight();
                 await page.waitForTimeout(4000);
                 await snapshot(`07-${name}-ride`);
               }
@@ -131,7 +145,7 @@ jobs:
             }
           })();
           NODE
-          node "$RUNNER_TEMP/chill-review.cjs"
+          timeout 600s node "$RUNNER_TEMP/chill-review.cjs"
       - uses: actions/upload-artifact@v5
         if: always()
         with:
