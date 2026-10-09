@@ -297,6 +297,29 @@ export function buildingStructureKind(feature: Pick<MappedFeature, 'tags'> & Par
   return 'building'
 }
 
+export interface PlatformRise {
+  metres: number
+  status: 'source-tag' | 'peer-estimate' | 'visual-estimate'
+  raw: string | null
+  sourceMetres: number | null
+}
+/** Keep source tags intact. Values above the rendering sanity limit remain
+ * inspectable but cannot become four-metre boarding platforms. A height from
+ * another platform in the same mapped station is an explicitly marked
+ * estimate, never an implicit reinterpretation of metres as feet. */
+export function platformRise(tags: Record<string, string>, peers: Record<string, string>[] = []): PlatformRise {
+  const raw = tags.height?.trim() || null
+  const source = buildingHeight({ tags: { height: raw ?? '' } }).metres
+  const usable = (value: number | null) => value !== null && value > 0 && value <= 2.5
+  if (usable(source)) return { metres: source!, status: 'source-tag', raw, sourceMetres: source }
+  const nearby = peers.map(peer => buildingHeight({ tags: { height: peer.height ?? '' } }).metres).filter((h): h is number => usable(h))
+  if (nearby.length) {
+    nearby.sort((a, b) => a - b)
+    return { metres: nearby[Math.floor(nearby.length / 2)], status: 'peer-estimate', raw, sourceMetres: source }
+  }
+  return { metres: 0.35, status: 'visual-estimate', raw, sourceMetres: source }
+}
+
 export async function loadHudsonData(signal?: AbortSignal) {
   const base = `${import.meta.env.BASE_URL}geodata/hudson/`
   const response = await fetch(`${base}world.json`, { signal })

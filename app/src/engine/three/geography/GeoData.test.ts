@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import * as THREE from 'three'
-import { buildingHeight, buildingStructureKind, GeoData, contains, type BuildingOverlaySnapshot, type GeoBundle } from './GeoData'
+import { buildingHeight, buildingStructureKind, platformRise, GeoData, contains, type BuildingOverlaySnapshot, type GeoBundle } from './GeoData'
 const bundle = JSON.parse(readFileSync(new URL('../../../../public/geodata/hudson/world.json', import.meta.url), 'utf8')) as GeoBundle
 const bytes = readFileSync(new URL('../../../../public/geodata/hudson/elevation.f32', import.meta.url))
 const data = new GeoData(bundle, new Float32Array(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)))
@@ -51,6 +51,13 @@ describe('Hudson source alignment', () => {
     expect(buildingHeight({ tags })).toMatchObject({ status: 'missing', metres: null })
     expect(buildingStructureKind({ tags, overtureProperties: { class: 'shelter', subtype: 'civic' } })).toBe('open-shelter')
     expect(buildingStructureKind({ tags: { building: 'yes' }, overtureProperties: { class: 'residential' } })).toBe('building')
+  })
+  it('preserves the Cold Spring platform units and labels an inconsistent source height as an estimate', () => {
+    const tags = { height: '4' }, peer = { height: "4'" }
+    expect(platformRise(peer)).toMatchObject({ metres: 1.2192, status: 'source-tag', raw: "4'", sourceMetres: 1.2192 })
+    expect(platformRise(tags, [peer])).toMatchObject({ metres: 1.2192, status: 'peer-estimate', raw: '4', sourceMetres: 4 })
+    expect(tags.height).toBe('4')
+    expect(platformRise({})).toMatchObject({ metres: 0.35, status: 'visual-estimate', sourceMetres: null })
   })
   it('merges Overture attributes into original OSM geometry and indexes only unmatched additions', () => {
     const source = bundle.features.find(feature => feature.kind === 'building')!

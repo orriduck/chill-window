@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { buildingHeight, buildingStructureKind, GeoData, type GeoPoint, type MappedFeature, type BuildingHeightStatus } from './GeoData'
+import { buildingHeight, buildingStructureKind, platformRise, GeoData, type GeoPoint, type MappedFeature, type BuildingHeightStatus } from './GeoData'
 import { GeoForest, type ForestPlacement } from './GeoForest'
 import { hash01 } from '../core/procedural'
 import { groundGrassTex, groundRockTex, geographicTexturesReady } from '../textures'
@@ -53,6 +53,7 @@ export class RealWorld {
   readonly ready: Promise<void>
   private background: THREE.Mesh | null = null
   private landMask: THREE.CanvasTexture
+  private landPixels!: Uint8ClampedArray
   private forest = new GeoForest()
   private distantForest = new GeoForest('far')
   private distantForestGroup = new THREE.Group()
@@ -93,6 +94,7 @@ export class RealWorld {
   private suddenAppearanceFrames = 0
   private prefetchPending = 0
   private preparationTarget: number | null = null
+  private advanceTarget: number | null = null
   get streamingStats() {
     return { cached: this.chunks.size, visible: [...this.chunks.values()].filter(c => c.group.visible).length,
       pending: this.pending, preloadMetres: PRELOAD_METRES, nearestMissingMetres: this.nearestMissingMetres,
@@ -178,6 +180,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     return [...this.tilesAt(pose.x, pose.z).keys()].every(key => this.chunks.has(key))
   }
   prepareAt(s: number | null) { this.preparationTarget = s }
+  prepareAdvance(s: number | null) { this.advanceTarget = s }
   /** Rail-bed correction is a narrow engineering visualization, not a new
    * geographical landform. Bridges/tunnels keep their ground DEM below/above. */
   terrainHeight(x: number, z: number) {
@@ -214,6 +217,13 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     }
     const preparing = this.preparationTarget === null ? null : this.data.pose(this.preparationTarget)
     if (preparing) for (const [key, tile] of this.tilesAt(preparing.x, preparing.z)) required.set(key, tile)
+    if (this.advanceTarget !== null) {
+      const next = this.data.pose(this.advanceTarget)
+      // A bend between the 256m route samples may enter a corner tile that
+      // none of those samples cover. Always queue the exact motion target,
+      // or the coverage guard could hold the train without building it.
+      for (const [key, tile] of this.tilesAt(next.x, next.z)) required.set(key, tile)
+    }
     const missing = [...required.entries()].filter(([key]) => !this.chunks.has(key))
       .map(([key, tile]) => {
         const centerX = (tile.x + 0.5) * TILE, centerZ = (tile.z + 0.5) * TILE
@@ -279,7 +289,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       const hx0 = this.terrainHeight(x - 4, z) ?? h ?? 0, hx1 = this.terrainHeight(x + 4, z) ?? h ?? 0
       const hz0 = this.terrainHeight(x, z - 4) ?? h ?? 0, hz1 = this.terrainHeight(x, z + 4) ?? h ?? 0
       const normal = new THREE.Vector3(hx0 - hx1, 8, hz0 - hz1).normalize(); normals.push(normal.x, normal.y, normal.z)
-      const forest = this.data.landAt(x, z, 'forest'), farm = this.data.landAt(x, z, 'farmland')
+      const { forest, farm } = this.sampleLand(x, z)
       const tint = new THREE.Color(forest ? 0xabb49a : farm ? 0xc8c092 : 0xc4c4aa)
       tint.multiplyScalar(0.97 + hash01(Math.floor(x / 20), Math.floor(z / 20)) * 0.06)
       colors.push(tint.r, tint.g, tint.b)
@@ -544,7 +554,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     for (let col = 0; col < 16; col++) for (let row = 0; row < 16; row++) {
       const x = x0 + col * 16 + 8 + (hash01(col + x0, row + z0) - 0.5) * 9
       const z = z0 + row * 16 + 8 + (hash01(row + z0, col + x0, 9) - 0.5) * 9
-      if (!this.data.landAt(x, z, 'forest') || this.data.landAt(x, z, 'water') || this.data.landAt(x, z, 'building') || this.data.railProximity(x, z).distance < 12) continue
+      if (!this.sampleLand(x, z).forest || this.data.landAt(x, z, 'building') || this.data.railProximity(x, z).distance < 12) continue
       const height = this.terrainHeight(x, z)
       if (height === null) continue
       const delta = Math.abs((this.terrainHeight(x + 4, z) ?? height) - (this.terrainHeight(x - 4, z) ?? height))
@@ -569,7 +579,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     }
     for (let x = Math.ceil(minX / 48) * 48; x < maxX; x += 48) for (let z = Math.ceil(minZ / 48) * 48; z < maxZ; z += 48) {
       const px = x + (hash01(x, z, 21) - 0.5) * 38, pz = z + (hash01(x, z, 22) - 0.5) * 38
-      if (!this.data.landAt(px, pz, 'forest') || this.data.landAt(px, pz, 'water') || this.data.landAt(px, pz, 'building')) continue
+      if (!this.sampleLand(px, pz).forest || this.data.landAt(px, pz, 'building')) continue
       const y = displayedHeight(px, pz); if (y === null) continue
       const key = `${Math.floor(px / 1024)},${Math.floor(pz / 1024)}`
       const batch = regions.get(key) ?? []
@@ -588,7 +598,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     const ctx = canvas.getContext('2d')!
     const [minX, minZ, maxX, maxZ] = this.data.bundle.dem.bounds
     ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height)
-    for (const kind of ['forest', 'water'] as const) for (const feature of this.data.features) if (feature.kind === kind) {
+    for (const kind of ['farmland', 'forest', 'water'] as const) for (const feature of this.data.features) if (feature.kind === kind) {
       ctx.beginPath()
       for (const ring of [feature.coordinates, ...feature.holes]) {
         ring.forEach((point, i) => {
@@ -596,11 +606,23 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
         }); ctx.closePath()
       }
-      ctx.fillStyle = kind === 'water' ? '#ff0000' : '#00ff00'; ctx.fill('evenodd')
+      ctx.fillStyle = kind === 'water' ? '#ff0000' : kind === 'forest' ? '#00ff00' : '#0000ff'; ctx.fill('evenodd')
     }
+    this.landPixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
     const texture = new THREE.CanvasTexture(canvas)
     texture.minFilter = THREE.LinearFilter; texture.magFilter = THREE.LinearFilter; texture.generateMipmaps = false
     return texture
+  }
+  private sampleLand(x: number, z: number) {
+    const [minX, minZ, maxX, maxZ] = this.data.bundle.dem.bounds
+    if (x < minX || x > maxX || z < minZ || z > maxZ) return { forest: false, farm: false }
+    const col = Math.min(4095, Math.floor((x - minX) / (maxX - minX) * 4096))
+    const row = Math.min(4095, Math.floor((maxZ - z) / (maxZ - minZ) * 4096))
+    const index = (row * 4096 + col) * 4
+    // Reuse the same rasterized source polygons as the terrain shader. Only
+    // strongly covered pixels plant trees, avoiding antialiased water edges.
+    const water = this.landPixels[index] > 50
+    return { forest: !water && this.landPixels[index + 1] > 200, farm: !water && this.landPixels[index + 2] > 200 }
   }
   private buildWater() {
     for (const feature of this.data.features) if (feature.kind === 'water' && feature.coordinates.length >= 3) {
@@ -623,15 +645,14 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       for (const platform of station.platforms) {
         const ground = platform.coordinates.map(point => this.terrainHeight(point.x, point.z)).filter((value): value is number => value !== null)
         if (!ground.length) continue
-        const rawHeight = platform.tags.height?.trim()
-        const match = rawHeight?.match(/^\s*(\d+(?:\.\d+)?)\s*(m|meter|meters|metre|metres|ft|feet|')?\s*$/i)
-        const taggedRise = match ? Number(match[1]) * (/^(ft|feet|')$/i.test(match[2] ?? '') ? 0.3048 : 1) : null
-        const y = ground.reduce((sum, value) => sum + value, 0) / ground.length + (taggedRise !== null && taggedRise <= 10 ? taggedRise : 0.35)
+        const rise = platformRise(platform.tags, station.platforms.filter(peer => peer !== platform).map(peer => peer.tags))
+        const y = this.data.railHeight(station.sMetres) + rise.metres
         if (platform.closed) {
           const shape = shapeOf({ ...platform, kind: 'rail', holes: [] })
           const geometry = new THREE.ShapeGeometry(shape); geometry.rotateX(-Math.PI / 2); geometry.translate(0, y, 0)
           const mesh = new THREE.Mesh(geometry, this.platformMaterial)
           mesh.userData.station = station.name; mesh.userData.sourceId = platform.id; mesh.userData.association = platform.association.method
+          mesh.userData.heightSource = rise
           mesh.renderOrder = 15; this.stationGroup.add(mesh)
           const points = platform.coordinates.map(point => new THREE.Vector3(point.x, y + 0.08, point.z))
           const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), this.platformOutlineMaterial)

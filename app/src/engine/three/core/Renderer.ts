@@ -21,6 +21,7 @@ export class WebGLRenderer {
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+    this.renderer.info.autoReset = false
     this.updatePixelRatio(window.innerWidth, window.innerHeight)
     this.renderer.setClearColor(0x111111)
     this.renderer.shadowMap.enabled = true
@@ -32,6 +33,7 @@ export class WebGLRenderer {
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera, foreground?: THREE.Scene) {
+    this.renderer.info.reset()
     this.renderer.render(scene, camera)
     if (foreground) {
       // The carriage is a separate foreground pass. Transparent exterior

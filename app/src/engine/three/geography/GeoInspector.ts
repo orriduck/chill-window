@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import { buildingHeight, buildingStructureKind, type GeoData, type MappedFeature } from './GeoData'
+import { buildingHeight, buildingStructureKind, platformRise, type GeoData, type MappedFeature } from './GeoData'
 import type { RealWorld } from './RealWorld'
 
 export interface GeoCommand { editing?: boolean; jump?: number; recenter?: boolean; time?: 'day' | 'night'; weather?: 'clear' | 'rain' }
@@ -32,6 +32,7 @@ export class GeoInspector {
   private buildingStats = document.createElement('output')
   private streamingStats = document.createElement('output')
   private stationReadout = document.createElement('output')
+  private performanceReadout = document.createElement('output')
   private buildingQuery = document.createElement('input')
   private buildingSource = document.createElement('output')
   private lastPointer: [number, number] = [0, 0]
@@ -75,6 +76,7 @@ export class GeoInspector {
     this.buildingStats.setAttribute('aria-label', '真实建筑数据统计'); this.buildingStats.style.cssText = 'display:block;padding:8px;background:#e5e5d6;border-radius:6px;font-size:11px;line-height:1.7;margin:10px 0;'
     this.streamingStats.setAttribute('aria-label', '地理区块流式加载诊断'); this.streamingStats.style.cssText = 'display:block;padding:8px;background:#dce6d8;border-radius:6px;font-size:11px;line-height:1.65;margin:8px 0;'
     this.stationReadout.setAttribute('aria-label', 'Metro-North 实际车站'); this.stationReadout.style.cssText = 'display:block;padding:8px;background:#e8e1d2;border-radius:6px;font-size:11px;line-height:1.65;margin:8px 0;'
+    this.performanceReadout.setAttribute('aria-label', '地理渲染性能'); this.performanceReadout.style.cssText = this.streamingStats.style.cssText
     this.buildingQuery.type = 'search'; this.buildingQuery.placeholder = '查询 OSM ID / GERS ID'; this.buildingQuery.setAttribute('aria-label', '查询建筑源记录 ID 或 GERS ID'); this.buildingQuery.style.cssText = this.checkpoint.style.cssText + 'margin:4px 0;'
     this.buildingQuery.addEventListener('change', () => this.showBuildingById(this.buildingQuery.value))
     this.buildingSource.setAttribute('aria-label', '建筑来源记录详情'); this.buildingSource.style.cssText = 'display:block;min-height:44px;font-size:11px;line-height:1.6;overflow-wrap:anywhere;'
@@ -97,7 +99,7 @@ export class GeoInspector {
       input.setAttribute('aria-label', `真实地理${name}`); input.onchange = () => { this.layers[key] = input.checked }
       label.append(input, document.createTextNode(name)); layers.append(label)
     }
-    this.panel.append(title, description, layers, this.buildingStats, this.streamingStats, this.stationReadout, this.buildingQuery, this.buildingSource, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, notes, credits)
+    this.panel.append(title, description, layers, this.buildingStats, this.streamingStats, this.performanceReadout, this.stationReadout, this.buildingQuery, this.buildingSource, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, notes, credits)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
     this.applyVisibility()
@@ -131,6 +133,9 @@ export class GeoInspector {
     if (this.real && !this.data) this.status.textContent = this.error ? `真实数据加载失败 · ${this.error}` : '正在加载真实路线 / 高程 / 地物…'
   }
   resize(width: number, height: number) { this.camera.aspect = width / Math.max(1, height); this.camera.updateProjectionMatrix() }
+  setPerformance(fps: number, frameMs: number, submitMs: number, info: THREE.WebGLInfo) {
+    this.performanceReadout.textContent = `${fps} FPS · 帧间隔 ${frameMs.toFixed(1)}ms · CPU 提交 ${submitMs.toFixed(1)}ms\n绘制 ${info.render.calls} 次 · 三角形 ${Math.round(info.render.triangles).toLocaleString()} · 几何 ${info.memory.geometries} · 纹理 ${info.memory.textures}`
+  }
   recenter(s: number) {
     if (!this.data) return
     this.progress.value = String(s); this.refreshPreview()
@@ -149,7 +154,10 @@ export class GeoInspector {
     this.streamingStats.textContent = `预加载队列 ${stream.prefetchPending} · 前方缓冲 ${stream.preloadMetres}m · 最近未建 ${stream.nearestMissingMetres}m\n缓存 ${stream.cached}（当前视野 ${stream.visible}/49）· 最近/最高建块 ${stream.lastBuildMs.toFixed(1)}/${stream.maxBuildMs.toFixed(1)}ms\n视野缺块 ${stream.visibleMissing} · 行驶缺块帧 ${stream.suddenAppearanceFrames} · ${stream.assets}`
     const nearest = this.data.stations.filter(station => station.inCurrentRoute).sort((a, b) => Math.abs(a.sMetres - s) - Math.abs(b.sMetres - s))[0]
     this.stationReadout.textContent = nearest
-      ? `${nearest.name} · Metro-North Hudson Line · 经行站（Empire Service 不停靠）\n距样板线路里程 ${Math.round(nearest.sMetres - s)}m · ${nearest.platforms.length} 条 OSM 站台几何 · 活动站台源 ID: ${nearest.platforms.map(platform => platform.id).join(', ')}`
+      ? `${nearest.name} · Metro-North Hudson Line · 经行站（Empire Service 不停靠）\n距样板线路里程 ${Math.round(nearest.sMetres - s)}m · ${nearest.platforms.length} 条 OSM 站台几何\n${nearest.platforms.map(platform => {
+        const rise = platformRise(platform.tags, nearest.platforms.filter(peer => peer !== platform).map(peer => peer.tags))
+        return `${platform.id} · 轨面上 ${rise.metres.toFixed(2)}m ${rise.status === 'source-tag' ? '源标签' : '画面估值'}${rise.raw ? `（原 height=${rise.raw}${rise.status === 'peer-estimate' ? '，未采用原值；参考同站另一站台' : ''}）` : '（来源缺高）'}`
+      }).join('\n')}`
       : '当前真实路线包没有可用 Metro-North 站点记录。'
   }
   private refreshPreview() {

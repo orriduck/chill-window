@@ -60,15 +60,17 @@ jobs:
           };
           let browser, context, page;
           async function snapshot(name) {
-            await page.screenshot({ path: path.join(output, name + '.png') });
             health.states.push({ name, url: page.url(), title: await page.title(),
               status: await page.getByLabel('真实地理加载状态', { exact: true }).textContent(),
               position: await page.getByLabel('真实列车位置', { exact: true }).textContent(),
               streaming: await page.getByLabel('地理区块流式加载诊断', { exact: true }).textContent(),
               buildings: await page.getByLabel('真实建筑数据统计', { exact: true }).textContent(),
               station: await page.getByLabel('Metro-North 实际车站', { exact: true }).textContent(),
+              performance: await page.getByLabel('地理渲染性能', { exact: true }).textContent(),
               capturedAt: new Date().toISOString(),
               viewport: page.viewportSize() });
+            await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
+            await page.screenshot({ path: path.join(output, name + '.png'), timeout: 90000 });
           }
           async function ready() {
             await page.getByLabel('真实地理加载状态', { exact: true }).waitFor();
@@ -94,7 +96,7 @@ jobs:
           (async () => {
             try {
               browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
-              context = await browser.newContext({ viewport: { width: 1440, height: 900 }, recordVideo: { dir: output, size: { width: 1440, height: 900 } } });
+              context = await browser.newContext({ viewport: { width: 1280, height: 720 }, recordVideo: { dir: output, size: { width: 1280, height: 720 } } });
               page = await context.newPage();
               page.setDefaultTimeout(30000);
               page.on('console', message => {
@@ -154,7 +156,10 @@ jobs:
             } catch (error) {
               health.runtimePassed = false;
               health.failure = String(error.stack ?? error);
-              if (page) await page.screenshot({ path: path.join(output, 'failure.png') }).catch(() => {});
+              if (page) {
+                health.finalDiagnostic = await page.evaluate(() => Object.fromEntries(['真实地理加载状态', '真实列车位置', '地理区块流式加载诊断', '地理渲染性能'].map(label => [label, document.querySelector(`[aria-label="${label}"]`)?.textContent]))).catch(() => ({}));
+                await page.screenshot({ path: path.join(output, 'failure.png'), timeout: 10000 }).catch(() => {});
+              }
               process.exitCode = 1;
             } finally {
               await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));

@@ -189,3 +189,11 @@
 | [Three.js InstancedBufferAttribute](https://threejs.org/docs/pages/InstancedBufferAttribute.html)、[WebGLRenderer compileAsync](https://threejs.org/docs/pages/WebGLRenderer.html) 与当前已安装 Three.js API | 每株树用实例属性选择图集单元，一块最多两个森林批次；等待纹理、整个初始7×7可视范围及同宽1536m前方缓冲，再编译材质。缓存最多256块，尚未备妥的目标区域不会推进列车；跳转先准备目标块。时段/天气修改不重新创建地理世界。只有云端运动检查才能证明连续运行状态，不把这些代码机制或构建成功视为完整验收。 | `GeoForest.ts`、`RealWorld.ts`、`ThreeCanvas.tsx`、`core/Renderer.ts`、云端截图 workflow |
 
 本次没有运行或集成 OSM2World/Blosm，也没有获得当地建筑逐栋立面纹理。正常车窗用中性墙面，调试模式才用源高度/模型估计分色；建筑 roof/wall 合并成每类两组，建筑 part 同样保留材质组，防止构件不绘制及逐栋 draw call 膨胀。此段描述是实现状态，新版视觉检查结果待云端 artifact 核对后另行报告。
+
+### 站台高度基准与性能诊断修正
+
+2026-10-09 核查 [OSM railway=platform_edge 文档](https://wiki.openstreetmap.org/wiki/Tag:railway%3Dplatform_edge) 中 height above the rails 的定义。渲染站台升高改以当前平滑轨面为基准，不叠加平均DEM地面。Cold Spring `way/1131682757` 的原 height=4 原样保留，2.5m 的显示合理性上限是项目的异常值保护规则，不是测量或通用铁路规范；本对象显示时参考同站 `way/97522334` 明确的4英尺标签，并标为同站估计（1.2192m），不把4默默解释为英尺。Manitou 缺失高度的0.35m是画面估值。逐站台显示原值、使用值与估计说明，关联 `GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts`。
+
+云端 run37993781339 在首次桌面截图超30秒失败，无请求失败或shader错误，KHR_parallel_shader_compile不支持为警告。已从录制视频查看60秒/150秒原始帧：初始预热仍逐帧进行，完成后有顶棚和纹理树，但连续运动及画面质量尚未验收。新诊断保留截图前的DOM与帧性能（FPS/帧间隔/CPU提交/全场景绘制量），后续截图使用1280×720桌面和390×844移动视口，明确软件渲染条件。
+
+地表着色和森林采样复用4096² OSM 土地覆盖掩码，减少重复遍历复杂林地/水域多边形；这是和GPU掩码一致的显示栅格，未改原始几何。预测队列同时加入实际下一步位置，避免256m预测采样之间的弯道角块未进入队列而导致列车等待。

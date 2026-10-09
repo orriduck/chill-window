@@ -147,9 +147,11 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       if (command.time) time.setPreset(command.time)
       if (command.weather) weather.setOverride(command.weather === 'rain' ? WeatherType.RAIN : WeatherType.CLEAR)
       const inspection = debug.isTopDown, simulationDt = paused || inspection || !world ? 0 : dt
+      inspector.setEditing(inspection, camera.z)
       if (!paused && !inspection && world) elapsed += motionDt
       if (data && world && camera.targetSpeed > 0 && data.length - camera.z <= TrainCamera.STATION_STOP_DISTANCE) camera.beginStationApproach(data.length)
       const nextS = camera.z + Math.max(camera.currentSpeed, camera.targetSpeed) * motionDt
+      world?.prepareAdvance(worldReady && !inspection ? nextS : null)
       const coverageReady = worldReady && !!world?.canAdvance(nextS)
       camera.update(motionDt, !paused && !inspection && pendingJump === null && coverageReady)
       if (data && camera.z >= data.length) { camera.setZ(data.length); camera.setTargetSpeed(0); camera.currentSpeed = 0 }
@@ -164,14 +166,16 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       sun.color.copy(state.dirColor); sun.intensity = state.dirIntensity * (1 - tunnel * 0.92); sun.position.copy(state.dirPosition).add(viewPosition); sun.target.position.copy(viewPosition)
       const fog = scene.scene.fog as THREE.Fog; fog.color.copy(state.fogColor); fog.near = THREE.MathUtils.lerp(1100, 8, tunnel); fog.far = THREE.MathUtils.lerp(6000, 130, tunnel)
       if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers)
-      inspector.setEditing(inspection, camera.z); inspector.update(camera.z, world)
+      inspector.update(camera.z, world)
       const cabinDarkness = Math.max(state.starOpacity, tunnel); interiorAmbient.intensity = THREE.MathUtils.lerp(0.85, 0.4, cabinDarkness); interiorKey.intensity = THREE.MathUtils.lerp(0.65, 0.2, cabinDarkness)
       windowFrame.update(viewCamera, elapsed, weather.current === WeatherType.RAIN, Math.min(1, camera.currentSpeed / CRUISE_SPEED), tunnel, ambient.intensity)
       const savedFogNear = fog.near, savedFogFar = fog.far
       if (inspection) { fog.near = 5000; fog.far = 15000; scene.scene.background = new THREE.Color(0xcbd7c5) }
+      const renderStart = performance.now()
       renderer.render(scene.scene, viewCamera, inspection ? undefined : interiorScene)
       if (inspection) { fog.near = savedFogNear; fog.far = savedFogFar; scene.scene.background = null }
       perf.update()
+      inspector.setPerformance(perf.currentFps, perf.currentFrameTime, performance.now() - renderStart, renderer.renderer.info)
     }
     rafRef.current = requestAnimationFrame(loop)
     const resize = () => { const size = container.getBoundingClientRect(); camera.updateAspect(size.width, size.height); inspector.resize(size.width, size.height); renderer.resize(size.width, size.height) }
