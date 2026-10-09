@@ -124,6 +124,11 @@ jobs:
               const departure = await page.getByLabel('地理运动门控', { exact: true }).textContent();
               if (!departure.includes('请求/目标速度 44.4/44.4m/s')) throw new Error(`Queued departure was lost: ${departure}`);
               health.earlyBoardDepartureVerified = true;
+              const prepared = await page.getByLabel('地理区块流式加载诊断', { exact: true }).textContent();
+              if (!/GPU 离屏预热 [\d.]+ms · 已完成/.test(prepared)) throw new Error(`World was presented before GPU warmup: ${prepared}`);
+              if (!prepared.includes('远景建筑 34,326 组件')) throw new Error(`Distant source buildings were not prepared: ${prepared}`);
+              health.initialGpuPreparationVerified = true;
+              health.distantBuildingsPreparedVerified = true;
               await snapshot('01-cold-spring-ride-initial');
               const initialPosition = await page.getByLabel('真实列车位置', { exact: true }).textContent();
               await page.waitForTimeout(12000);
@@ -175,6 +180,12 @@ jobs:
               }
               if (await page.getByLabel('真实列车位置', { exact: true }).textContent() !== beforeRemoteMap) throw new Error('Inspecting remote geography moved the train');
               await snapshot('03c-remote-map-keeps-train');
+              await page.getByLabel('真实地理林木', { exact: true }).uncheck();
+              await snapshot('03g-distant-city-buildings');
+              await page.getByLabel('真实地理远景建筑', { exact: true }).uncheck();
+              await snapshot('03h-distant-buildings-hidden');
+              await page.getByLabel('真实地理远景建筑', { exact: true }).check();
+              await page.getByLabel('真实地理林木', { exact: true }).check();
               await page.keyboard.press('Escape');
               await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'hidden' });
               const returned = await page.getByLabel('地理区块流式加载诊断', { exact: true }).textContent();

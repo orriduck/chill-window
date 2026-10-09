@@ -24,7 +24,7 @@ export class GeoInspector {
   private jump: HTMLButtonElement
   private time = document.createElement('select')
   private weather = document.createElement('select')
-  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, water: true, farmland: true, stations: true, sourceLandCover: false }
+  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, water: true, farmland: true, stations: true, sourceLandCover: false }
   private pending: GeoCommand = {}
   private data: GeoData | null = null
   private real = true
@@ -103,7 +103,7 @@ export class GeoInspector {
       const link = document.createElement('a'); link.textContent = name; link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.style.color = '#506b51'; credits.append(link)
     }
     const layers = document.createElement('div'); layers.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin:10px 0;'
-    for (const [key, name] of [['ground', '地表'], ['vegetation', '林木'], ['buildings', '建筑'], ['settlements', '道路'], ['stations', 'Metro-North 站台'], ['water', '水域'], ['sourceLandCover', 'NLCD 分类对照']] as const) {
+    for (const [key, name] of [['ground', '地表'], ['vegetation', '林木'], ['buildings', '建筑'], ['farBuildings', '远景建筑'], ['settlements', '道路'], ['stations', 'Metro-North 站台'], ['water', '水域'], ['sourceLandCover', 'NLCD 分类对照']] as const) {
       const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.checked = this.layers[key]
       input.setAttribute('aria-label', `真实地理${name}`); input.onchange = () => { this.layers[key] = input.checked }
       label.append(input, document.createTextNode(name)); layers.append(label)
@@ -173,6 +173,9 @@ export class GeoInspector {
     this.status.textContent = this.error ? `真实场景加载失败 · ${this.error}` : `${stream.visible}/49 可视区块 · 缓存 ${stream.cached} · DEM 20m${!stream.ready ? ' · 正在加载周边场景' : stream.pending ? ' · 预建中' : ' · 场景就绪'}`
     this.position.textContent = `${(pose.s / 1000).toFixed(2)} / ${(this.data.length / 1000).toFixed(2)} km · ${pose.latitude.toFixed(5)}, ${pose.longitude.toFixed(5)}${s >= this.data.length - 0.01 ? ' · 样板终点' : ''}`
     this.streamingStats.textContent = `预加载队列 ${stream.prefetchPending} · 前方缓冲 ${stream.preloadMetres}m · 最近未建 ${stream.nearestMissingMetres}m\n缓存 ${stream.cached}（当前视野 ${stream.visible}/49）· 最近/最高建块 ${stream.lastBuildMs.toFixed(1)}/${stream.maxBuildMs.toFixed(1)}ms\n视野缺块 ${stream.visibleMissing} · 行驶缺块帧 ${stream.suddenAppearanceFrames} · ${stream.assets}`
+    const distant = stream.distantBuildings
+    this.streamingStats.textContent += `\nGPU 离屏预热 ${stream.gpuWarmupMs === null ? '待完成' : `${stream.gpuWarmupMs.toFixed(0)}ms · 已完成`} · 后续待上传 ${stream.pendingGpu}`
+    this.streamingStats.textContent += `\n远景建筑 ${distant.components.toLocaleString()} 组件 · ${distant.regions} 区域 / ${distant.meshes} 合批\n一次准备 ${distant.prepareMs.toFixed(0)}ms · 几何 ${(distant.geometryBytes / 1048576).toFixed(1)}MiB · ${distant.triangles.toLocaleString()} 三角形`
     const nearest = this.data.stations.filter(station => station.inCurrentRoute).sort((a, b) => Math.abs(a.sMetres - s) - Math.abs(b.sMetres - s))[0]
     this.stationReadout.textContent = nearest
       ? `${nearest.name} · Metro-North Hudson Line · 经行站（Empire Service 不停靠）\n距样板线路里程 ${Math.round(nearest.sMetres - s)}m · ${nearest.platforms.length} 条 OSM 站台几何\n${nearest.platforms.map(platform => {

@@ -84,6 +84,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     let disposed = false, paused = false, elapsed = 0, requestedSpeed = 0, worldReady = false
     let pendingDeparture = false
     let pendingJump: number | null = null
+    let gpuChunkInFlight = false
     let motionSampleTime = performance.now(), motionSampleZ = camera.z, measuredSpeed = 0, previousTime = motionSampleTime
     const abort = new AbortController()
     const motionSpeed = () => paused || debug.isTopDown || !world ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH
@@ -119,10 +120,16 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       camera.setZ(startS)
       camera.setRailProfile({ height: s => route.railHeight(s), grade: s => route.railGrade(s) }); inspector.setData(route)
       void world.ready
-        .then(() => renderer.warmup(scene.scene, camera.getCamera()))
+        .then(async () => {
+          if (!disposed && world) {
+            const prepared = world.captureGpuChunks()
+            await renderer.warmup(scene.scene, camera.getCamera(), world.group)
+            if (!disposed) world.markGpuChunks(prepared)
+          }
+        })
         .then(() => {
           if (!disposed && world) {
-            world.presentable = true; worldReady = true
+            world.gpuWarmupMs = renderer.warmupMs; world.presentable = true; worldReady = true
             if (pendingDeparture) { camera.departStation(requestedSpeed); pendingDeparture = false }
             else camera.setTargetSpeed(requestedSpeed)
           }
@@ -177,6 +184,16 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       sun.color.copy(state.dirColor); sun.intensity = state.dirIntensity * (1 - tunnel * 0.92); sun.position.copy(state.dirPosition).add(viewPosition); sun.target.position.copy(viewPosition)
       const fog = scene.scene.fog as THREE.Fog; fog.color.copy(state.fogColor); fog.near = THREE.MathUtils.lerp(1100, 8, tunnel); fog.far = THREE.MathUtils.lerp(6000, 130, tunnel)
       if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers)
+      if (worldReady && world && !gpuChunkInFlight) {
+        const prepared = world.takeGpuChunk()
+        if (prepared) {
+          gpuChunkInFlight = true
+          void renderer.preload(scene.scene, camera.getCamera(), prepared)
+            .then(() => { if (!disposed) world?.markGpuChunks([prepared]) })
+            .catch(error => { if (!disposed && world) { worldReady = false; world.presentable = false; inspector.fail(`区块 GPU 预热失败：${error.message}`) } })
+            .finally(() => { gpuChunkInFlight = false })
+        }
+      }
       inspector.update(camera.z, world)
       const cabinDarkness = Math.max(state.starOpacity, tunnel); interiorAmbient.intensity = THREE.MathUtils.lerp(0.85, 0.4, cabinDarkness); interiorKey.intensity = THREE.MathUtils.lerp(0.65, 0.2, cabinDarkness)
       windowFrame.update(viewCamera, elapsed, weather.current === WeatherType.RAIN, Math.min(1, camera.currentSpeed / CRUISE_SPEED), tunnel, ambient.intensity)

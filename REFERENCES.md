@@ -238,3 +238,14 @@ run37997465057 实际行驶710m、六次missing/late均0；已查看截图确认
 俯视自由平移时，required缓存同时保护实际列车位置的49块；不会因为查看远处多个区段而逐出返回时立刻可见的建筑/地面。新增情景连续查看Manitou/Peekskill但不应用列车跳转，然后Esc返回即查missing/late=0，再执行原来的Garrison跳转检查。此项是新的缓存交互验证，待云端运行；不把静态源码规则本身视为通过。
 
 2026-10-09 云端交互复核：[run 38000427779](https://github.com/orriduck/chill-window/actions/runs/38000427779)，对应 `bbf32c5`。已读取 health.json 并查看返回车窗与 Peekskill 图片：加载前点击 Board 的排队发车、远处 Manitou/Peekskill 俯视后立即 Esc 返回均通过；连续实际推进 810m 的六次抽查缺块/迟到帧均为0。软件 SwiftShader 的帧率不代表硬件表现，未验证整段22.84km。图片仍可辨认近景交叉树贴片，树木质感目标未完成。此结果不包含本次建筑材质新代码的视觉验收。
+
+
+## 2026-10-09：整段远景建筑与 GPU 提前准备
+
+核查依据仍是上文实际 OSM/Overture 建筑和 USGS DEM，不增加随机建筑。新 `GeoDistantBuildings.ts` 在启动时一次准备全数据范围，按1024m区域、来源高度状态与结构类型合批。保留外环/内洞、已知高度、min_height、墙/屋顶颜色与已支持的源 pyramidal 屋顶；无高度建筑保持平面，开放遮棚沿用明确标注的3.6m画面估算，不增加实墙。近/远景都用同一来源中心在650–740m过渡；互补屏幕像素裁切避免两个独立alpha测试留下空洞。远景在3–4.5km淡出，分区始终保留而不随移动重建。
+
+当前整段真实数据 Node 核验：34,326组件，29,818挤出建筑、4,362平面足迹、28开放遮棚；115个中心缺DEM、3个源高度/min_height组合无有效体积而省略，另有1个有效part。337区域644合批、556,963三角形、48,487,934几何缓冲字节；一次准备约339ms。该数字是CPU/几何测量，不是浏览器帧率或视觉验收。核验全部索引范围、顶点/中心坐标有限；单独验证院落孔洞的屋面面积和法线、源抬高范围、开放结构与无高度处理。代码：`GeoDistantBuildings.data.test.ts`、`GeoDistantBuildings.test.ts`。
+
+已读本地安装 Three.js `WebGLRenderer.js` 的 compile/compileAsync 实现并对照[官方 renderer 文档](https://threejs.org/docs/pages/WebGLRenderer.html)：编译遍历隐藏对象的材质，不能据此说几何已上传。`core/Renderer.ts` 增加16×16离屏提交，用原对象/实例缓冲、保留灯光和父坐标；同步pass结束立即恢复显隐和渲染目标，然后通过[WebGL2 fenceSync](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/fenceSync)及非阻塞clientWaitSync等待GPU完成，不调用gl.finish。初始全世界及后续新近景区块均先提交；后续只绘制被准备区块，避免额外整世界提交。`RealWorld.canAdvance`现在要求下一位置49块的gpuReady，`ThreeCanvas.tsx`完成后才标记，调试诊断展示待上传队列。该新路径待云端实际运行、着色器编译与图片核验；硬件平滑度和全路线连续性仍未证明。
+
+树模型候选再次核查：[Poly Haven Pine Tree 01](https://polyhaven.com/a/pine_tree_01)、[官方 files API](https://api.polyhaven.com/files/pine_tree_01)、[许可](https://polyhaven.com/license)。实际读取1k glTF（MD5 9bc0153071011411957a74e473d24858）只含3个LOD0，共17,182,252三角形，bin948,849,556bytes；1k表示纹理档，不代表低几何LOD，未把该大包接入场景。[LOLIPOP Maple 作者页](https://sketchfab.com/3d-models/maple-trees-pack-lowpoly-game-ready-lods-b5d2833c258f4054a01ee2b4ef85adf0)提供成熟17–20m及LOD2约2825–5321tri的CC Attribution候选；下载认证尚未解决，不使用viewer提取绕过下载。Poly Haven Tree Small02源种为Burkea africana，继续排除。独立云端任务正处理其他合法公开温带静态模型，尚未进入本次运行代码。

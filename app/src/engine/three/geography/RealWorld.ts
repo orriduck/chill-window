@@ -5,6 +5,7 @@ import { applyBuildingAppearance, buildingAppearance } from './GeoBuilding'
 import { GeoForest, type ForestPlacement } from './GeoForest'
 import { pyramidalRoof } from './GeoRoof'
 import { LAND_COVER } from './GeoLandCover'
+import { createBuildingFadeController, installBuildingDistanceFade, prepareDistantBuildings, setBuildingCenterAttribute, type DistantBuildingSet } from './GeoDistantBuildings'
 import { hash01 } from '../core/procedural'
 import { groundGrassTex, groundRockTex, geographicTexturesReady } from '../textures'
 
@@ -19,7 +20,7 @@ const BROADLEAF_VARIANTS = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 14, 15]
 const EVERGREEN_VARIANTS = [8, 9, 12, 13]
 const MIXED_VARIANTS = [...BROADLEAF_VARIANTS, ...EVERGREEN_VARIANTS]
 interface RealChunk { group: THREE.Group; ground: THREE.Mesh; x: number; z: number }
-interface CachedChunk extends RealChunk { lastUsed: number }
+interface CachedChunk extends RealChunk { lastUsed: number; gpuReady: boolean; gpuPreparing: boolean }
 const shapeOf = (feature: MappedFeature) => {
   const shape = new THREE.Shape(feature.coordinates.map(p => new THREE.Vector2(p.x, -p.z)))
   for (const hole of feature.holes) shape.holes.push(new THREE.Path(hole.map(p => new THREE.Vector2(p.x, -p.z))))
@@ -68,8 +69,11 @@ export class RealWorld {
   private forest = new GeoForest()
   private distantForest = new GeoForest('far')
   private distantForestGroup = new THREE.Group()
+  private nearBuildingFade = createBuildingFadeController('near')
+  private distantBuildings: DistantBuildingSet
   private textureFailures = 0
   presentable = false
+  gpuWarmupMs: number | null = null
   private disposed = false
   private frame = 0
   private waterGroup = new THREE.Group()
@@ -110,7 +114,7 @@ export class RealWorld {
     return { cached: this.chunks.size, visible: [...this.chunks.values()].filter(c => c.group.visible).length,
       pending: this.pending, preloadMetres: PRELOAD_METRES, nearestMissingMetres: this.nearestMissingMetres,
       lastBuildMs: this.lastBuildMs, maxBuildMs: this.maxBuildMs, visibleMissing: this.visibleMissing,
-      suddenAppearanceFrames: this.suddenAppearanceFrames, assets: this.assetStatus, ready: this.presentable, prefetchPending: this.prefetchPending }
+      suddenAppearanceFrames: this.suddenAppearanceFrames, assets: this.assetStatus, ready: this.presentable, gpuWarmupMs: this.gpuWarmupMs, pendingGpu: [...this.chunks.values()].filter(chunk => !chunk.gpuReady).length, prefetchPending: this.prefetchPending, distantBuildings: this.distantBuildings.stats }
   }
   get visibleTiles() { return [...this.chunks.values()].map(c => ({ x: c.x, z: c.z, mesh: c.ground })) }
 
@@ -165,6 +169,9 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.buildWater()
     this.buildStations()
     this.buildDistantForest()
+    for (const material of [this.roofMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial]) installBuildingDistanceFade(material, this.nearBuildingFade)
+    this.distantBuildings = prepareDistantBuildings(data, { groundAt: (x, z) => this.terrainHeight(x, z), isWater: (x, z) => this.data.landAt(x, z, 'water') })
+    this.group.add(this.distantBuildings.group)
     this.initialKeys = this.initialPreloadKeys(initialS)
     // Shared assets are loaded before any chunks are meshed. Asset completion
     // never clears an already visible tile or triggers a second rebuild.
@@ -197,7 +204,18 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
   canAdvance(s: number) {
     if (!this.presentable) return false
     const pose = this.data.pose(s)
-    return [...this.tilesAt(pose.x, pose.z).keys()].every(key => this.chunks.has(key))
+    return [...this.tilesAt(pose.x, pose.z).keys()].every(key => this.chunks.get(key)?.gpuReady === true)
+  }
+  captureGpuChunks() { return [...this.chunks.values()].map(chunk => chunk.group) }
+  markGpuChunks(groups: THREE.Group[]) {
+    const prepared = new Set(groups)
+    for (const chunk of this.chunks.values()) if (prepared.has(chunk.group)) { chunk.gpuReady = true; chunk.gpuPreparing = false }
+  }
+  takeGpuChunk() {
+    const chunk = [...this.chunks.values()].find(chunk => !chunk.gpuReady && !chunk.gpuPreparing)
+    if (!chunk) return null
+    chunk.gpuPreparing = true
+    return chunk.group
   }
   prepareAt(s: number | null) { this.preparationTarget = s }
   prepareAdvance(s: number | null) { this.advanceTarget = s }
@@ -213,7 +231,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     }
     return raw
   }
-  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
+  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
     const pose = this.data.pose(s)
     this.group.visible = this.presentable || inspection
     if (inspection) { this.group.position.set(0, 0, 0); this.group.rotation.y = 0 }
@@ -229,6 +247,12 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.landSourceMode.value = inspection && layers.sourceLandCover ? 1 : 0
     this.forest.setFocus(point.x, point.z); this.distantForest.setFocus(point.x, point.z)
     this.distantForestGroup.visible = layers.vegetation
+    this.nearBuildingFade.updateFocus(point.x, point.z); this.distantBuildings.fade.updateFocus(point.x, point.z)
+    this.distantBuildings.group.visible = (layers.buildings ?? true) && (layers.farBuildings ?? true)
+    for (const child of this.distantBuildings.group.children) if (child instanceof THREE.Mesh && child.geometry.boundingSphere) {
+      const sphere = child.geometry.boundingSphere
+      child.visible = Math.hypot(sphere.center.x - point.x, sphere.center.z - point.z) - sphere.radius < 4500
+    }
     // Everything is already prepared. Skip distant instance batches that are
     // entirely outside the shader's fade range without evicting/rebuilding them.
     for (const child of this.distantForestGroup.children) if (child instanceof THREE.InstancedMesh && child.boundingSphere) {
@@ -263,8 +287,8 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
           : Math.hypot(centerX - point.x, centerZ - point.z)
         return { key, tile, distance }
       }).sort((a, b) => a.distance - b.distance)
-    this.pending = [...wanted.keys()].filter(key => !this.chunks.has(key)).length
-    this.visibleMissing = this.pending
+    this.pending = [...wanted.keys()].filter(key => !this.chunks.get(key)?.gpuReady).length
+    this.visibleMissing = this.presentable ? this.pending : 0
     if (this.presentable && !inspection && this.visibleMissing) this.suddenAppearanceFrames++
     this.prefetchPending = missing.length
     this.nearestMissingMetres = missing.length ? Math.round(missing[0].distance) : PRELOAD_METRES
@@ -276,11 +300,11 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       this.lastBuildMs = performance.now() - started
       this.maxBuildMs = Math.max(this.maxBuildMs, this.lastBuildMs)
       created.group.visible = false
-      this.chunks.set(key, { ...created, lastUsed: this.frame })
+      this.chunks.set(key, { ...created, lastUsed: this.frame, gpuReady: false, gpuPreparing: false })
     }
     for (const chunk of this.chunks.values()) {
       const key = `${chunk.x},${chunk.z}`
-      chunk.group.visible = wanted.has(key)
+      chunk.group.visible = wanted.has(key) && (chunk.gpuReady || !this.presentable)
       if (chunk.group.visible) chunk.lastUsed = this.frame
       chunk.ground.visible = layers.ground
       for (const child of chunk.group.children) {
@@ -369,6 +393,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
         for (let i = 0; i < roof.getAttribute('position').count; i++) colors.push(color.r, color.g, color.b)
         roof.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
         roof.rotateX(-Math.PI / 2); roof.translate(0, base + height, 0)
+        setBuildingCenterAttribute(roof, x, z)
         const canopy = new THREE.Mesh(roof, this.roofMaterial)
         canopy.userData.geoLayer = 'building'; canopy.userData.geoStructureKind = 'open-shelter'
         canopy.userData.geoSourceId = String(feature.id); canopy.userData.geoHeightSource = measurement.status
@@ -382,7 +407,9 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
           return sum + Math.hypot(next.x - point.x, next.z - point.z)
         }, 0)
         const supportCount = Math.max(2, Math.ceil(perimeter / 14))
-        const supports = new THREE.InstancedMesh(this.shelterSupportGeometry, this.shelterSupportMaterial, supportCount)
+        const supportGeometry = this.shelterSupportGeometry.clone()
+        setBuildingCenterAttribute(supportGeometry, x, z)
+        const supports = new THREE.InstancedMesh(supportGeometry, this.shelterSupportMaterial, supportCount)
         const supportMatrix = new THREE.Object3D()
         for (let i = 0; i < supportCount; i++) {
           let remaining = perimeter * i / supportCount, point = ring[0]
@@ -401,14 +428,16 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
         supports.instanceMatrix.needsUpdate = true
         supports.userData.geoLayer = 'building'; supports.userData.geoStructureKind = 'open-shelter'
         supports.userData.geoSourceId = String(feature.id); supports.userData.geoStructurePartsAreEstimates = true
-        supports.userData.sharedGeometry = true; group.add(supports)
+        group.add(supports)
         const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ring.map(point => new THREE.Vector3(point.x, base + height + 0.025, point.z))), this.shelterOutlineMaterial)
+        setBuildingCenterAttribute(outline.geometry, x, z)
         outline.userData.geoLayer = 'building'; outline.userData.geoStructureKind = 'open-shelter'; outline.userData.geoSourceId = String(feature.id)
         group.add(outline)
         continue
       }
       if (measurement.status === 'missing' || measurement.status === 'floors-only') {
         const footprint = new THREE.ShapeGeometry(shapeOf(feature)); footprint.rotateX(-Math.PI / 2); footprint.translate(0, base + 0.12, 0)
+        setBuildingCenterAttribute(footprint, x, z)
         missingFootprints.push(footprint)
         continue
       }
@@ -429,6 +458,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       // distinguish recorded heights from upstream model estimates.
       applyBuildingAppearance(geometry, appearance)
       geometry.rotateX(-Math.PI / 2); geometry.translate(0, base + minHeight - 0.1, 0)
+      setBuildingCenterAttribute(geometry, x, z)
       geometry.userData.roofShape = roofShape
       buildingGeometry.get(measurement.status)!.push(geometry)
       if (modeledRoof && (measurement.status === 'source-tag' || measurement.status === 'source-estimate')) {
@@ -438,6 +468,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
         for (let i = 0; i < positions.count; i++) colors.push(color.r, color.g, color.b)
         roof.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
         roof.translate(0, base + top - roofHeight + 0.025, 0)
+        setBuildingCenterAttribute(roof, x, z)
         roofGeometry.get(measurement.status)!.push(roof)
       }
     }
@@ -475,6 +506,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       const geometry = new THREE.ExtrudeGeometry(shape, { depth: Math.min(500, part.height - part.minHeight), bevelEnabled: false, steps: 1 })
       applyBuildingAppearance(geometry, buildingAppearance(feature))
       geometry.rotateX(-Math.PI / 2); geometry.translate(0, base + part.minHeight, 0)
+      setBuildingCenterAttribute(geometry, (part.bounds[0] + part.bounds[2]) / 2, (part.bounds[1] + part.bounds[3]) / 2)
       partGeometry.get('source-tag')!.push(geometry)
     }
     for (const [status, geometries] of partGeometry) {
@@ -727,7 +759,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
   }
   private clearChunks() { for (const chunk of this.chunks.values()) this.disposeChunk(chunk); this.chunks.clear() }
   dispose() {
-    this.disposed = true; this.clearChunks(); this.forest.dispose(); this.distantForest.dispose()
+    this.disposed = true; this.clearChunks(); this.distantBuildings.dispose(); this.forest.dispose(); this.distantForest.dispose()
     this.distantForestGroup.traverse(object => { if (object instanceof THREE.InstancedMesh) { object.dispose(); object.geometry.dispose() } })
     this.background?.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose() }); this.routeLine.geometry.dispose(); (this.routeLine.material as THREE.Material).dispose()
     this.marker.geometry.dispose(); (this.marker.material as THREE.Material).dispose()
