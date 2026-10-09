@@ -276,3 +276,15 @@ run37997465057 实际行驶710m、六次missing/late均0；已查看截图确认
 当前修正关联`RealWorld.ts`、`core/Renderer.ts`、`ThreeCanvas.tsx`：CPU/GPU均优先当前视野，其次列车位置/跳转/下一步覆盖，再处理缓冲；GPU每批最多12块，同一离屏提交与fence，保留原对象/父变换，不在准备过程中驱逐该批。CPU每帧按8ms预算推进，单块仍可能超过预算，不把该预算说成硬上限。移动门控与准备范围覆盖起终点及中间原路线顶点的包围区块，避免只验证预测终点却漏掉弯道中途；该保护并非已经证明上述1次缺块的确切原因。新帧确认、远景可用性备用显示和这些队列改动均待下一次云端运行；本地构建/定向lint和26项既有数据/几何/相机检查通过，既有检查不直接验收新异步GPU队列。
 
 云端已处理两种静态三维树候选，root取回`GeoCloseTrees.ts`、准备脚本与来源metadata完整源码；GLB转交尚待完成，模型尚未接入本次发布。成熟Scots pine候选与8.6m橡树街树样本不能替代所有落叶林，当前图片中的交叉贴片仍清晰可辨，树木视觉目标继续未完成。
+
+## 2026-10-09：静态三维树资源接入与隔离对照
+
+核查[Innerscene成熟Scots pine作者页](https://www.innerscene.com/tools/library/3d-parts/mature-scots-pine-tree-280307e1)及[橡树街树详细叶片作者页](https://www.innerscene.com/tools/library/3d-parts/oak-street-tree-detailed-leaves-a273fef9)：两者为作者CC0模型，松树名义18m，橡树约8.6m；不是当地实测树种/树高，橡树为原始程序制作的建筑场景模型。许可证和可再分发不等于照片级视觉质量。此次独立[资源重建run38005959794](https://github.com/orriduck/chill-window/actions/runs/38005959794)实际成功取得公开原始文件、以固定@gltf-transform/cli4.5.1重建并校验SHA，root下载artifact后重新核查产物。松树537,348bytes/6,588tri/2材质/2张64²内嵌纹理；橡树708,996bytes/10,668tri/4材质/无外部贴图。源GLB、重建脚本、全部许可/源URL/SHA/参数/bbox及delivery-report随代码保留，不再依赖行驶时的第三方下载。两个资产检查直接读取实际二进制，验证本地buffers/images、节点变换后的米制包围盒、索引范围、三角形数与完整checksum。
+
+`GeoCloseTrees.ts`使用作者网格实例，保留原尺度与材质、加入近景阴影和80–115m距离过渡。`RealWorld.ts`仅在NLCD42常绿林、实际DEM可用、无建筑/轨道冲突的现有16m显示采样位置准备整段松树；位置不是树木调查。当前松树不得替换NLCD41/43的落叶/混交林。橡树只在调试对照显示。两种模型及内嵌纹理准备完成后才开始初始GPU提交、允许世界呈现；移动中只改变固定实例格的显隐。原松树贴片与模型过渡使用同一16m采样位置；远景原24m采样仍为低成本显示，不声称已验证过渡无跳变。
+
+先扩展`GeoInspector.ts`折叠诊断：独立常绿林近景模型开关、来源尺度对照开关、定位按钮、资源准备/距离筛选量读数；对照使用两个实际林地显示采样位置，18m松树和约8.6m橡树均不缩放。`cloud-visual-review.yml`新增模型隔离及关闭截图。专门的near-tree-visual-review分支仅运行初始准备和树模型对照，明确不包含连续路线/四站验收；主评估分支仍保留完整情景。静态资源校验、构建/lint不能证明画面自然，待云端截图实际检查。
+
+已核查安装的Three.js `WebGLObjects.js`对整份instanceMatrix/instanceColor attributes.update的调用及`WebGLRenderer.js`以object.count作renderInstances的实现。`core/Renderer.ts`仅在同步离屏提交中将每个实例批次draw count暂设为最多1，仍提交完整原属性缓冲，结束立即恢复原count/显隐/渲染目标，然后等待fence；减少整段实例森林预热的额外绘制。是否实际减少软件GPU耗时仍待该版本云端运行，不以源码推断称性能通过。
+
+OSM2World云端实验已完成转换：官方0.4.0、18个building way与209个引用节点、输出约3.28MB/630tri，但把3个缺高站房/遮棚补为7.5m体块，输入没有DEM且通用默认贴图不是本地立面照片。root已取得完整准备脚本的可检索记录，实际输入/manifest文本转交中；GLB尚未接入。该实验支持先隔离对比的决定，不覆盖当前缺高状态与开放结构规则。

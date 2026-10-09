@@ -1,0 +1,287 @@
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import type { ForestPlacement } from './GeoForest'
+
+const ASSETS = {
+  'scots-pine': { url: '/models/trees/mature-scots-pine-lod.glb', radiusMetres: 5.8 },
+  'oak-street-tree': { url: '/models/trees/oak-street-tree-lod.glb', radiusMetres: 4.0 },
+} as const
+const DEFAULT_CLOSE_RANGE_METRES = 115
+const CELL_METRES = 40
+
+export type CloseTreeAssetId = keyof typeof ASSETS
+export type CloseTreePlacement = ForestPlacement & { asset: CloseTreeAssetId }
+
+export interface CloseTreeStats {
+  ready: boolean
+  sourceMeshes: number
+  sourceTriangles: number
+  preparedTrees: number
+  processedAssetBytes: number
+  prepareMs: number
+  visibleTrees: number
+  visibleCells: number
+  visibleDrawCalls: number
+  visibleTriangles: number
+  closeRangeMetres: number
+  cellMetres: number
+}
+
+interface CellBatch {
+  group: THREE.Group
+  count: number
+  center: THREE.Vector2
+  radiusMetres: number
+  drawCalls: number
+  triangles: number
+}
+
+interface Prototype {
+  asset: CloseTreeAssetId
+  geometry: THREE.BufferGeometry
+  material: THREE.Material
+}
+
+/**
+ * Static close-range tree model instances. The checked-in GLB is fully local;
+ * await prepare() before making the real world presentable. Placements are
+ * visual samples from mapped woodland, never a surveyed individual-tree set.
+ */
+export class GeoCloseTrees {
+  readonly root = new THREE.Group()
+  readonly ready: Promise<void>
+  readonly stats: CloseTreeStats
+  readonly closeRangeMetres: number
+  readonly cellMetres: number
+  private cells: CellBatch[] = []
+  private geometries = new Set<THREE.BufferGeometry>()
+  private materials = new Set<THREE.Material>()
+  private textures = new Set<THREE.Texture>()
+  private farRoot: THREE.Object3D | null
+  private closeVisible = true
+  private statsListeners = new Set<(stats: CloseTreeStats) => void>()
+  private focus = new THREE.Vector2()
+
+  constructor(
+    placements: CloseTreePlacement[],
+    options: { closeRangeMetres?: number; cellMetres?: number; farForestRoot?: THREE.Object3D } = {},
+  ) {
+    this.closeRangeMetres = options.closeRangeMetres ?? DEFAULT_CLOSE_RANGE_METRES
+    this.cellMetres = options.cellMetres ?? CELL_METRES
+    this.farRoot = options.farForestRoot ?? null
+    this.root.name = 'real-forest-close-3d'
+    this.root.userData.individualTreeLocationsEstimated = true
+    this.root.visible = false
+    this.stats = {
+      ready: false, sourceMeshes: 0, sourceTriangles: 0, preparedTrees: placements.length,
+      processedAssetBytes: 0, prepareMs: 0, visibleTrees: 0, visibleCells: 0,
+      visibleDrawCalls: 0, visibleTriangles: 0, closeRangeMetres: this.closeRangeMetres,
+      cellMetres: this.cellMetres,
+    }
+    this.ready = this.prepare(placements)
+  }
+
+  private async prepare(placements: CloseTreePlacement[]) {
+    const startedAt = performance.now()
+    const requestedAssets = [...new Set(placements.map(placement => placement.asset))]
+    const loader = new GLTFLoader()
+    const prototypes: Prototype[] = []
+    await Promise.all(requestedAssets.map(async asset => {
+      const gltf = await loader.loadAsync(ASSETS[asset].url)
+      gltf.scene.updateMatrixWorld(true)
+      this.stats.processedAssetBytes += asset === 'scots-pine' ? 537348 : 708996
+      gltf.scene.traverse(object => {
+        if (!(object instanceof THREE.Mesh)) return
+        const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld)
+        this.geometries.add(geometry)
+        this.stats.sourceMeshes++
+        const indices = geometry.index?.count ?? geometry.getAttribute('position').count
+        this.stats.sourceTriangles += Math.floor(indices / 3)
+        if (Array.isArray(object.material)) throw new Error('Tree asset contains an unsupported material array')
+        this.materials.add(object.material)
+        object.geometry.dispose()
+        // Instance centers stay in geographic metres despite the train's
+        // parent transform. The source model keeps its authored dimensions.
+        object.material.alphaHash = true
+        object.material.onBeforeCompile = (shader: Parameters<THREE.Material['onBeforeCompile']>[0]) => {
+          shader.uniforms.closeTreeFocus = { value: this.focus }
+          shader.uniforms.closeTreeLimit = { value: this.closeRangeMetres }
+          shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform vec2 closeTreeFocus;\nvarying float closeTreeDistance;')
+            .replace('#include <begin_vertex>', '#include <begin_vertex>\ncloseTreeDistance = length(instanceMatrix[3].xz - closeTreeFocus);')
+          shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nuniform float closeTreeLimit;\nvarying float closeTreeDistance;')
+            .replace('#include <alphahash_fragment>', 'diffuseColor.a *= 1.0 - smoothstep(closeTreeLimit - 35.0, closeTreeLimit, closeTreeDistance);\n#include <alphahash_fragment>')
+        }
+        object.material.customProgramCacheKey = () => 'geographic-close-trees-v1'
+        for (const value of Object.values(object.material)) {
+          if (value instanceof THREE.Texture) this.textures.add(value)
+        }
+        prototypes.push({ asset, geometry, material: object.material })
+      })
+      if (!prototypes.some(prototype => prototype.asset === asset)) throw new Error(`Tree asset ${asset} has no meshes`)
+    }))
+
+    const byCell = new Map<string, CloseTreePlacement[]>()
+    for (const placement of placements) {
+      const cx = Math.floor(placement.x / this.cellMetres)
+      const cz = Math.floor(placement.z / this.cellMetres)
+      const key = `${placement.asset}:${cx}:${cz}`
+      const list = byCell.get(key) ?? []
+      list.push(placement)
+      byCell.set(key, list)
+    }
+
+    const transform = new THREE.Object3D()
+    for (const [key, items] of byCell) {
+      const [asset, cxRaw, czRaw] = key.split(':')
+      const species = asset as CloseTreeAssetId
+      const cx = Number(cxRaw), cz = Number(czRaw)
+      const group = new THREE.Group()
+      group.name = `close-tree-cell-${key}`
+      group.visible = false
+      const cell: CellBatch = {
+        group, count: items.length,
+        center: new THREE.Vector2((cx + 0.5) * this.cellMetres, (cz + 0.5) * this.cellMetres),
+        radiusMetres: ASSETS[species].radiusMetres,
+        drawCalls: prototypes.filter(item => item.asset === species).length,
+        triangles: prototypes.filter(item => item.asset === species).reduce((sum, item) => {
+          const indices = item.geometry.index?.count ?? item.geometry.getAttribute('position').count
+          return sum + Math.floor(indices / 3)
+        }, 0),
+      }
+      for (const prototype of prototypes.filter(item => item.asset === species)) {
+        const mesh = new THREE.InstancedMesh(prototype.geometry, prototype.material, items.length)
+        mesh.castShadow = true; mesh.receiveShadow = true
+        mesh.name = `cc0-${species}-instances`
+        mesh.userData.individualTreeLocationsEstimated = true
+        mesh.userData.asset = species
+        for (let index = 0; index < items.length; index++) {
+          const tree = items[index]
+          transform.position.set(tree.x, tree.y, tree.z)
+          transform.rotation.set(0, tree.yaw, 0)
+          // Keep authored model dimensions. Do not inflate the smaller oak
+          // street-tree form into mature forest canopy.
+          transform.scale.setScalar(1)
+          transform.updateMatrix()
+          mesh.setMatrixAt(index, transform.matrix)
+        }
+        mesh.instanceMatrix.needsUpdate = true
+        mesh.computeBoundingSphere()
+        group.add(mesh)
+      }
+      this.root.add(group)
+      this.cells.push(cell)
+    }
+    this.stats.ready = true
+    this.stats.prepareMs = performance.now() - startedAt
+    this.setFocus(this.lastFocus.x, this.lastFocus.y)
+  }
+
+  /** Change only static cell visibility; this creates no geometry or GPU assets. */
+  setFocus(x: number, z: number) {
+    this.lastFocus.set(x, z)
+    this.focus.set(x, z)
+    let visibleTrees = 0
+    let visibleCells = 0
+    let visibleDrawCalls = 0
+    let visibleTriangles = 0
+    for (const cell of this.cells) {
+      const dx = cell.center.x - x, dz = cell.center.y - z
+      const limit = this.closeRangeMetres + this.cellMetres * Math.SQRT1_2 + cell.radiusMetres
+      const visible = this.closeVisible && dx * dx + dz * dz <= limit * limit
+      cell.group.visible = visible
+      if (visible) {
+        visibleCells++; visibleTrees += cell.count
+        visibleDrawCalls += cell.drawCalls
+        visibleTriangles += cell.count * cell.triangles
+      }
+    }
+    this.root.visible = this.closeVisible && this.stats.ready
+    this.stats.visibleTrees = visibleTrees
+    this.stats.visibleCells = visibleCells
+    this.stats.visibleDrawCalls = visibleDrawCalls
+    this.stats.visibleTriangles = visibleTriangles
+    this.statsListeners.forEach(listener => listener(this.stats))
+  }
+
+  subscribeStats(listener: (stats: CloseTreeStats) => void) {
+    this.statsListeners.add(listener)
+    listener(this.stats)
+    return () => this.statsListeners.delete(listener)
+  }
+  setVisible(visible: boolean) { this.closeVisible = visible }
+
+  /** Independent Debug Mode visibility controls for close 3D / far patch layers. */
+  setDebugLayers(layers: { close3D: boolean; farPatches: boolean }) {
+    this.closeVisible = layers.close3D
+    if (this.farRoot) this.farRoot.visible = layers.farPatches
+    this.root.visible = this.closeVisible && this.stats.ready
+    this.setFocus(this.lastFocus.x, this.lastFocus.y)
+  }
+
+  setFarForestVisible(visible: boolean) {
+    if (this.farRoot) this.farRoot.visible = visible
+  }
+
+  private lastFocus = new THREE.Vector2()
+
+  dispose() {
+    this.root.traverse(object => {
+      if (object instanceof THREE.InstancedMesh) {
+        object.dispose()
+      }
+    })
+    this.geometries.forEach(geometry => geometry.dispose())
+    this.geometries.clear()
+    this.materials.forEach(material => material.dispose())
+    this.materials.clear()
+    this.textures.forEach(texture => texture.dispose())
+    this.textures.clear()
+    this.cells = []
+  }
+}
+
+/** Mount these controls into the existing geographic Debug Mode panel. */
+export function mountTreeLayerControls(
+  parent: HTMLElement,
+  closeTrees: GeoCloseTrees,
+  farForestRoot: THREE.Object3D,
+) {
+  const section = document.createElement('fieldset')
+  section.setAttribute('aria-label', '森林近远景对照')
+  section.style.cssText = 'border:1px solid #d8dccb;border-radius:6px;margin:10px 0;padding:8px;font:11px/1.5 sans-serif;'
+  const legend = document.createElement('legend')
+  legend.textContent = '树木近远景隔离'
+  section.append(legend)
+  const update = () => {
+    closeTrees.setDebugLayers({ close3D: close.checked, farPatches: far.checked })
+    farForestRoot.visible = far.checked
+  }
+  const close = document.createElement('input')
+  close.type = 'checkbox'; close.checked = true; close.setAttribute('aria-label', '显示近景三维树模型')
+  close.onchange = update
+  const far = document.createElement('input')
+  far.type = 'checkbox'; far.checked = true; far.setAttribute('aria-label', '显示远景森林贴片')
+  far.onchange = update
+  for (const [input, label] of [[close, '近景 3D 树（中心 ≤115m）'], [far, '远景纹理林地']] as const) {
+    const row = document.createElement('label')
+    row.style.cssText = 'display:block;margin:3px 0;'
+    row.append(input, document.createTextNode(` ${label}`)); section.append(row)
+  }
+  const note = document.createElement('small')
+  note.textContent = '树木位置是森林面内的画面样本，不表示逐株测绘。'
+  const readout = document.createElement('output')
+  readout.setAttribute('aria-label', '近景树木模型资源与绘制诊断')
+  readout.style.cssText = 'display:block;margin-top:5px;white-space:pre-line;'
+  const unsubscribe = closeTrees.subscribeStats(stats => {
+    readout.textContent = stats.ready
+      ? `模型就绪 ${stats.processedAssetBytes.toLocaleString()} B · ${stats.sourceTriangles.toLocaleString()} 模型三角形\n准备 ${stats.preparedTrees.toLocaleString()} 株 / ${stats.prepareMs.toFixed(1)}ms · 可视 ${stats.visibleTrees} 株 / ${stats.visibleCells} 格\n当前 ${stats.visibleTriangles.toLocaleString()} 三角形 · ${stats.visibleDrawCalls} 合批绘制`
+      : `近景模型准备中 · ${stats.preparedTrees.toLocaleString()} 个位置样本`
+  })
+  section.append(note, readout)
+  parent.append(section)
+  // Ensure checkboxes match the initial scene state.
+  farForestRoot.visible = true
+  closeTrees.setDebugLayers({ close3D: true, farPatches: true })
+  return () => { unsubscribe(); section.remove() }
+}
+

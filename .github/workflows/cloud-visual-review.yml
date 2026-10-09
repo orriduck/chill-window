@@ -37,6 +37,7 @@ jobs:
       - name: Capture ride, geography, station positions and movement
         env:
           CW_CAPTURE_SHA: ${{ github.sha }}
+          CW_TREE_REVIEW_ONLY: ${{ github.ref_name == 'codex/near-tree-visual-review' && '1' || '0' }}
         run: |
           mkdir -p "$RUNNER_TEMP/chill-visual"
           npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-visual/server.log" 2>&1 &
@@ -71,6 +72,7 @@ jobs:
               motionGate: await page.getByLabel('地理运动门控', { exact: true }).textContent(),
               landCover: await page.getByLabel('真实土地覆盖来源', { exact: true }).textContent(),
               buildingSource: await page.getByLabel('建筑来源记录详情', { exact: true }).textContent(),
+              treeModels: await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent(),
               capturedAt: new Date().toISOString(),
               viewport: page.viewportSize() });
             await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
@@ -102,6 +104,23 @@ jobs:
             await page.getByRole('button', { name: 'Board train', exact: true }).waitFor({ state: 'hidden' });
             if (beforeReady) await beforeReady();
             await ready();
+          }
+          async function reviewTreeModels() {
+            await page.getByRole('button', { name: '定位树模型对照', exact: true }).click();
+            await ready();
+            health.treeModels = await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent();
+            if (!health.treeModels.includes('来源尺度对照 已准备 · 2 株 · 1,246,344 B')) throw new Error(`Tree assets were not prepared: ${health.treeModels}`);
+            health.treeAssetsPreparedVerified = true;
+            await page.getByLabel('真实地理林木', { exact: true }).uncheck();
+            await page.getByLabel('真实地理建筑', { exact: true }).uncheck();
+            await page.getByLabel('真实地理道路', { exact: true }).uncheck();
+            await snapshot('03i-tree-source-models');
+            await page.getByLabel('树模型来源尺度对照', { exact: true }).uncheck();
+            await snapshot('03j-tree-source-models-hidden');
+            health.treeControlsVerified = true;
+            await page.getByLabel('真实地理林木', { exact: true }).check();
+            await page.getByLabel('真实地理建筑', { exact: true }).check();
+            await page.getByLabel('真实地理道路', { exact: true }).check();
           }
           (async () => {
             try {
@@ -140,6 +159,16 @@ jobs:
               await page.waitForFunction(initial => document.querySelector('[aria-label="真实列车位置"]')?.textContent !== initial, initialPosition, { timeout: 90000 });
               health.movementVerified = true;
               await snapshot('02-cold-spring-ride-moving');
+              if (process.env.CW_TREE_REVIEW_ONLY === '1') {
+                health.scope = 'Initial GPU preparation and isolated source-tree controls/screenshots; continuous route and station checks are not included';
+                await page.keyboard.press('F5');
+                await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
+                await page.getByText('数据来源与加载诊断', { exact: true }).click();
+                await reviewTreeModels();
+                health.runtimePassed = !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
+                if (!health.runtimePassed) process.exitCode = 1;
+                return;
+              }
               const metresAt = async () => Number((await page.getByLabel('真实列车位置', { exact: true }).textContent()).split(' / ')[0]) * 1000;
               const longRideStart = await metresAt();
               health.continuity = [];
@@ -163,6 +192,7 @@ jobs:
               await page.getByLabel('真实地理NLCD 分类对照', { exact: true }).uncheck();
               await page.getByLabel('真实地理林木', { exact: true }).check();
               await page.getByText('数据来源与加载诊断', { exact: true }).click();
+              await reviewTreeModels();
               await page.getByRole('button', { name: '定位 Peekskill 源建筑案例', exact: true }).click();
               await ready();
               health.buildingCaseSource = await page.getByLabel('建筑来源记录详情', { exact: true }).textContent();

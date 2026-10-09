@@ -1,0 +1,54 @@
+{
+  "asset": "oak-street-tree-lod.glb",
+  "sourceName": "Oak street tree, detailed leaves",
+  "sourceAuthor": "Innerscene (original Innerscene model)",
+  "sourcePage": "https://www.innerscene.com/tools/library/3d-parts/oak-street-tree-detailed-leaves-a273fef9",
+  "sourceDownload": "https://www.innerscene.com/api/library/oak-street-tree-detailed-leaves-a273fef9/download",
+  "license": "CC0 1.0 Universal",
+  "licenseEvidence": "The source page states the model is public domain under CC0 1.0 and may be modified and redistributed, including commercially.",
+  "retrievedDate": "2026-10-09",
+  "sourceFile": "app/scripts/tree-assets/oak-street-tree-source.glb",
+  "sourceSha256": "a02698ef246d8005110c291c510b8f7f397ae26e69414aa538cc4993b06256dd",
+  "sourceBytes": 6184040,
+  "processedSha256": "d65f2515da582174c0321cb9a349f119496ded36633454e29f3666ac3c0fdc02",
+  "processedBytes": 708996,
+  "conversion": {
+    "tool": "@gltf-transform/cli 4.5.1",
+    "operation": "optimize",
+    "arguments": [
+      "--simplify-ratio", "0.05",
+      "--simplify-error", "0.03",
+      "--compress", "false",
+      "--texture-compress", "false",
+      "--palette", "false",
+      "--instance", "false",
+      "--join", "true"
+    ],
+    "trianglesBefore": 213372,
+    "trianglesAfter": 10668,
+    "triangleReductionPercent": 95.0,
+    "drawMeshesBefore": 625,
+    "drawMeshesAfter": 4,
+    "textures": [],
+    "leafGeometryCountFromSourceDescription": 9450
+  },
+  "sourceMeasurements": {
+    "sourcePageNominalHeightMetres": 8,
+    "sourcePageOverallMetresXYZ": [7.8, 8.6, 7.6],
+    "processedBoundsMetresXYZ": {
+      "min": [-3.93186, -0.006, -3.82411],
+      "max": [3.82708, 8.5486, 3.75026]
+    },
+    "axis": "Y-up",
+    "materials": [
+      { "name": "(0.048, 0.17, 0.022)", "baseColorFactorLinear": [0.048, 0.17, 0.022, 1], "roughness": 0.32, "metallic": 0 },
+      { "name": "(0.083, 0.26, 0.035)", "baseColorFactorLinear": [0.083, 0.26, 0.035, 1], "roughness": 0.32, "metallic": 0 },
+      { "name": "(0.15, 0.34, 0.052)", "baseColorFactorLinear": [0.15, 0.34, 0.052, 1], "roughness": 0.32, "metallic": 0 },
+      { "name": "bark", "baseColorFactorLinear": [0.2, 0.095, 0.04, 1], "roughness": 0.65, "metallic": 0 }
+    ],
+    "foliage": "Native editable leaf mesh geometry; source page explicitly says there are no external image textures or alpha cards."
+  },
+  "speciesAndUseBoundary": "The source calls this an oak street-tree form and says the leaves are species-inspired, not botanical measurement. Its source dimensions are about 8.6m overall; do not scale it up and present it as mature Hudson Valley forest canopy or as a surveyed local species. The model may serve as an authored-scale broadleaf street-tree appearance sample only. Woodland polygons do not identify individual tree species or locations.",
+  "runtimePolicy": "The GLB is a local application asset. Do not download or replace it during movement."
+}
+

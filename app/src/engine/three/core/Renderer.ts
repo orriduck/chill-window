@@ -65,13 +65,13 @@ export class WebGLRenderer {
     // Shader compilation alone does not upload hidden geometry. Submit all
     // already prepared world batches to a tiny offscreen target once. No
     // visibility change survives this synchronous pass or reaches the canvas.
-    const states: Array<{ object: THREE.Object3D; visible: boolean; culled: boolean; upload: boolean }> = []
+    const states: Array<{ object: THREE.Object3D; visible: boolean; culled: boolean; upload: boolean; instanceCount?: number }> = []
     const scope = new Set<THREE.Object3D>()
     const recorded = new Set<THREE.Object3D>()
     const record = (object: THREE.Object3D, upload: boolean) => {
       if (recorded.has(object)) return
       recorded.add(object)
-      states.push({ object, visible: object.visible, culled: object.frustumCulled, upload })
+      states.push({ object, visible: object.visible, culled: object.frustumCulled, upload, instanceCount: object instanceof THREE.InstancedMesh ? object.count : undefined })
     }
     for (const group of Array.isArray(preparedWorld) ? preparedWorld : [preparedWorld]) {
       group.traverse(object => { scope.add(object); record(object, true) })
@@ -87,12 +87,24 @@ export class WebGLRenderer {
     const previousTarget = this.renderer.getRenderTarget()
     const shadowAutoUpdate = this.renderer.shadowMap.autoUpdate
     try {
-      for (const state of states) { state.object.visible = state.upload; if (state.upload) state.object.frustumCulled = false }
+      for (const state of states) {
+        state.object.visible = state.upload
+        if (state.upload) {
+          state.object.frustumCulled = false
+          // Three uploads the entire instance attribute array independently
+          // of draw count. One instance submits every buffer without drawing
+          // the full forest during the tiny preparation pass.
+          if (state.object instanceof THREE.InstancedMesh) state.object.count = Math.min(1, state.object.count)
+        }
+      }
       this.renderer.shadowMap.autoUpdate = false
       this.renderer.setRenderTarget(target)
       this.renderer.render(scene, camera)
     } finally {
-      for (const state of states) { state.object.visible = state.visible; state.object.frustumCulled = state.culled }
+      for (const state of states) {
+        state.object.visible = state.visible; state.object.frustumCulled = state.culled
+        if (state.object instanceof THREE.InstancedMesh && state.instanceCount !== undefined) state.object.count = state.instanceCount
+      }
       this.renderer.setRenderTarget(previousTarget)
       this.renderer.shadowMap.autoUpdate = shadowAutoUpdate
       target.dispose()
