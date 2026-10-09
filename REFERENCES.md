@@ -219,3 +219,5 @@ NLCD林地填入4096²显示掩码底层，再保留OSM土地/水域几何与hol
 同一实际64m DEM背景网格按1024m固定片区预先建好，以Three.js正常frustum culling减少原来单个大网格每帧提交整个区域；没有降低DEM采样、修改地形或随行驶重建背景。参考本机已安装Three.js `Object3D.frustumCulled` / InstancedMesh.boundingSphere。已查看两张现有512×256 atlas的原图，增加半像素内缩避免线性过滤跨单元采样；天空边缘叶片是否消除仍待新截图确认。关联 `RealWorld.ts`、`GeoForest.ts`。
 
 run37997465057 实际行驶710m、六次missing/late均0；已查看截图确认树冠更密、诊断折叠后主导航可见，沿河仍有覆盖空白。该版运动读数请求0/目标44.4揭示“上车”直接修改camera却没有保留requestedSpeed；若预热随后完成会将目标改回0。改为在加载时保留待出发意图，完成预热再采用原有缓加速出发。新增云端情景先阻止必要的landcover.u8响应，上车后才释放，核对请求/目标44.4并实际移动。为让响应拦截确定可重复，该QA情景禁用service worker；不验收PWA/offline。关联 `ThreeCanvas.tsx`、云端workflow；新情景待运行。
+
+俯视自由平移时，required缓存同时保护实际列车位置的49块；不会因为查看远处多个区段而逐出返回时立刻可见的建筑/地面。新增情景连续查看Manitou/Peekskill但不应用列车跳转，然后Esc返回即查missing/late=0，再执行原来的Garrison跳转检查。此项是新的缓存交互验证，待云端运行；不把静态源码规则本身视为通过。

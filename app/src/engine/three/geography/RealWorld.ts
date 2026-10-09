@@ -237,6 +237,9 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     const wanted = this.tilesAt(point.x, point.z)
     const currentS = inspection ? this.data.nearestRoute(point.x, point.z).s : s
     const required = new Map(wanted)
+    // Keep the active ride prepared while inspecting unrelated places. Esc
+    // must not expose missing buildings after the map has evicted old chunks.
+    if (inspection) for (const [key, tile] of this.tilesAt(pose.x, pose.z)) required.set(key, tile)
     for (let offset = 0; offset <= PRELOAD_METRES; offset += TILE) {
       const ahead = this.data.pose(Math.min(this.data.length, currentS + offset))
       for (const [key, tile] of this.tilesAt(ahead.x, ahead.z)) required.set(key, tile)
