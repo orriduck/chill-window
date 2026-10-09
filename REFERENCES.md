@@ -157,3 +157,10 @@
 | [Microsoft GlobalMLBuildingFootprints](https://github.com/microsoft/GlobalMLBuildingFootprints)、[Overture 建筑字段](https://docs.overturemaps.org/schema/reference/buildings/building/)、[署名](https://docs.overturemaps.org/attribution/) | 按逐属性source记录分类：合并结果12,079个高度为来源模型估计，17,850个是上游/OSM标签，4,387个缺失、10个仅有楼层数。OSM标签也没有经过本项目独立测量；楼层数保留为楼层数，不在数据层凭空换算楼高。缺失屋顶/立面属性保持缺失。所有区域源和构件数据按ODbL署名，原始JSON属性为空的字段仅在派生包省略。 | `buildingHeight`、`overtureProperties.sources`、逐栋geometry/height来源；云端需在调试UI和署名中接入 |
 
 已检查源校验、所有原有轮廓/洞/标签完整保留、所有派生多边形有效、ID唯一、估计高度来源标注、构件父对象引用和新增轮廓不与当前OSM重叠。可离线复现，当前只提供建筑叠加数据，不自动替换运行时；3D接入与画面验收继续在云端进行，不能把下载/数据检查等同于建筑画面完成。
+
+## 2026-10-09：云端画面检查与树木候选评估
+
+| 来源 | 核查与使用范围 | 受影响的位置 |
+| --- | --- | --- |
+| [Playwright 官方 CI 指引](https://playwright.dev/docs/ci)、[GitHub Actions 工作流语法](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) | 使用GitHub云端Ubuntu runner构建真实应用，并由Chromium拍摄车窗、F5俯视、站点里程跳转前后与移动视口。截图、视频、日志和临时脚本均在runner临时目录，作为artifact提供，不把报告/图片写入仓库。软件WebGL不代表用户GPU性能；自动运行健康检查不能代替人工画面检查，也不代表五项目标完成。 | `.github/workflows/cloud-visual-review.yml` |
+| [Poly Haven Tree Small 02](https://polyhaven.com/a/tree_small_02)、[官方文件清单](https://api.polyhaven.com/files/tree_small_02)、[许可](https://polyhaven.com/license)、[作者导出说明](https://blog.polyhaven.com/dev-log-20/) | 实际读到CC0、4.6m高、约5M三角形，1k glTF依赖约95MB几何buffer；网站标签为Burkea africana，不能直接作为哈德逊河本地成熟树种。尚未下载模型或接入，作为被排除的直接替换候选；保留现有枝叶图集作LOD方案研究，具体树高/单株位置未由该素材提供。 | 云端`RealWorld`树木表现评估；不作为运行时新模型 |

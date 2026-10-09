@@ -1,0 +1,141 @@
+name: Cloud visual review
+
+on:
+  push:
+    branches: ['codex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chill-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Build the actual app
+        working-directory: app
+        run: |
+          npm ci
+          npm run build
+      - name: Prepare cloud Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/chill-playwright" --no-package-lock --no-audit --no-fund playwright@1.64.0
+          "$RUNNER_TEMP/chill-playwright/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Capture ride, geography, station positions and movement
+        env:
+          CW_CAPTURE_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/chill-visual"
+          npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-visual/server.log" 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          export PW_MODULE_PATH="$RUNNER_TEMP/chill-playwright/node_modules/playwright"
+          export CW_CAPTURE_DIR="$RUNNER_TEMP/chill-visual"
+          cat > "$RUNNER_TEMP/chill-review.cjs" <<'NODE'
+          const { chromium } = require(process.env.PW_MODULE_PATH);
+          const fs = require('node:fs/promises');
+          const path = require('node:path');
+          const output = process.env.CW_CAPTURE_DIR;
+          const health = {
+            commit: process.env.CW_CAPTURE_SHA,
+            browserPath: 'Browser plugin not available in GitHub runner; Playwright Chromium',
+            rendering: 'SwiftShader software WebGL; hardware performance is not assessed',
+            visualReviewRequired: true,
+            console: [], requestFailures: [], states: [],
+          };
+          let browser, context, page;
+          async function snapshot(name) {
+            await page.screenshot({ path: path.join(output, name + '.png') });
+            health.states.push({ name, url: page.url(), title: await page.title(),
+              status: await page.getByLabel('真实地理加载状态', { exact: true }).textContent(),
+              position: await page.getByLabel('真实列车位置', { exact: true }).textContent(),
+              viewport: page.viewportSize() });
+          }
+          async function ready() {
+            await page.getByLabel('真实地理加载状态', { exact: true }).waitFor();
+            await page.waitForFunction(() => {
+              const text = document.querySelector('[aria-label="真实地理加载状态"]')?.textContent ?? '';
+              return !!text && !/正在加载|加载失败/.test(text);
+            }, null, { timeout: 90000 });
+            if (await page.locator('[data-webgl="unavailable"]').count()) throw new Error('WebGL unavailable');
+            if (await page.locator('vite-error-overlay').count()) throw new Error('Vite error overlay');
+            if ((await page.locator('body').innerText()).trim().length < 30) throw new Error('Blank app shell');
+            // Wait for actual animation frames, then retain screenshots that a
+            // human must inspect; this is not an automatic visual acceptance.
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          }
+          (async () => {
+            try {
+              browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
+              context = await browser.newContext({ viewport: { width: 1440, height: 900 }, recordVideo: { dir: output, size: { width: 1440, height: 900 } } });
+              page = await context.newPage();
+              page.setDefaultTimeout(30000);
+              page.on('console', message => {
+                if (['error', 'warning'].includes(message.type())) health.console.push({ level: message.type(), text: message.text() });
+              });
+              page.on('pageerror', error => health.console.push({ level: 'pageerror', text: error.message }));
+              page.on('requestfailed', request => {
+                if (!request.url().endsWith('/favicon.ico')) health.requestFailures.push({ url: request.url(), error: request.failure()?.errorText });
+              });
+              await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=3123.283', { waitUntil: 'domcontentloaded' });
+              await ready();
+              await snapshot('01-cold-spring-ride-initial');
+              await page.waitForTimeout(12000);
+              await snapshot('02-cold-spring-ride-after-12s');
+              await page.keyboard.press('F5');
+              await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
+              await snapshot('03-geography-debug');
+              const range = page.getByLabel('真实路线里程', { exact: true });
+              await range.evaluate((input) => { input.value = '7393.844'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+              await page.getByRole('button', { name: '列车跳到这个位置', exact: true }).click();
+              await snapshot('04-garrison-jump-initial');
+              await page.waitForTimeout(8000);
+              await snapshot('05-garrison-jump-after-8s');
+              await page.keyboard.press('Escape');
+              await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'hidden' });
+              await snapshot('06-garrison-ride');
+              for (const [name, metres] of [['manitou', 13247.272], ['peekskill', 21083.216]]) {
+                await page.goto(`http://127.0.0.1:4173/?world=hudson&routeMetres=${metres}`, { waitUntil: 'domcontentloaded' });
+                await ready();
+                await page.waitForTimeout(4000);
+                await snapshot(`07-${name}-ride`);
+              }
+              await page.setViewportSize({ width: 390, height: 844 });
+              await snapshot('08-mobile-ride');
+              health.runtimePassed = !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
+              if (!health.runtimePassed) process.exitCode = 1;
+            } catch (error) {
+              health.runtimePassed = false;
+              health.failure = String(error.stack ?? error);
+              if (page) await page.screenshot({ path: path.join(output, 'failure.png') }).catch(() => {});
+              process.exitCode = 1;
+            } finally {
+              await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
+              await context?.close();
+              await browser?.close();
+            }
+          })();
+          NODE
+          node "$RUNNER_TEMP/chill-review.cjs"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: chill-visual-${{ github.sha }}
+          path: ${{ runner.temp }}/chill-visual/
+          if-no-files-found: error
+          retention-days: 7
