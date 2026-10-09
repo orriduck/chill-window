@@ -10,8 +10,8 @@ export interface ForestPlacement { x: number; y: number; z: number; height: numb
 export class GeoForest {
   private focus = new THREE.Vector2()
   private geometry: THREE.BufferGeometry
-  private materials = [treeNearTex, treeNearBTex].map(map => new THREE.MeshStandardMaterial({
-    map, alphaTest: 0.42, side: THREE.DoubleSide, roughness: 1, metalness: 0,
+  private materials = [treeNearTex, treeNearBTex].map(map => new THREE.MeshLambertMaterial({
+    map, alphaTest: 0.42, side: THREE.DoubleSide,
   }))
   constructor(mode: 'near' | 'far' = 'near') {
     const plane = new THREE.PlaneGeometry(0.74, 1)

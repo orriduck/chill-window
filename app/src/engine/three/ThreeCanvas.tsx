@@ -153,6 +153,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       const nextS = camera.z + Math.max(camera.currentSpeed, camera.targetSpeed) * motionDt
       world?.prepareAdvance(worldReady && !inspection ? nextS : null)
       const coverageReady = worldReady && !!world?.canAdvance(nextS)
+      inspector.setMotionDiagnostic(requestedSpeed, camera.targetSpeed, paused, inspection, worldReady, coverageReady, pendingJump)
       camera.update(motionDt, !paused && !inspection && pendingJump === null && coverageReady)
       if (data && camera.z >= data.length) { camera.setZ(data.length); camera.setTargetSpeed(0); camera.currentSpeed = 0 }
       if (now - motionSampleTime >= 1000) { measuredSpeed = Math.abs(camera.z - motionSampleZ) / ((now - motionSampleTime) / 1000); motionSampleZ = camera.z; motionSampleTime = now }

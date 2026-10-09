@@ -168,6 +168,7 @@ export class GeoData {
       { label: '北段 · 河岸', s: this.length * 0.08 },
       { label: '中段 · 哈德逊高地', s: this.length * 0.46 },
       { label: '南段 · 城镇', s: this.length * 0.94 },
+      ...this.stations.filter(station => station.inCurrentRoute).sort((a, b) => a.sMetres - b.sMetres).map(station => ({ label: `${station.name} · Metro-North 经行站`, s: station.sMetres })),
     ]
   }
   project([lon, lat]: LonLat): GeoPoint {

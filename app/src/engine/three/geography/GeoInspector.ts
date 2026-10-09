@@ -33,6 +33,7 @@ export class GeoInspector {
   private streamingStats = document.createElement('output')
   private stationReadout = document.createElement('output')
   private performanceReadout = document.createElement('output')
+  private motionReadout = document.createElement('output')
   private buildingQuery = document.createElement('input')
   private buildingSource = document.createElement('output')
   private lastPointer: [number, number] = [0, 0]
@@ -77,6 +78,7 @@ export class GeoInspector {
     this.streamingStats.setAttribute('aria-label', '地理区块流式加载诊断'); this.streamingStats.style.cssText = 'display:block;padding:8px;background:#dce6d8;border-radius:6px;font-size:11px;line-height:1.65;margin:8px 0;'
     this.stationReadout.setAttribute('aria-label', 'Metro-North 实际车站'); this.stationReadout.style.cssText = 'display:block;padding:8px;background:#e8e1d2;border-radius:6px;font-size:11px;line-height:1.65;margin:8px 0;'
     this.performanceReadout.setAttribute('aria-label', '地理渲染性能'); this.performanceReadout.style.cssText = this.streamingStats.style.cssText
+    this.motionReadout.setAttribute('aria-label', '地理运动门控'); this.motionReadout.style.cssText = this.streamingStats.style.cssText
     this.buildingQuery.type = 'search'; this.buildingQuery.placeholder = '查询 OSM ID / GERS ID'; this.buildingQuery.setAttribute('aria-label', '查询建筑源记录 ID 或 GERS ID'); this.buildingQuery.style.cssText = this.checkpoint.style.cssText + 'margin:4px 0;'
     this.buildingQuery.addEventListener('change', () => this.showBuildingById(this.buildingQuery.value))
     this.buildingSource.setAttribute('aria-label', '建筑来源记录详情'); this.buildingSource.style.cssText = 'display:block;min-height:44px;font-size:11px;line-height:1.6;overflow-wrap:anywhere;'
@@ -88,7 +90,7 @@ export class GeoInspector {
     }
     this.time.onchange = () => { this.pending.time = this.time.value as 'day' | 'night' }
     this.weather.onchange = () => { this.pending.weather = this.weather.value as 'clear' | 'rain' }
-    const notes = document.createElement('p'); notes.textContent = '地形：USGS 3DEP，约 20m 采样。轨面/水位为可视化近似。绿色=源 height 标签；琥珀色=Microsoft 模型高度估计；灰蓝 footprint=高度缺失或仅有楼层数，不补造高度。紫色仅用于本地旧数据按楼层换算。OSM/Overture 标记的 shelter 使用开放式顶棚与估算支柱，不画实墙；无源高度时顶棚高度是可视化估值。已标 roof_height 与 pyramidal/hipped 形状的建筑使用来源坡屋顶参数；来源有 roof_color 时使用其颜色。立面细节数据覆盖有限。'; notes.style.cssText = 'font-size:11px;color:#697566;margin:14px 0 8px;'
+    const notes = document.createElement('p'); notes.textContent = '地形：USGS 3DEP，约 20m 采样。轨面/水位为可视化近似。绿色=源 height 标签；琥珀色=Microsoft 模型高度估计；灰蓝 footprint=高度缺失或仅有楼层数，不补造高度。紫色仅用于本地旧数据按楼层换算。OSM/Overture 标记的 shelter 使用开放式顶棚与估算支柱，不画实墙；无源高度时顶棚高度是可视化估值。已标 roof_height 的可建模 pyramidal 屋顶保留源高度；其他屋顶形状保留属性待接入；来源有 roof_color 时使用其颜色。立面细节数据覆盖有限。'; notes.style.cssText = 'font-size:11px;color:#697566;margin:14px 0 8px;'
     const credits = document.createElement('div'); credits.style.cssText = 'font-size:11px;display:flex;gap:10px;'
     for (const [name, url] of [['FRA / Amtrak', 'https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0'], ['USGS', 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer'], ['© OSM', 'https://www.openstreetmap.org/copyright'], ['Overture Maps', 'https://docs.overturemaps.org/guides/buildings/']]) {
       const link = document.createElement('a'); link.textContent = name; link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.style.color = '#506b51'; credits.append(link)
@@ -99,7 +101,10 @@ export class GeoInspector {
       input.setAttribute('aria-label', `真实地理${name}`); input.onchange = () => { this.layers[key] = input.checked }
       label.append(input, document.createTextNode(name)); layers.append(label)
     }
-    this.panel.append(title, description, layers, this.buildingStats, this.streamingStats, this.performanceReadout, this.stationReadout, this.buildingQuery, this.buildingSource, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, notes, credits)
+    const diagnostics = document.createElement('details'), summary = document.createElement('summary')
+    summary.textContent = '数据来源与加载诊断'; summary.style.cssText = 'cursor:pointer;font-size:12px;margin-top:14px;'
+    diagnostics.append(summary, this.buildingStats, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingSource, notes, credits)
+    this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
     this.applyVisibility()
@@ -130,11 +135,15 @@ export class GeoInspector {
     this.panel.style.display = this.real && this.editing && !!this.data ? '' : 'none'
     this.view.textContent = this.editing ? '返回列车 · Esc' : '俯视调试 · F5'
     this.view.disabled = this.center.disabled = !this.data
-    if (this.real && !this.data) this.status.textContent = this.error ? `真实数据加载失败 · ${this.error}` : '正在加载真实路线 / 高程 / 地物…'
+    if (this.real && this.error) this.status.textContent = `真实场景加载失败 · ${this.error}`
+    else if (this.real && !this.data) this.status.textContent = '正在加载真实路线 / 高程 / 地物…'
   }
   resize(width: number, height: number) { this.camera.aspect = width / Math.max(1, height); this.camera.updateProjectionMatrix() }
   setPerformance(fps: number, frameMs: number, submitMs: number, info: THREE.WebGLInfo) {
     this.performanceReadout.textContent = `${fps} FPS · 帧间隔 ${frameMs.toFixed(1)}ms · CPU 提交 ${submitMs.toFixed(1)}ms\n绘制 ${info.render.calls} 次 · 三角形 ${Math.round(info.render.triangles).toLocaleString()} · 几何 ${info.memory.geometries} · 纹理 ${info.memory.textures}`
+  }
+  setMotionDiagnostic(requested: number, target: number, paused: boolean, inspection: boolean, ready: boolean, covered: boolean, jump: number | null) {
+    this.motionReadout.textContent = `请求/目标速度 ${requested.toFixed(1)}/${target.toFixed(1)}m/s · 暂停 ${paused} · 俯视 ${inspection}\n预热 ${ready} · 下一步覆盖 ${covered} · 跳转目标 ${jump === null ? '无' : jump.toFixed(1)}`
   }
   recenter(s: number) {
     if (!this.data) return
@@ -149,7 +158,7 @@ export class GeoInspector {
     if (this.editing) this.controls.update()
     const pose = this.data.pose(s)
     const stream = world.streamingStats
-    this.status.textContent = `${stream.visible}/49 可视区块 · 缓存 ${stream.cached} · DEM 20m${!stream.ready ? ' · 正在加载周边场景' : stream.pending ? ' · 预建中' : ' · 场景就绪'}`
+    this.status.textContent = this.error ? `真实场景加载失败 · ${this.error}` : `${stream.visible}/49 可视区块 · 缓存 ${stream.cached} · DEM 20m${!stream.ready ? ' · 正在加载周边场景' : stream.pending ? ' · 预建中' : ' · 场景就绪'}`
     this.position.textContent = `${(pose.s / 1000).toFixed(2)} / ${(this.data.length / 1000).toFixed(2)} km · ${pose.latitude.toFixed(5)}, ${pose.longitude.toFixed(5)}${s >= this.data.length - 0.01 ? ' · 样板终点' : ''}`
     this.streamingStats.textContent = `预加载队列 ${stream.prefetchPending} · 前方缓冲 ${stream.preloadMetres}m · 最近未建 ${stream.nearestMissingMetres}m\n缓存 ${stream.cached}（当前视野 ${stream.visible}/49）· 最近/最高建块 ${stream.lastBuildMs.toFixed(1)}/${stream.maxBuildMs.toFixed(1)}ms\n视野缺块 ${stream.visibleMissing} · 行驶缺块帧 ${stream.suddenAppearanceFrames} · ${stream.assets}`
     const nearest = this.data.stations.filter(station => station.inCurrentRoute).sort((a, b) => Math.abs(a.sMetres - s) - Math.abs(b.sMetres - s))[0]

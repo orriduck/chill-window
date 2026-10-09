@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { buildingHeight, buildingStructureKind, platformRise, GeoData, type GeoPoint, type MappedFeature, type BuildingHeightStatus } from './GeoData'
 import { GeoForest, type ForestPlacement } from './GeoForest'
+import { pyramidalRoof } from './GeoRoof'
 import { hash01 } from '../core/procedural'
 import { groundGrassTex, groundRockTex, geographicTexturesReady } from '../textures'
 
@@ -50,6 +51,7 @@ export class RealWorld {
   private assetsReady = false
   private readyResolved = false
   private resolveReady!: () => void
+  private rejectReady!: (error: Error) => void
   readonly ready: Promise<void>
   private background: THREE.Mesh | null = null
   private landMask: THREE.CanvasTexture
@@ -106,7 +108,7 @@ export class RealWorld {
   readonly data: GeoData
   constructor(data: GeoData, initialS = data.checkpoints[0]?.s ?? 0) {
     this.data = data
-    this.ready = new Promise(resolve => { this.resolveReady = resolve })
+    this.ready = new Promise((resolve, reject) => { this.resolveReady = resolve; this.rejectReady = reject })
     this.landMask = this.buildLandMask()
     this.group.name = 'real-hudson-world'
     this.groundMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, map: groundGrassTex, roughness: 0.95 })
@@ -152,7 +154,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       if (this.disposed) return
       this.textureFailures = results.filter(loaded => !loaded).length
       this.assetsReady = this.textureFailures === 0
-      if (this.textureFailures) console.error('真实地景纹理加载失败', this.textureFailures)
+      if (this.textureFailures) this.rejectReady(new Error(`地表 / 树木纹理有 ${this.textureFailures} 项加载失败，请刷新重试`))
     })
   }
   private tilesAt(x: number, z: number) {
@@ -391,9 +393,11 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       const top = Math.min(500, measurement.metres!)
       const roofHeight = Number(properties.roof_height) > 0 ? Math.min(Number(properties.roof_height), top * 0.45) : 0
       const roofShape = properties.roof_shape ?? feature.tags['roof:shape'] ?? feature.tags['building:roof:shape']
-      const modeledRoof = roofHeight > 0 && ['pyramidal', 'hipped'].includes(String(roofShape))
+      const roofMesh = roofShape === 'pyramidal' && (measurement.status === 'source-tag' || measurement.status === 'source-estimate')
+        ? pyramidalRoof(feature.coordinates, feature.holes, roofHeight) : null
+      const modeledRoof = roofMesh !== null
       const depth = top - minHeight - (modeledRoof ? roofHeight : 0)
-      if (depth <= 0.05) continue
+      if (depth <= 0.05) { roofMesh?.dispose(); continue }
       const geometry = new THREE.ExtrudeGeometry(shapeOf(feature), { depth, bevelEnabled: false, steps: 1 })
       // ExtrudeGeometry's first material is the roof and second is the wall.
       // Source roof metadata is kept with each building; the base palettes
@@ -406,20 +410,12 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       geometry.userData.roofShape = roofShape
       buildingGeometry.get(measurement.status)!.push(geometry)
       if (modeledRoof && (measurement.status === 'source-tag' || measurement.status === 'source-estimate')) {
-        const roof = new THREE.ShapeGeometry(shapeOf(feature))
+        const roof = roofMesh!
         const positions = roof.getAttribute('position')
-        const centerX = (feature.bounds[0] + feature.bounds[2]) / 2, centerZ = (feature.bounds[1] + feature.bounds[3]) / 2
-        const halfX = Math.max(0.01, (feature.bounds[2] - feature.bounds[0]) / 2), halfZ = Math.max(0.01, (feature.bounds[3] - feature.bounds[1]) / 2)
-        for (let i = 0; i < positions.count; i++) {
-          const x = positions.getX(i), z = -positions.getY(i)
-          const falloff = Math.min(1, Math.max(0, Math.max(Math.abs(x - centerX) / halfX, Math.abs(z - centerZ) / halfZ)))
-          positions.setZ(i, roofHeight * (1 - falloff))
-        }
-        positions.needsUpdate = true; roof.computeVertexNormals()
         const color = new THREE.Color(roofColor ?? 0x72756f), colors: number[] = []
         for (let i = 0; i < positions.count; i++) colors.push(color.r, color.g, color.b)
         roof.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-        roof.rotateX(-Math.PI / 2); roof.translate(0, base + top - roofHeight + 0.025, 0)
+        roof.translate(0, base + top - roofHeight + 0.025, 0)
         roofGeometry.get(measurement.status)!.push(roof)
       }
     }
@@ -559,7 +555,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       if (height === null) continue
       const delta = Math.abs((this.terrainHeight(x + 4, z) ?? height) - (this.terrainHeight(x - 4, z) ?? height))
       if (delta > 10 || hash01(x, z, 4) < 0.12) continue
-      placements.push({ x, z, y: height - 0.12, height: 8 + hash01(x, z, 8) * 7, yaw: hash01(x, z, 10) * Math.PI * 2, variant: Math.min(15, Math.floor(hash01(x, z, 11) * 16)) })
+      placements.push({ x, z, y: height - 0.12, height: 18 + hash01(x, z, 8) * 6, yaw: hash01(x, z, 10) * Math.PI * 2, variant: Math.min(15, Math.floor(hash01(x, z, 11) * 16)) })
     }
     this.forest.addInstances(parent, placements)
   }
@@ -577,13 +573,13 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       const u = (x - gx) / 64, v = (z - gz) / 64
       return u + v <= 1 ? a * (1 - u - v) + b * u + c * v : d * (u + v - 1) + b * (1 - v) + c * (1 - u)
     }
-    for (let x = Math.ceil(minX / 48) * 48; x < maxX; x += 48) for (let z = Math.ceil(minZ / 48) * 48; z < maxZ; z += 48) {
-      const px = x + (hash01(x, z, 21) - 0.5) * 38, pz = z + (hash01(x, z, 22) - 0.5) * 38
+    for (let x = Math.ceil(minX / 24) * 24; x < maxX; x += 24) for (let z = Math.ceil(minZ / 24) * 24; z < maxZ; z += 24) {
+      const px = x + (hash01(x, z, 21) - 0.5) * 18, pz = z + (hash01(x, z, 22) - 0.5) * 18
       if (!this.sampleLand(px, pz).forest || this.data.landAt(px, pz, 'building')) continue
       const y = displayedHeight(px, pz); if (y === null) continue
       const key = `${Math.floor(px / 1024)},${Math.floor(pz / 1024)}`
       const batch = regions.get(key) ?? []
-      batch.push({ x: px, z: pz, y, height: 10 + hash01(x, z, 23) * 6, yaw: hash01(x, z, 24) * Math.PI * 2,
+      batch.push({ x: px, z: pz, y, height: 18 + hash01(x, z, 23) * 6, yaw: hash01(x, z, 24) * Math.PI * 2,
         variant: Math.min(15, Math.floor(hash01(x, z, 25) * 16)) })
       regions.set(key, batch)
     }
