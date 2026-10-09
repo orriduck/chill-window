@@ -137,3 +137,13 @@
 | [Microsoft GlobalMLBuildingFootprints](https://github.com/microsoft/GlobalMLBuildingFootprints) | 影像提取轮廓与模型估计高度，缺失高度为-1。可作数据候选，不能把预测高度称作测量值。NYS LiDAR可进一步研究，但本轮未取得建筑级点云高度。 | 真实建筑覆盖候选 |
 
 直接案例 [YusufEminoglu/osm_3d_model](https://github.com/YusufEminoglu/osm_3d_model) 也可研究，其README明确包含procedural建筑/树木等细节；与“全部真实数据”的目标需要区分实际OSM几何和生成的细节，不能整体照搬并宣称真实。
+
+## 2026-10-09：真实 Hudson 车站数据
+
+| 来源 | 具体借鉴或核查 | 受影响的文件 |
+| --- | --- | --- |
+| [MTA Hudson Line 官方站点/时刻表](https://www.mta.info/schedules/metro-north/hudson) | 实际读取到生效日期 October 4, 2026 的 PDF；核对 Cold Spring、Garrison、Manitou、Peekskill 的名称与北南顺序。站台触感警示条、坡道等图例仅作后续实景研究线索，不作为已取得具体站台模型的证据。 | `app/scripts/prepare-hudson-stations.py`、`app/public/geodata/hudson/stations.json` |
+| [Amtrak Empire Service 官方时刻表](https://content.amtrak.com/content/timetable/Empire%20Service.pdf) | 本日读取到 October 9, 2026 的 PDF；Croton-Harmon 与 Poughkeepsie 为这一段两端外的 Amtrak 停靠站，以上四个中间 Metro-North 站应表示经过而非 Empire Service 停靠。未导入班次时间。 | 同上，站点服务元数据 |
+| [OSM Overpass API](https://overpass-api.de/api/interpreter)、[OSM 署名/许可](https://www.openstreetmap.org/copyright) | 实际取得区域内 31 条原始 OSM 对象；完整站台点/线/面几何与 stop_area 成员保留。派生保留 26 个地理对象、5 个站点，其中 4 个位于当前 FRA 路段，关联 8 条站台几何；Breakneck Ridge 距北端 1125m，在当前路段外。Manitou 的两个站台尚未成为 stop_area 成员，按75m内最近站点关联，明确标为几何推断。 | `sources/overpass-stations.ql`、`.json.gz`、`.request.json` 与 `stations.json` |
+
+精确请求、OSM 数据时间、SHA-256、原始标签和平台关联依据已留档。站台 height 标签含 `4'`、`4` 和缺失值，不能统一当4米使用；Garrison另有带 disused 标签的轮廓，不能当作活跃站台。当前仅完成可复现的数据接续，尚未接入渲染或通过车站画面验收；站棚/立面/材质需要另查实景，不能从站点坐标编造。

@@ -1,0 +1,10 @@
+{
+  "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A60%5D%3B%0A%28%0A++nwr%5B%22railway%22~%22%5E%28station%7Chalt%7Cplatform%7Cstop%29%24%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++nwr%5B%22public_transport%22%3D%22platform%22%5D%5B%22train%22%3D%22yes%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++relation%5B%22public_transport%22%3D%22stop_area%22%5D%5B%22network%22%3D%22Metro-North+Railroad%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A%29%3B%0Aout+body+geom%3B%0A",
+  "method": "GET",
+  "body": null,
+  "fetchedAt": "2026-10-09T20:09:34.369170+00:00",
+  "responseSha256": "7a4915cd652bedab3aa6792ce33fcb2a6fad43cac1832d833d96a6cd237f1726",
+  "querySha256": "a7eadef92ab689346ea94184a0af17390f7a228e1abecf1f4b35e17738eed6de",
+  "osmBaseTimestamp": "2026-10-09T20:07:51Z",
+  "elements": 31
+}

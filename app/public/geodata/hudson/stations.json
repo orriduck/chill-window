@@ -1,0 +1,2513 @@
+{
+  "schemaVersion": 1,
+  "bounds": [
+    -74.08,
+    41.25,
+    -73.85,
+    41.46
+  ],
+  "routeName": "Empire Service · Hudson Highlands · southbound",
+  "routeLengthMetres": 22837.382,
+  "routeWorldSha256": "c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec",
+  "source": {
+    "name": "OpenStreetMap",
+    "license": "ODbL-1.0",
+    "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A60%5D%3B%0A%28%0A++nwr%5B%22railway%22~%22%5E%28station%7Chalt%7Cplatform%7Cstop%29%24%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++nwr%5B%22public_transport%22%3D%22platform%22%5D%5B%22train%22%3D%22yes%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++relation%5B%22public_transport%22%3D%22stop_area%22%5D%5B%22network%22%3D%22Metro-North+Railroad%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A%29%3B%0Aout+body+geom%3B%0A",
+    "method": "GET",
+    "body": null,
+    "fetchedAt": "2026-10-09T20:09:34.369170+00:00",
+    "responseSha256": "7a4915cd652bedab3aa6792ce33fcb2a6fad43cac1832d833d96a6cd237f1726",
+    "querySha256": "a7eadef92ab689346ea94184a0af17390f7a228e1abecf1f4b35e17738eed6de",
+    "osmBaseTimestamp": "2026-10-09T20:07:51Z",
+    "elements": 31
+  },
+  "serviceReferences": [
+    {
+      "url": "https://www.mta.info/schedules/metro-north/hudson",
+      "verifiedAt": "2026-10-09",
+      "description": "Hudson Line schedule effective October 4, 2026; station names and order"
+    },
+    {
+      "url": "https://content.amtrak.com/content/timetable/Empire%20Service.pdf",
+      "verifiedAt": "2026-10-09",
+      "description": "Empire Service timetable for October 9, 2026; intermediate Metro-North stations are not Amtrak stops"
+    }
+  ],
+  "limitations": [
+    "No current departure times or service availability are inferred from OSM.",
+    "Station area marker is a bounds centre, not a surveyed station point.",
+    "Platform elevations, canopy geometry and materials are not supplied when absent in the source tags.",
+    "Any disused tags must be preserved and inspected before rendering a platform as active."
+  ],
+  "stations": [
+    {
+      "id": "node/4623070653",
+      "name": "Breakneck Ridge",
+      "location": [
+        -73.9817131,
+        41.4489312
+      ],
+      "locationMethod": "osm_point",
+      "tags": {
+        "name": "Breakneck Ridge",
+        "network": "Metro-North Railroad",
+        "public_transport": "station",
+        "railway": "halt",
+        "train": "yes",
+        "wikidata": "Q1100216",
+        "wikipedia": "en:Breakneck Ridge station"
+      },
+      "sMetres": 0.0,
+      "distanceToRouteMetres": 1125.112,
+      "inCurrentRoute": false,
+      "platformIds": [
+        "way/295684551",
+        "way/467710858"
+      ],
+      "platformAssociations": [
+        {
+          "id": "way/295684551",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/10525181"
+        },
+        {
+          "id": "way/467710858",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/10525181"
+        }
+      ],
+      "stopPositionIds": [
+        "node/3215088615",
+        "node/568539311"
+      ],
+      "relationIds": [
+        "relation/10525181"
+      ],
+      "empireServiceStopsHere": false
+    },
+    {
+      "id": "node/7100419083",
+      "name": "Cold Spring",
+      "location": [
+        -73.9580739,
+        41.4152903
+      ],
+      "locationMethod": "osm_point",
+      "tags": {
+        "addr:city": "Cold Spring",
+        "addr:state": "NY",
+        "name": "Cold Spring",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Railroad",
+        "public_transport": "station",
+        "railway": "station",
+        "train": "yes",
+        "website": "https://www.mta.info/",
+        "wheelchair": "yes",
+        "wikidata": "Q5142348",
+        "wikipedia": "en:Cold Spring station (Metro-North)"
+      },
+      "sMetres": 3123.283,
+      "distanceToRouteMetres": 2.161,
+      "inCurrentRoute": true,
+      "platformIds": [
+        "way/1131682757",
+        "way/97522334"
+      ],
+      "platformAssociations": [
+        {
+          "id": "way/97522334",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/4243065"
+        },
+        {
+          "id": "way/1131682757",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/4243065"
+        }
+      ],
+      "stopPositionIds": [
+        "node/3215088624",
+        "node/568544043"
+      ],
+      "relationIds": [
+        "relation/4243065"
+      ],
+      "empireServiceStopsHere": false
+    },
+    {
+      "id": "way/1431412420",
+      "name": "Garrison",
+      "location": [
+        -73.9475142,
+        41.38055145
+      ],
+      "locationMethod": "osm_area_bounds_center",
+      "tags": {
+        "addr:city": "Garrison",
+        "addr:housenumber": "1",
+        "addr:postcode": "10524",
+        "addr:state": "NY",
+        "addr:street": "Upper Station Road",
+        "area": "yes",
+        "name": "Garrison",
+        "network": "Metro-North Railroad",
+        "network:wikidata": "Q125908",
+        "operator": "Metro-North Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "station",
+        "railway": "station",
+        "train": "yes",
+        "wikidata": "Q5524013",
+        "wikipedia": "en:Garrison station (Metro-North)"
+      },
+      "sMetres": 7393.844,
+      "distanceToRouteMetres": 2.173,
+      "inCurrentRoute": true,
+      "platformIds": [
+        "way/1431412382",
+        "way/1431412390"
+      ],
+      "platformAssociations": [
+        {
+          "id": "way/1431412382",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/19625498"
+        },
+        {
+          "id": "way/1431412390",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/19625498"
+        }
+      ],
+      "stopPositionIds": [
+        "node/1888657787",
+        "node/568545481"
+      ],
+      "relationIds": [
+        "relation/19625498"
+      ],
+      "empireServiceStopsHere": false
+    },
+    {
+      "id": "node/7005528436",
+      "name": "Manitou",
+      "location": [
+        -73.9703403,
+        41.3325754
+      ],
+      "locationMethod": "osm_point",
+      "tags": {
+        "name": "Manitou",
+        "network": "Metro-North Railroad",
+        "public_transport": "station",
+        "railway": "halt",
+        "source": "Yahoo",
+        "train": "yes",
+        "wikidata": "Q1100162",
+        "wikipedia": "en:Manitou station"
+      },
+      "sMetres": 13247.272,
+      "distanceToRouteMetres": 6.745,
+      "inCurrentRoute": true,
+      "platformIds": [
+        "way/1190834578",
+        "way/1190834579"
+      ],
+      "platformAssociations": [
+        {
+          "id": "way/1190834578",
+          "method": "nearest_station_bounds_center",
+          "distanceMetres": 9.661
+        },
+        {
+          "id": "way/1190834579",
+          "method": "nearest_station_bounds_center",
+          "distanceMetres": 5.055
+        }
+      ],
+      "stopPositionIds": [
+        "node/7100409523",
+        "node/921895138"
+      ],
+      "relationIds": [
+        "relation/10525182"
+      ],
+      "empireServiceStopsHere": false
+    },
+    {
+      "id": "node/7100409527",
+      "name": "Peekskill",
+      "location": [
+        -73.9319345,
+        41.2844218
+      ],
+      "locationMethod": "osm_point",
+      "tags": {
+        "name": "Peekskill",
+        "network": "Metro-North Railroad",
+        "public_transport": "station",
+        "railway": "station",
+        "train": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q7160175"
+      },
+      "sMetres": 21083.216,
+      "distanceToRouteMetres": 3.767,
+      "inCurrentRoute": true,
+      "platformIds": [
+        "way/533839748",
+        "way/533839753"
+      ],
+      "platformAssociations": [
+        {
+          "id": "way/533839753",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/8336095"
+        },
+        {
+          "id": "way/533839748",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/8336095"
+        }
+      ],
+      "stopPositionIds": [
+        "node/3049479038",
+        "node/59729448"
+      ],
+      "relationIds": [
+        "relation/8336095"
+      ],
+      "empireServiceStopsHere": false
+    }
+  ],
+  "features": [
+    {
+      "id": "node/59729448",
+      "coordinates": [
+        [
+          -73.9326712,
+          41.2839127
+        ]
+      ],
+      "tags": {
+        "name": "Peekskill",
+        "network": "Metro-North Railroad",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "node/568539311",
+      "coordinates": [
+        [
+          -73.9809719,
+          41.4476297
+        ]
+      ],
+      "tags": {
+        "name": "Breakneck Ridge",
+        "network": "Metro-North Railroad",
+        "network:wikidata": "Q125908",
+        "operator": "Metro-North Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "node/568544043",
+      "coordinates": [
+        [
+          -73.9586501,
+          41.4158521
+        ]
+      ],
+      "tags": {
+        "name": "Cold Spring",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "node/568545481",
+      "coordinates": [
+        [
+          -73.9471707,
+          41.3815064
+        ]
+      ],
+      "tags": {
+        "name": "Garrison",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes",
+        "wikidata": "Q5524013",
+        "wikipedia": "en:Garrison station (Metro-North)"
+      }
+    },
+    {
+      "id": "node/921895138",
+      "coordinates": [
+        [
+          -73.9703873,
+          41.3325748
+        ]
+      ],
+      "tags": {
+        "name": "Manitou",
+        "network": "Metro-North Railroad",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "node/1888657787",
+      "coordinates": [
+        [
+          -73.9476157,
+          41.3803366
+        ]
+      ],
+      "tags": {
+        "name": "Garrison",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes",
+        "wikidata": "Q5524013",
+        "wikipedia": "en:Garrison station (Metro-North)"
+      }
+    },
+    {
+      "id": "node/3049479038",
+      "coordinates": [
+        [
+          -73.9313408,
+          41.2848579
+        ]
+      ],
+      "tags": {
+        "name": "Peekskill",
+        "network": "Metro-North Railroad",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "node/3215088615",
+      "coordinates": [
+        [
+          -73.9824529,
+          41.450184
+        ]
+      ],
+      "tags": {
+        "name": "Breakneck Ridge",
+        "network": "Metro-North Railroad",
+        "network:wikidata": "Q125908",
+        "operator": "Metro-North Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "node/3215088624",
+      "coordinates": [
+        [
+          -73.9575611,
+          41.4147806
+        ]
+      ],
+      "tags": {
+        "name": "Cold Spring",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "node/4623070653",
+      "coordinates": [
+        [
+          -73.9817131,
+          41.4489312
+        ]
+      ],
+      "tags": {
+        "name": "Breakneck Ridge",
+        "network": "Metro-North Railroad",
+        "public_transport": "station",
+        "railway": "halt",
+        "train": "yes",
+        "wikidata": "Q1100216",
+        "wikipedia": "en:Breakneck Ridge station"
+      }
+    },
+    {
+      "id": "node/7005528436",
+      "coordinates": [
+        [
+          -73.9703403,
+          41.3325754
+        ]
+      ],
+      "tags": {
+        "name": "Manitou",
+        "network": "Metro-North Railroad",
+        "public_transport": "station",
+        "railway": "halt",
+        "source": "Yahoo",
+        "train": "yes",
+        "wikidata": "Q1100162",
+        "wikipedia": "en:Manitou station"
+      }
+    },
+    {
+      "id": "node/7100409523",
+      "coordinates": [
+        [
+          -73.9704236,
+          41.3325968
+        ]
+      ],
+      "tags": {
+        "name": "Manitou",
+        "network": "Metro-North Railroad",
+        "public_transport": "stop_position",
+        "railway": "stop",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "node/7100409527",
+      "coordinates": [
+        [
+          -73.9319345,
+          41.2844218
+        ]
+      ],
+      "tags": {
+        "name": "Peekskill",
+        "network": "Metro-North Railroad",
+        "public_transport": "station",
+        "railway": "station",
+        "train": "yes",
+        "wheelchair": "yes",
+        "wikidata": "Q7160175"
+      }
+    },
+    {
+      "id": "node/7100419083",
+      "coordinates": [
+        [
+          -73.9580739,
+          41.4152903
+        ]
+      ],
+      "tags": {
+        "addr:city": "Cold Spring",
+        "addr:state": "NY",
+        "name": "Cold Spring",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Railroad",
+        "public_transport": "station",
+        "railway": "station",
+        "train": "yes",
+        "website": "https://www.mta.info/",
+        "wheelchair": "yes",
+        "wikidata": "Q5142348",
+        "wikipedia": "en:Cold Spring station (Metro-North)"
+      }
+    },
+    {
+      "id": "way/97522334",
+      "coordinates": [
+        [
+          -73.957471,
+          41.4148076
+        ],
+        [
+          -73.9575818,
+          41.4149097
+        ],
+        [
+          -73.9583729,
+          41.415639
+        ],
+        [
+          -73.9586402,
+          41.4158854
+        ]
+      ],
+      "tags": {
+        "bench": "yes",
+        "bin": "yes",
+        "height": "4'",
+        "lit": "yes",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "platform",
+        "railway": "platform",
+        "shelter": "yes",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/295684551",
+      "coordinates": [
+        [
+          -73.9825286,
+          41.4502086
+        ],
+        [
+          -73.9824909,
+          41.4502188
+        ],
+        [
+          -73.9824669,
+          41.4501686
+        ],
+        [
+          -73.9825046,
+          41.4501585
+        ],
+        [
+          -73.9825286,
+          41.4502086
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "height": "4'",
+        "network": "Metro-North Railroad",
+        "public_transport": "platform",
+        "railway": "platform",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/467710858",
+      "coordinates": [
+        [
+          -73.9809777,
+          41.4476658
+        ],
+        [
+          -73.98094,
+          41.447676
+        ],
+        [
+          -73.980916,
+          41.4476258
+        ],
+        [
+          -73.9809537,
+          41.4476157
+        ],
+        [
+          -73.9809777,
+          41.4476658
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "height": "4'",
+        "network": "Metro-North Railroad",
+        "public_transport": "platform",
+        "railway": "platform",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/533839748",
+      "coordinates": [
+        [
+          -73.9327248,
+          41.2839498
+        ],
+        [
+          -73.932691,
+          41.2839218
+        ],
+        [
+          -73.9313194,
+          41.2849486
+        ],
+        [
+          -73.9313388,
+          41.2849623
+        ],
+        [
+          -73.9313556,
+          41.2849742
+        ],
+        [
+          -73.9314116,
+          41.2849323
+        ],
+        [
+          -73.9314182,
+          41.2849273
+        ],
+        [
+          -73.9327248,
+          41.2839498
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "bench": "yes",
+        "bin": "yes",
+        "height": "4'",
+        "lit": "yes",
+        "network": "Metro-North Railroad",
+        "public_transport": "platform",
+        "railway": "platform",
+        "shelter": "yes",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/533839753",
+      "coordinates": [
+        [
+          -73.9326633,
+          41.2838386
+        ],
+        [
+          -73.9326356,
+          41.2838169
+        ],
+        [
+          -73.9317714,
+          41.2844663
+        ],
+        [
+          -73.9317544,
+          41.2844789
+        ],
+        [
+          -73.9314411,
+          41.2847103
+        ],
+        [
+          -73.93126,
+          41.2848441
+        ],
+        [
+          -73.931291,
+          41.2848693
+        ],
+        [
+          -73.9317567,
+          41.2845213
+        ],
+        [
+          -73.9326633,
+          41.2838386
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "bench": "yes",
+        "bin": "yes",
+        "height": "4'",
+        "lit": "yes",
+        "network": "Metro-North Railroad",
+        "public_transport": "platform",
+        "railway": "platform",
+        "shelter": "yes",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/1131682757",
+      "coordinates": [
+        [
+          -73.9575715,
+          41.4147635
+        ],
+        [
+          -73.9576741,
+          41.414858
+        ],
+        [
+          -73.958129,
+          41.4152873
+        ],
+        [
+          -73.9587275,
+          41.4158326
+        ],
+        [
+          -73.9587482,
+          41.4158195
+        ],
+        [
+          -73.9587699,
+          41.4158057
+        ],
+        [
+          -73.9584619,
+          41.4155297
+        ],
+        [
+          -73.9579932,
+          41.4150995
+        ],
+        [
+          -73.9579381,
+          41.4150495
+        ],
+        [
+          -73.9578547,
+          41.414974
+        ],
+        [
+          -73.9576883,
+          41.4148218
+        ],
+        [
+          -73.957603,
+          41.4147437
+        ],
+        [
+          -73.9575715,
+          41.4147635
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "bench": "yes",
+        "bin": "yes",
+        "height": "4",
+        "lit": "yes",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "platform",
+        "railway": "platform",
+        "shelter": "yes",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/1190834578",
+      "coordinates": [
+        [
+          -73.9703798,
+          41.33269
+        ],
+        [
+          -73.9703573,
+          41.3326751
+        ],
+        [
+          -73.9704824,
+          41.3325683
+        ],
+        [
+          -73.9704947,
+          41.3325764
+        ],
+        [
+          -73.9705049,
+          41.3325832
+        ],
+        [
+          -73.9703798,
+          41.33269
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "network": "Metro-North Railroad",
+        "public_transport": "platform",
+        "railway": "platform",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/1190834579",
+      "coordinates": [
+        [
+          -73.9704206,
+          41.3325199
+        ],
+        [
+          -73.9703607,
+          41.3325753
+        ],
+        [
+          -73.9703395,
+          41.3325624
+        ],
+        [
+          -73.9703994,
+          41.332507
+        ],
+        [
+          -73.9704103,
+          41.3325136
+        ],
+        [
+          -73.9704206,
+          41.3325199
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "network": "Metro-North Railroad",
+        "public_transport": "platform",
+        "railway": "platform",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/1431412376",
+      "coordinates": [
+        [
+          -73.947025,
+          41.3825168
+        ],
+        [
+          -73.9470227,
+          41.3825233
+        ],
+        [
+          -73.9469941,
+          41.3826044
+        ],
+        [
+          -73.946953,
+          41.3825956
+        ],
+        [
+          -73.9468929,
+          41.3825847
+        ],
+        [
+          -73.9470425,
+          41.3821628
+        ],
+        [
+          -73.9471392,
+          41.3821797
+        ],
+        [
+          -73.9471021,
+          41.3822961
+        ],
+        [
+          -73.9470927,
+          41.3823256
+        ],
+        [
+          -73.947025,
+          41.3825168
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "disused:railway": "rail",
+        "public_transport": "platform",
+        "railway": "platform",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/1431412382",
+      "coordinates": [
+        [
+          -73.9477052,
+          41.3801613
+        ],
+        [
+          -73.9477482,
+          41.3801711
+        ],
+        [
+          -73.9476825,
+          41.3803628
+        ],
+        [
+          -73.9475101,
+          41.3808662
+        ],
+        [
+          -73.9474527,
+          41.381034
+        ],
+        [
+          -73.9473579,
+          41.3813105
+        ],
+        [
+          -73.947355,
+          41.381319
+        ],
+        [
+          -73.9473515,
+          41.3813292
+        ],
+        [
+          -73.9472809,
+          41.3815355
+        ],
+        [
+          -73.9472688,
+          41.3815336
+        ],
+        [
+          -73.9472562,
+          41.3815315
+        ],
+        [
+          -73.9472466,
+          41.38153
+        ],
+        [
+          -73.947248,
+          41.3815241
+        ],
+        [
+          -73.947242,
+          41.3815229
+        ],
+        [
+          -73.947468,
+          41.3808579
+        ],
+        [
+          -73.947639,
+          41.3803556
+        ],
+        [
+          -73.9477052,
+          41.3801613
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "bench": "yes",
+        "bin": "yes",
+        "height": "4'",
+        "lit": "yes",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "platform",
+        "railway": "platform",
+        "ref": "2",
+        "shelter": "yes",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/1431412390",
+      "coordinates": [
+        [
+          -73.9471064,
+          41.3815026
+        ],
+        [
+          -73.9471158,
+          41.3815045
+        ],
+        [
+          -73.9471293,
+          41.3815075
+        ],
+        [
+          -73.9471422,
+          41.38151
+        ],
+        [
+          -73.9471456,
+          41.3815018
+        ],
+        [
+          -73.9471556,
+          41.3815037
+        ],
+        [
+          -73.9476204,
+          41.3801432
+        ],
+        [
+          -73.9476063,
+          41.3801404
+        ],
+        [
+          -73.9475596,
+          41.3801314
+        ],
+        [
+          -73.9475566,
+          41.3801404
+        ],
+        [
+          -73.947553,
+          41.3801508
+        ],
+        [
+          -73.9475497,
+          41.3801613
+        ],
+        [
+          -73.9475472,
+          41.380169
+        ],
+        [
+          -73.9473724,
+          41.3806978
+        ],
+        [
+          -73.9473703,
+          41.380704
+        ],
+        [
+          -73.947358,
+          41.3807413
+        ],
+        [
+          -73.9473547,
+          41.3807513
+        ],
+        [
+          -73.947351,
+          41.3807626
+        ],
+        [
+          -73.9473433,
+          41.3807859
+        ],
+        [
+          -73.9473284,
+          41.380831
+        ],
+        [
+          -73.947317,
+          41.3808653
+        ],
+        [
+          -73.9471842,
+          41.3812672
+        ],
+        [
+          -73.947181,
+          41.3812768
+        ],
+        [
+          -73.9471786,
+          41.3812841
+        ],
+        [
+          -73.9471064,
+          41.3815026
+        ]
+      ],
+      "tags": {
+        "area": "yes",
+        "bench": "yes",
+        "bin": "yes",
+        "height": "4'",
+        "lit": "yes",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "public_transport": "platform",
+        "railway": "platform",
+        "ref": "1",
+        "shelter": "yes",
+        "train": "yes"
+      }
+    },
+    {
+      "id": "way/1431412420",
+      "coordinates": [
+        [
+          -73.9472166,
+          41.3816232
+        ],
+        [
+          -73.9471111,
+          41.3816029
+        ],
+        [
+          -73.9471422,
+          41.38151
+        ],
+        [
+          -73.9471293,
+          41.3815075
+        ],
+        [
+          -73.9471158,
+          41.3815045
+        ],
+        [
+          -73.9471064,
+          41.3815026
+        ],
+        [
+          -73.9471786,
+          41.3812841
+        ],
+        [
+          -73.947181,
+          41.3812768
+        ],
+        [
+          -73.9471842,
+          41.3812672
+        ],
+        [
+          -73.947317,
+          41.3808653
+        ],
+        [
+          -73.9473284,
+          41.380831
+        ],
+        [
+          -73.9473433,
+          41.3807859
+        ],
+        [
+          -73.947351,
+          41.3807626
+        ],
+        [
+          -73.9473547,
+          41.3807513
+        ],
+        [
+          -73.947358,
+          41.3807413
+        ],
+        [
+          -73.9473703,
+          41.380704
+        ],
+        [
+          -73.9473724,
+          41.3806978
+        ],
+        [
+          -73.9475472,
+          41.380169
+        ],
+        [
+          -73.9475497,
+          41.3801613
+        ],
+        [
+          -73.947553,
+          41.3801508
+        ],
+        [
+          -73.9475566,
+          41.3801404
+        ],
+        [
+          -73.9475596,
+          41.3801314
+        ],
+        [
+          -73.9476063,
+          41.3801404
+        ],
+        [
+          -73.9477684,
+          41.3796516
+        ],
+        [
+          -73.9476935,
+          41.3796351
+        ],
+        [
+          -73.9476281,
+          41.3796206
+        ],
+        [
+          -73.9476105,
+          41.3796169
+        ],
+        [
+          -73.9476364,
+          41.3795306
+        ],
+        [
+          -73.9476555,
+          41.3794797
+        ],
+        [
+          -73.9477121,
+          41.3794898
+        ],
+        [
+          -73.9477765,
+          41.3795012
+        ],
+        [
+          -73.947922,
+          41.3795271
+        ],
+        [
+          -73.9477052,
+          41.3801613
+        ],
+        [
+          -73.9477482,
+          41.3801711
+        ],
+        [
+          -73.9476825,
+          41.3803628
+        ],
+        [
+          -73.9475101,
+          41.3808662
+        ],
+        [
+          -73.9474527,
+          41.381034
+        ],
+        [
+          -73.9473579,
+          41.3813105
+        ],
+        [
+          -73.947355,
+          41.381319
+        ],
+        [
+          -73.9473515,
+          41.3813292
+        ],
+        [
+          -73.9472809,
+          41.3815355
+        ],
+        [
+          -73.9472688,
+          41.3815336
+        ],
+        [
+          -73.9472562,
+          41.3815315
+        ],
+        [
+          -73.9472466,
+          41.38153
+        ],
+        [
+          -73.9472335,
+          41.3815709
+        ],
+        [
+          -73.9472166,
+          41.3816232
+        ]
+      ],
+      "tags": {
+        "addr:city": "Garrison",
+        "addr:housenumber": "1",
+        "addr:postcode": "10524",
+        "addr:state": "NY",
+        "addr:street": "Upper Station Road",
+        "area": "yes",
+        "name": "Garrison",
+        "network": "Metro-North Railroad",
+        "network:wikidata": "Q125908",
+        "operator": "Metro-North Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "station",
+        "railway": "station",
+        "train": "yes",
+        "wikidata": "Q5524013",
+        "wikipedia": "en:Garrison station (Metro-North)"
+      }
+    }
+  ],
+  "stopAreas": [
+    {
+      "id": "relation/4243065",
+      "tags": {
+        "name": "Cold Spring",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Railroad",
+        "public_transport": "stop_area",
+        "railway": "facility",
+        "type": "public_transport"
+      },
+      "members": [
+        {
+          "type": "node",
+          "ref": 3215088624,
+          "role": "stop",
+          "lat": 41.4147806,
+          "lon": -73.9575611
+        },
+        {
+          "type": "node",
+          "ref": 568544043,
+          "role": "stop",
+          "lat": 41.4158521,
+          "lon": -73.9586501
+        },
+        {
+          "type": "way",
+          "ref": 97522334,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.4148076,
+              "lon": -73.957471
+            },
+            {
+              "lat": 41.4149097,
+              "lon": -73.9575818
+            },
+            {
+              "lat": 41.415639,
+              "lon": -73.9583729
+            },
+            {
+              "lat": 41.4158854,
+              "lon": -73.9586402
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 7100419083,
+          "role": "",
+          "lat": 41.4152903,
+          "lon": -73.9580739
+        },
+        {
+          "type": "way",
+          "ref": 44847439,
+          "role": "",
+          "geometry": [
+            {
+              "lat": 41.4152151,
+              "lon": -73.9581281
+            },
+            {
+              "lat": 41.4150072,
+              "lon": -73.9584551
+            },
+            {
+              "lat": 41.414549,
+              "lon": -73.9578371
+            },
+            {
+              "lat": 41.4145307,
+              "lon": -73.9578088
+            },
+            {
+              "lat": 41.4143108,
+              "lon": -73.9574681
+            },
+            {
+              "lat": 41.4142715,
+              "lon": -73.9574181
+            },
+            {
+              "lat": 41.4141648,
+              "lon": -73.9572823
+            },
+            {
+              "lat": 41.4140276,
+              "lon": -73.9571076
+            },
+            {
+              "lat": 41.4132681,
+              "lon": -73.9561463
+            },
+            {
+              "lat": 41.413178,
+              "lon": -73.9560433
+            },
+            {
+              "lat": 41.4130943,
+              "lon": -73.9558544
+            },
+            {
+              "lat": 41.4131028,
+              "lon": -73.9558392
+            },
+            {
+              "lat": 41.4131136,
+              "lon": -73.9558201
+            },
+            {
+              "lat": 41.4152151,
+              "lon": -73.9581281
+            }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 1131682757,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.4147635,
+              "lon": -73.9575715
+            },
+            {
+              "lat": 41.414858,
+              "lon": -73.9576741
+            },
+            {
+              "lat": 41.4152873,
+              "lon": -73.958129
+            },
+            {
+              "lat": 41.4158326,
+              "lon": -73.9587275
+            },
+            {
+              "lat": 41.4158195,
+              "lon": -73.9587482
+            },
+            {
+              "lat": 41.4158057,
+              "lon": -73.9587699
+            },
+            {
+              "lat": 41.4155297,
+              "lon": -73.9584619
+            },
+            {
+              "lat": 41.4150995,
+              "lon": -73.9579932
+            },
+            {
+              "lat": 41.4150495,
+              "lon": -73.9579381
+            },
+            {
+              "lat": 41.414974,
+              "lon": -73.9578547
+            },
+            {
+              "lat": 41.4148218,
+              "lon": -73.9576883
+            },
+            {
+              "lat": 41.4147437,
+              "lon": -73.957603
+            },
+            {
+              "lat": 41.4147635,
+              "lon": -73.9575715
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 13888650783,
+          "role": "entrance",
+          "lat": 41.4149204,
+          "lon": -73.9575625
+        },
+        {
+          "type": "node",
+          "ref": 13888650789,
+          "role": "entrance",
+          "lat": 41.4148036,
+          "lon": -73.9577215
+        },
+        {
+          "type": "node",
+          "ref": 13888650797,
+          "role": "entrance",
+          "lat": 41.4148457,
+          "lon": -73.9577577
+        },
+        {
+          "type": "node",
+          "ref": 1129158108,
+          "role": "entrance",
+          "lat": 41.4158854,
+          "lon": -73.9586402
+        },
+        {
+          "type": "node",
+          "ref": 1129158074,
+          "role": "entrance",
+          "lat": 41.4158195,
+          "lon": -73.9587482
+        },
+        {
+          "type": "node",
+          "ref": 1129158108,
+          "role": "entrance",
+          "lat": 41.4158854,
+          "lon": -73.9586402
+        }
+      ]
+    },
+    {
+      "id": "relation/8336095",
+      "tags": {
+        "name": "Peekskill",
+        "network": "Metro-North Railroad",
+        "public_transport": "stop_area",
+        "railway": "facility",
+        "type": "public_transport"
+      },
+      "members": [
+        {
+          "type": "node",
+          "ref": 3049479038,
+          "role": "stop",
+          "lat": 41.2848579,
+          "lon": -73.9313408
+        },
+        {
+          "type": "way",
+          "ref": 533839753,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.2838386,
+              "lon": -73.9326633
+            },
+            {
+              "lat": 41.2838169,
+              "lon": -73.9326356
+            },
+            {
+              "lat": 41.2844663,
+              "lon": -73.9317714
+            },
+            {
+              "lat": 41.2844789,
+              "lon": -73.9317544
+            },
+            {
+              "lat": 41.2847103,
+              "lon": -73.9314411
+            },
+            {
+              "lat": 41.2848441,
+              "lon": -73.93126
+            },
+            {
+              "lat": 41.2848693,
+              "lon": -73.931291
+            },
+            {
+              "lat": 41.2845213,
+              "lon": -73.9317567
+            },
+            {
+              "lat": 41.2838386,
+              "lon": -73.9326633
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 59729448,
+          "role": "stop",
+          "lat": 41.2839127,
+          "lon": -73.9326712
+        },
+        {
+          "type": "way",
+          "ref": 533839748,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.2839498,
+              "lon": -73.9327248
+            },
+            {
+              "lat": 41.2839218,
+              "lon": -73.932691
+            },
+            {
+              "lat": 41.2849486,
+              "lon": -73.9313194
+            },
+            {
+              "lat": 41.2849623,
+              "lon": -73.9313388
+            },
+            {
+              "lat": 41.2849742,
+              "lon": -73.9313556
+            },
+            {
+              "lat": 41.2849323,
+              "lon": -73.9314116
+            },
+            {
+              "lat": 41.2849273,
+              "lon": -73.9314182
+            },
+            {
+              "lat": 41.2839498,
+              "lon": -73.9327248
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 7100409527,
+          "role": "",
+          "lat": 41.2844218,
+          "lon": -73.9319345
+        },
+        {
+          "type": "node",
+          "ref": 13888177883,
+          "role": "entrance",
+          "lat": 41.2847103,
+          "lon": -73.9314411
+        },
+        {
+          "type": "node",
+          "ref": 13888177881,
+          "role": "entrance",
+          "lat": 41.2844789,
+          "lon": -73.9317544
+        },
+        {
+          "type": "node",
+          "ref": 5178511638,
+          "role": "entrance",
+          "lat": 41.2849207,
+          "lon": -73.9311404
+        },
+        {
+          "type": "node",
+          "ref": 5178511637,
+          "role": "entrance",
+          "lat": 41.2850062,
+          "lon": -73.9312825
+        },
+        {
+          "type": "node",
+          "ref": 13888177892,
+          "role": "entrance",
+          "lat": 41.284951,
+          "lon": -73.9314514
+        }
+      ]
+    },
+    {
+      "id": "relation/10525181",
+      "tags": {
+        "name": "Breakneck Ridge",
+        "network": "Metro-North Railroad",
+        "public_transport": "stop_area",
+        "railway": "facility",
+        "type": "public_transport"
+      },
+      "members": [
+        {
+          "type": "node",
+          "ref": 3215088615,
+          "role": "stop",
+          "lat": 41.450184,
+          "lon": -73.9824529
+        },
+        {
+          "type": "way",
+          "ref": 295684551,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.4502086,
+              "lon": -73.9825286
+            },
+            {
+              "lat": 41.4502188,
+              "lon": -73.9824909
+            },
+            {
+              "lat": 41.4501686,
+              "lon": -73.9824669
+            },
+            {
+              "lat": 41.4501585,
+              "lon": -73.9825046
+            },
+            {
+              "lat": 41.4502086,
+              "lon": -73.9825286
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 568539311,
+          "role": "stop",
+          "lat": 41.4476297,
+          "lon": -73.9809719
+        },
+        {
+          "type": "way",
+          "ref": 467710858,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.4476658,
+              "lon": -73.9809777
+            },
+            {
+              "lat": 41.447676,
+              "lon": -73.98094
+            },
+            {
+              "lat": 41.4476258,
+              "lon": -73.980916
+            },
+            {
+              "lat": 41.4476157,
+              "lon": -73.9809537
+            },
+            {
+              "lat": 41.4476658,
+              "lon": -73.9809777
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 4623070653,
+          "role": "",
+          "lat": 41.4489312,
+          "lon": -73.9817131
+        },
+        {
+          "type": "node",
+          "ref": 4623070804,
+          "role": "entrance",
+          "lat": 41.4477655,
+          "lon": -73.9805834
+        }
+      ]
+    },
+    {
+      "id": "relation/10525182",
+      "tags": {
+        "name": "Manitou",
+        "network": "Metro-North Railroad",
+        "public_transport": "stop_area",
+        "railway": "facility",
+        "type": "public_transport"
+      },
+      "members": [
+        {
+          "type": "node",
+          "ref": 921895138,
+          "role": "stop",
+          "lat": 41.3325748,
+          "lon": -73.9703873
+        },
+        {
+          "type": "node",
+          "ref": 7100409523,
+          "role": "stop",
+          "lat": 41.3325968,
+          "lon": -73.9704236
+        },
+        {
+          "type": "node",
+          "ref": 7005528436,
+          "role": "",
+          "lat": 41.3325754,
+          "lon": -73.9703403
+        },
+        {
+          "type": "node",
+          "ref": 13888353477,
+          "role": "entrance",
+          "lat": 41.3325764,
+          "lon": -73.9704947
+        },
+        {
+          "type": "node",
+          "ref": 13888353478,
+          "role": "entrance",
+          "lat": 41.3325136,
+          "lon": -73.9704103
+        }
+      ]
+    },
+    {
+      "id": "relation/19625498",
+      "tags": {
+        "name": "Garrison",
+        "network": "Metro-North Railroad",
+        "operator": "Metro-North Commuter Railroad",
+        "operator:wikidata": "Q125908",
+        "public_transport": "stop_area",
+        "railway": "facility",
+        "type": "public_transport"
+      },
+      "members": [
+        {
+          "type": "node",
+          "ref": 568545481,
+          "role": "stop",
+          "lat": 41.3815064,
+          "lon": -73.9471707
+        },
+        {
+          "type": "node",
+          "ref": 1888657787,
+          "role": "stop",
+          "lat": 41.3803366,
+          "lon": -73.9476157
+        },
+        {
+          "type": "way",
+          "ref": 1431412382,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.3801613,
+              "lon": -73.9477052
+            },
+            {
+              "lat": 41.3801711,
+              "lon": -73.9477482
+            },
+            {
+              "lat": 41.3803628,
+              "lon": -73.9476825
+            },
+            {
+              "lat": 41.3808662,
+              "lon": -73.9475101
+            },
+            {
+              "lat": 41.381034,
+              "lon": -73.9474527
+            },
+            {
+              "lat": 41.3813105,
+              "lon": -73.9473579
+            },
+            {
+              "lat": 41.381319,
+              "lon": -73.947355
+            },
+            {
+              "lat": 41.3813292,
+              "lon": -73.9473515
+            },
+            {
+              "lat": 41.3815355,
+              "lon": -73.9472809
+            },
+            {
+              "lat": 41.3815336,
+              "lon": -73.9472688
+            },
+            {
+              "lat": 41.3815315,
+              "lon": -73.9472562
+            },
+            {
+              "lat": 41.38153,
+              "lon": -73.9472466
+            },
+            {
+              "lat": 41.3815241,
+              "lon": -73.947248
+            },
+            {
+              "lat": 41.3815229,
+              "lon": -73.947242
+            },
+            {
+              "lat": 41.3808579,
+              "lon": -73.947468
+            },
+            {
+              "lat": 41.3803556,
+              "lon": -73.947639
+            },
+            {
+              "lat": 41.3801613,
+              "lon": -73.9477052
+            }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 1431412390,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.3815026,
+              "lon": -73.9471064
+            },
+            {
+              "lat": 41.3815045,
+              "lon": -73.9471158
+            },
+            {
+              "lat": 41.3815075,
+              "lon": -73.9471293
+            },
+            {
+              "lat": 41.38151,
+              "lon": -73.9471422
+            },
+            {
+              "lat": 41.3815018,
+              "lon": -73.9471456
+            },
+            {
+              "lat": 41.3815037,
+              "lon": -73.9471556
+            },
+            {
+              "lat": 41.3801432,
+              "lon": -73.9476204
+            },
+            {
+              "lat": 41.3801404,
+              "lon": -73.9476063
+            },
+            {
+              "lat": 41.3801314,
+              "lon": -73.9475596
+            },
+            {
+              "lat": 41.3801404,
+              "lon": -73.9475566
+            },
+            {
+              "lat": 41.3801508,
+              "lon": -73.947553
+            },
+            {
+              "lat": 41.3801613,
+              "lon": -73.9475497
+            },
+            {
+              "lat": 41.380169,
+              "lon": -73.9475472
+            },
+            {
+              "lat": 41.3806978,
+              "lon": -73.9473724
+            },
+            {
+              "lat": 41.380704,
+              "lon": -73.9473703
+            },
+            {
+              "lat": 41.3807413,
+              "lon": -73.947358
+            },
+            {
+              "lat": 41.3807513,
+              "lon": -73.9473547
+            },
+            {
+              "lat": 41.3807626,
+              "lon": -73.947351
+            },
+            {
+              "lat": 41.3807859,
+              "lon": -73.9473433
+            },
+            {
+              "lat": 41.380831,
+              "lon": -73.9473284
+            },
+            {
+              "lat": 41.3808653,
+              "lon": -73.947317
+            },
+            {
+              "lat": 41.3812672,
+              "lon": -73.9471842
+            },
+            {
+              "lat": 41.3812768,
+              "lon": -73.947181
+            },
+            {
+              "lat": 41.3812841,
+              "lon": -73.9471786
+            },
+            {
+              "lat": 41.3815026,
+              "lon": -73.9471064
+            }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 1431412420,
+          "role": "station",
+          "geometry": [
+            {
+              "lat": 41.3816232,
+              "lon": -73.9472166
+            },
+            {
+              "lat": 41.3816029,
+              "lon": -73.9471111
+            },
+            {
+              "lat": 41.38151,
+              "lon": -73.9471422
+            },
+            {
+              "lat": 41.3815075,
+              "lon": -73.9471293
+            },
+            {
+              "lat": 41.3815045,
+              "lon": -73.9471158
+            },
+            {
+              "lat": 41.3815026,
+              "lon": -73.9471064
+            },
+            {
+              "lat": 41.3812841,
+              "lon": -73.9471786
+            },
+            {
+              "lat": 41.3812768,
+              "lon": -73.947181
+            },
+            {
+              "lat": 41.3812672,
+              "lon": -73.9471842
+            },
+            {
+              "lat": 41.3808653,
+              "lon": -73.947317
+            },
+            {
+              "lat": 41.380831,
+              "lon": -73.9473284
+            },
+            {
+              "lat": 41.3807859,
+              "lon": -73.9473433
+            },
+            {
+              "lat": 41.3807626,
+              "lon": -73.947351
+            },
+            {
+              "lat": 41.3807513,
+              "lon": -73.9473547
+            },
+            {
+              "lat": 41.3807413,
+              "lon": -73.947358
+            },
+            {
+              "lat": 41.380704,
+              "lon": -73.9473703
+            },
+            {
+              "lat": 41.3806978,
+              "lon": -73.9473724
+            },
+            {
+              "lat": 41.380169,
+              "lon": -73.9475472
+            },
+            {
+              "lat": 41.3801613,
+              "lon": -73.9475497
+            },
+            {
+              "lat": 41.3801508,
+              "lon": -73.947553
+            },
+            {
+              "lat": 41.3801404,
+              "lon": -73.9475566
+            },
+            {
+              "lat": 41.3801314,
+              "lon": -73.9475596
+            },
+            {
+              "lat": 41.3801404,
+              "lon": -73.9476063
+            },
+            {
+              "lat": 41.3796516,
+              "lon": -73.9477684
+            },
+            {
+              "lat": 41.3796351,
+              "lon": -73.9476935
+            },
+            {
+              "lat": 41.3796206,
+              "lon": -73.9476281
+            },
+            {
+              "lat": 41.3796169,
+              "lon": -73.9476105
+            },
+            {
+              "lat": 41.3795306,
+              "lon": -73.9476364
+            },
+            {
+              "lat": 41.3794797,
+              "lon": -73.9476555
+            },
+            {
+              "lat": 41.3794898,
+              "lon": -73.9477121
+            },
+            {
+              "lat": 41.3795012,
+              "lon": -73.9477765
+            },
+            {
+              "lat": 41.3795271,
+              "lon": -73.947922
+            },
+            {
+              "lat": 41.3801613,
+              "lon": -73.9477052
+            },
+            {
+              "lat": 41.3801711,
+              "lon": -73.9477482
+            },
+            {
+              "lat": 41.3803628,
+              "lon": -73.9476825
+            },
+            {
+              "lat": 41.3808662,
+              "lon": -73.9475101
+            },
+            {
+              "lat": 41.381034,
+              "lon": -73.9474527
+            },
+            {
+              "lat": 41.3813105,
+              "lon": -73.9473579
+            },
+            {
+              "lat": 41.381319,
+              "lon": -73.947355
+            },
+            {
+              "lat": 41.3813292,
+              "lon": -73.9473515
+            },
+            {
+              "lat": 41.3815355,
+              "lon": -73.9472809
+            },
+            {
+              "lat": 41.3815336,
+              "lon": -73.9472688
+            },
+            {
+              "lat": 41.3815315,
+              "lon": -73.9472562
+            },
+            {
+              "lat": 41.38153,
+              "lon": -73.9472466
+            },
+            {
+              "lat": 41.3815709,
+              "lon": -73.9472335
+            },
+            {
+              "lat": 41.3816232,
+              "lon": -73.9472166
+            }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 1431412424,
+          "role": "",
+          "geometry": [
+            {
+              "lat": 41.3800913,
+              "lon": -73.9471319
+            },
+            {
+              "lat": 41.3806133,
+              "lon": -73.9469537
+            },
+            {
+              "lat": 41.3806717,
+              "lon": -73.9472433
+            },
+            {
+              "lat": 41.3806978,
+              "lon": -73.9473724
+            },
+            {
+              "lat": 41.380169,
+              "lon": -73.9475472
+            },
+            {
+              "lat": 41.3800913,
+              "lon": -73.9471319
+            }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 1431412423,
+          "role": "",
+          "geometry": [
+            {
+              "lat": 41.3800116,
+              "lon": -73.9470265
+            },
+            {
+              "lat": 41.3800414,
+              "lon": -73.947149
+            },
+            {
+              "lat": 41.3801314,
+              "lon": -73.9475596
+            },
+            {
+              "lat": 41.3801404,
+              "lon": -73.9476063
+            },
+            {
+              "lat": 41.3796516,
+              "lon": -73.9477684
+            },
+            {
+              "lat": 41.3796351,
+              "lon": -73.9476935
+            },
+            {
+              "lat": 41.3796206,
+              "lon": -73.9476281
+            },
+            {
+              "lat": 41.3796169,
+              "lon": -73.9476105
+            },
+            {
+              "lat": 41.3795306,
+              "lon": -73.9476364
+            },
+            {
+              "lat": 41.3795224,
+              "lon": -73.9475834
+            },
+            {
+              "lat": 41.3794698,
+              "lon": -73.9475996
+            },
+            {
+              "lat": 41.379412,
+              "lon": -73.9472743
+            },
+            {
+              "lat": 41.3794573,
+              "lon": -73.9472603
+            },
+            {
+              "lat": 41.3794489,
+              "lon": -73.9472109
+            },
+            {
+              "lat": 41.3800116,
+              "lon": -73.9470265
+            }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 1431412425,
+          "role": "",
+          "geometry": [
+            {
+              "lat": 41.380722,
+              "lon": -73.9469225
+            },
+            {
+              "lat": 41.380772,
+              "lon": -73.9472093
+            },
+            {
+              "lat": 41.3807795,
+              "lon": -73.9472526
+            },
+            {
+              "lat": 41.3807874,
+              "lon": -73.947298
+            },
+            {
+              "lat": 41.3812894,
+              "lon": -73.9471345
+            },
+            {
+              "lat": 41.3812443,
+              "lon": -73.9468337
+            },
+            {
+              "lat": 41.380722,
+              "lon": -73.9469225
+            }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 1431412421,
+          "role": "",
+          "geometry": [
+            {
+              "lat": 41.3813903,
+              "lon": -73.9468247
+            },
+            {
+              "lat": 41.3813077,
+              "lon": -73.9468438
+            },
+            {
+              "lat": 41.3812994,
+              "lon": -73.9468457
+            },
+            {
+              "lat": 41.3813405,
+              "lon": -73.9471181
+            },
+            {
+              "lat": 41.381502,
+              "lon": -73.9470661
+            },
+            {
+              "lat": 41.3814567,
+              "lon": -73.9468703
+            },
+            {
+              "lat": 41.381445,
+              "lon": -73.9468736
+            },
+            {
+              "lat": 41.381401,
+              "lon": -73.9468859
+            },
+            {
+              "lat": 41.3813903,
+              "lon": -73.9468247
+            }
+          ]
+        },
+        {
+          "type": "way",
+          "ref": 1431412385,
+          "role": "shelter",
+          "geometry": [
+            {
+              "lat": 41.3808662,
+              "lon": -73.9475101
+            },
+            {
+              "lat": 41.3808579,
+              "lon": -73.947468
+            },
+            {
+              "lat": 41.3803556,
+              "lon": -73.947639
+            },
+            {
+              "lat": 41.3803628,
+              "lon": -73.9476825
+            },
+            {
+              "lat": 41.3808662,
+              "lon": -73.9475101
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 13157382342,
+          "role": "entrance",
+          "lat": 41.3801442,
+          "lon": -73.9475202
+        },
+        {
+          "type": "node",
+          "ref": 13157382351,
+          "role": "entrance",
+          "lat": 41.3807513,
+          "lon": -73.9473547
+        },
+        {
+          "type": "node",
+          "ref": 13888637551,
+          "role": "entrance",
+          "lat": 41.3810435,
+          "lon": -73.9472388
+        },
+        {
+          "type": "node",
+          "ref": 13157382311,
+          "role": "entrance",
+          "lat": 41.3815541,
+          "lon": -73.9472616
+        },
+        {
+          "type": "node",
+          "ref": 13888637553,
+          "role": "entrance",
+          "lat": 41.381537,
+          "lon": -73.9472929
+        },
+        {
+          "type": "node",
+          "ref": 13157382366,
+          "role": "entrance",
+          "lat": 41.3815277,
+          "lon": -73.9471223
+        }
+      ]
+    }
+  ]
+}
