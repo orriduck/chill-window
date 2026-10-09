@@ -133,7 +133,7 @@
 | [OSM2World 源码](https://github.com/tordanik/OSM2World)、[官方 Web library](https://osm2world.org/docs/library-web/) | 专用 OSM→3D converter，仓库 MIT；Web模块输出位置、法线、索引、材质网格，可接 Three.js。官方提示客户端转换适合较小数据集，样式资源建议自己托管。优先评估离线区域转换/按块GLB，而非重写整套道路和屋顶逻辑。 | geography 数据与模型管线 |
 | [Blosm 文档/源码](https://github.com/vvoovv/blosm/wiki/Documentation) | Blender 插件支持 OSM 建筑part、楼高/层数、多种屋顶、水域、道路/铁路与真实地形；文档注明缺失墙/屋顶材料使用默认材料，不能当真实立面数据。GPL 插件适合离线转换评估。 | 离线模型资产管线候选 |
 | [Three-geo-play](https://github.com/lorenzoMezza/Three-geo-play)、[Geo-three](https://github.com/tentone/geo-three) | 前者是 Three.js 矢量瓦片几何方案候选，仓库 MIT；后者强调真实高程瓦片/地图provider与LOD，并不自行补齐真实建筑属性。当前没有导入依赖或验证样板效果。 | 真实瓦片流式加载候选 |
-| [Overture building schema](https://docs.overturemaps.org/schema/reference/buildings/building/)、[building guide](https://docs.overturemaps.org/guides/buildings/)、[Python client](https://docs.overturemaps.org/getting-data/overturemaps-py/) | schema提供height、num_floors、roof_shape/height/direction、facade属性及sources，字段可为空；building_part可表述复杂建筑。优先OSM几何、合并匹配高度；官方匹配IoU>0.5。STAC实际读到latest=2026-09-23.1；尚未查询Hudson区域数量/高度覆盖。 | 云端建筑扩充与来源标注 |
+| [Overture building schema](https://docs.overturemaps.org/schema/reference/buildings/building/)、[building guide](https://docs.overturemaps.org/guides/buildings/)、[Python client](https://docs.overturemaps.org/getting-data/overturemaps-py/) | schema提供height、num_floors、roof_shape/height/direction、facade属性及sources，字段可为空；building_part可表述复杂建筑。优先OSM几何、合并匹配高度；官方匹配IoU>0.5。STAC实际读到latest=2026-09-23.1；后续实际下载与去重结果见下面的建筑数据节。 | 云端建筑扩充与来源标注 |
 | [Microsoft GlobalMLBuildingFootprints](https://github.com/microsoft/GlobalMLBuildingFootprints) | 影像提取轮廓与模型估计高度，缺失高度为-1。可作数据候选，不能把预测高度称作测量值。NYS LiDAR可进一步研究，但本轮未取得建筑级点云高度。 | 真实建筑覆盖候选 |
 
 直接案例 [YusufEminoglu/osm_3d_model](https://github.com/YusufEminoglu/osm_3d_model) 也可研究，其README明确包含procedural建筑/树木等细节；与“全部真实数据”的目标需要区分实际OSM几何和生成的细节，不能整体照搬并宣称真实。
@@ -147,3 +147,13 @@
 | [OSM Overpass API](https://overpass-api.de/api/interpreter)、[OSM 署名/许可](https://www.openstreetmap.org/copyright) | 实际取得区域内 31 条原始 OSM 对象；完整站台点/线/面几何与 stop_area 成员保留。派生保留 26 个地理对象、5 个站点，其中 4 个位于当前 FRA 路段，关联 8 条站台几何；Breakneck Ridge 距北端 1125m，在当前路段外。Manitou 的两个站台尚未成为 stop_area 成员，按75m内最近站点关联，明确标为几何推断。 | `sources/overpass-stations.ql`、`.json.gz`、`.request.json` 与 `stations.json` |
 
 精确请求、OSM 数据时间、SHA-256、原始标签和平台关联依据已留档。站台 height 标签含 `4'`、`4` 和缺失值，不能统一当4米使用；Garrison另有带 disused 标签的轮廓，不能当作活跃站台。当前仅完成可复现的数据接续，尚未接入渲染或通过车站画面验收；站棚/立面/材质需要另查实景，不能从站点坐标编造。
+
+## 2026-10-09：Overture 建筑实际下载与去重
+
+| 来源 | 实际核查与处理 | 受影响的文件 |
+| --- | --- | --- |
+| [Overture 官方 Python client](https://docs.overturemaps.org/getting-data/overturemaps-py/)、[建筑指南](https://docs.overturemaps.org/guides/buildings/)、[2026-09-23.1 STAC 索引](https://stac.overturemaps.org/2026-09-23.1/collections.parquet) | 官方客户端1.0.2查询 bbox `[-74.08,41.25,-73.85,41.46]`，取得34,330个building和3个building_part。29,939栋带height，33栋带num_floors，5栋带roof_shape。保留完整空间筛选导出、客户端查询、确切S3分区路径、release/date、原始来源record IDs与SHA-256；不是完整全球Parquet文件副本。 | `app/scripts/prepare-hudson-buildings.py`、`sources/overture-building{,_part}.geojson.gz` 与 `.request.json` |
+| [Overture 去重/合并说明](https://docs.overturemaps.org/guides/buildings/) | 保留现有6,302个最新OSM轮廓和原始标签，全部匹配IoU>0.5；补齐1,790栋原来未解析到高度的属性。增加28,016栋区域建筑（28,024个多边形分量），其中524个新增分量与原1200m沿线走廊相交，9,129个与3000m走廊相交。9个水域中心检测和3个模糊相交记录被排除并留原因。合并结果34,326分量及3个part。 | `app/public/geodata/hudson/buildings.json`，原`world.json`保持不变 |
+| [Microsoft GlobalMLBuildingFootprints](https://github.com/microsoft/GlobalMLBuildingFootprints)、[Overture 建筑字段](https://docs.overturemaps.org/schema/reference/buildings/building/)、[署名](https://docs.overturemaps.org/attribution/) | 按逐属性source记录分类：合并结果12,079个高度为来源模型估计，17,850个是上游/OSM标签，4,387个缺失、10个仅有楼层数。OSM标签也没有经过本项目独立测量；楼层数保留为楼层数，不在数据层凭空换算楼高。缺失屋顶/立面属性保持缺失。所有区域源和构件数据按ODbL署名，原始JSON属性为空的字段仅在派生包省略。 | `buildingHeight`、`overtureProperties.sources`、逐栋geometry/height来源；云端需在调试UI和署名中接入 |
+
+已检查源校验、所有原有轮廓/洞/标签完整保留、所有派生多边形有效、ID唯一、估计高度来源标注、构件父对象引用和新增轮廓不与当前OSM重叠。可离线复现，当前只提供建筑叠加数据，不自动替换运行时；3D接入与画面验收继续在云端进行，不能把下载/数据检查等同于建筑画面完成。
