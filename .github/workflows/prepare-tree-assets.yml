@@ -1,0 +1,77 @@
+name: Prepare reviewed tree assets
+
+on:
+  push:
+    branches: ['codex/tree-asset-preparation']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Fetch the fixed public sources and verify checksums
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, urllib.request
+          from pathlib import Path
+          for name in ['mature-scots-pine', 'oak-street-tree']:
+              metadata = json.loads(Path(f'app/public/models/trees/{name}.provenance.json').read_text())
+              request = urllib.request.Request(metadata['sourceDownload'], headers={'User-Agent': 'ChillWindow public asset preparation/1.0'})
+              with urllib.request.urlopen(request, timeout=120) as response:
+                  data = response.read()
+              actual = hashlib.sha256(data).hexdigest()
+              if actual != metadata['sourceSha256']:
+                  raise RuntimeError(f'{name}: source checksum differs: {actual}')
+              target = Path(metadata['sourceFile'])
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+              print(f'{name}: verified {len(data)} source bytes')
+          PY
+      - name: Prepare both exact reviewed GLBs
+        run: |
+          npm install --prefix "$RUNNER_TEMP/chill-tree-tools" --no-audit --no-fund --no-package-lock @gltf-transform/cli@4.5.1
+          python3 app/scripts/prepare-close-tree.py pine --cli "$RUNNER_TEMP/chill-tree-tools/node_modules/.bin/gltf-transform"
+          python3 app/scripts/prepare-close-tree.py oak --cli "$RUNNER_TEMP/chill-tree-tools/node_modules/.bin/gltf-transform"
+      - name: Validate the delivered assets
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, struct
+          from pathlib import Path
+          report = []
+          for name in ['mature-scots-pine', 'oak-street-tree']:
+              metadata = json.loads(Path(f'app/public/models/trees/{name}.provenance.json').read_text())
+              path = Path('app/public/models/trees') / metadata['asset']
+              data = path.read_bytes()
+              actual = hashlib.sha256(data).hexdigest()
+              assert actual == metadata['processedSha256'], (name, actual)
+              magic, version, total = struct.unpack_from('<4sII', data)
+              assert magic == b'glTF' and version == 2 and total == len(data)
+              length, chunk = struct.unpack_from('<I4s', data, 12)
+              assert chunk == b'JSON'
+              doc = json.loads(data[20:20+length])
+              triangles = sum(doc['accessors'][primitive['indices']]['count']//3 for mesh in doc['meshes'] for primitive in mesh['primitives'])
+              assert triangles == metadata['conversion']['trianglesAfter'], (name, triangles)
+              assert not any(buffer.get('uri') for buffer in doc.get('buffers', []))
+              assert not any(image.get('uri') for image in doc.get('images', []))
+              report.append({'asset': metadata['asset'], 'sha256': actual, 'bytes': len(data), 'triangles': triangles, 'materials': len(doc.get('materials', [])), 'images': len(doc.get('images', []))})
+          Path('app/public/models/trees/delivery-report.json').write_text(json.dumps(report, indent=2)+'\n')
+          print(json.dumps(report, indent=2))
+          PY
+      - uses: actions/upload-artifact@v5
+        with:
+          name: reviewed-close-tree-assets
+          path: |
+            app/public/models/trees/
+            app/scripts/tree-assets/
+          retention-days: 7
+          if-no-files-found: error
