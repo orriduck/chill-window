@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import type { GeoData } from './GeoData'
+import { buildingHeight, type GeoData, type MappedFeature } from './GeoData'
 import type { RealWorld } from './RealWorld'
 
 export interface GeoCommand { editing?: boolean; jump?: number; recenter?: boolean; time?: 'day' | 'night'; weather?: 'clear' | 'rain' }
@@ -29,6 +29,9 @@ export class GeoInspector {
   private editing = false
   private error = ''
   private readout = document.createElement('output')
+  private buildingStats = document.createElement('output')
+  private buildingQuery = document.createElement('input')
+  private buildingSource = document.createElement('output')
   private lastPointer: [number, number] = [0, 0]
   private canvas: HTMLCanvasElement
   private ray = new THREE.Raycaster()
@@ -67,6 +70,10 @@ export class GeoInspector {
     this.progress.setAttribute('aria-label', '真实路线里程'); this.progress.style.cssText = 'display:block;width:100%;accent-color:#536d4f;margin:14px 0 6px;'
     this.progress.oninput = () => { this.refreshPreview() }
     this.readout.setAttribute('aria-label', '选中真实路线位置'); this.readout.style.cssText = 'display:block;font-size:11px;margin:0 0 10px;color:#62715d;'
+    this.buildingStats.setAttribute('aria-label', '真实建筑数据统计'); this.buildingStats.style.cssText = 'display:block;padding:8px;background:#e5e5d6;border-radius:6px;font-size:11px;line-height:1.7;margin:10px 0;'
+    this.buildingQuery.type = 'search'; this.buildingQuery.placeholder = '查询 OSM 建筑源 ID'; this.buildingQuery.setAttribute('aria-label', '查询建筑源记录 ID'); this.buildingQuery.style.cssText = this.checkpoint.style.cssText + 'margin:4px 0;'
+    this.buildingQuery.addEventListener('change', () => this.showBuildingById(this.buildingQuery.value))
+    this.buildingSource.setAttribute('aria-label', '建筑来源记录详情'); this.buildingSource.style.cssText = 'display:block;min-height:44px;font-size:11px;line-height:1.6;overflow-wrap:anywhere;'
     this.jump = this.button('列车跳到这个位置', () => { this.pending.jump = Number(this.progress.value) })
     this.jump.style.cssText += 'width:100%;background:#4d684a;color:#f5f1e3;'
     for (const [element, label, values] of [[this.time, '地理检查时段', [['day', '白天'], ['night', '夜晚']]], [this.weather, '地理检查天气', [['clear', '晴天'], ['rain', '雨天']]]] as const) {
@@ -75,7 +82,7 @@ export class GeoInspector {
     }
     this.time.onchange = () => { this.pending.time = this.time.value as 'day' | 'night' }
     this.weather.onchange = () => { this.pending.weather = this.weather.value as 'clear' | 'rain' }
-    const notes = document.createElement('p'); notes.textContent = '地形：USGS 3DEP，约 20m 采样。轨面/水位为可视化近似；建筑高度来自标签或估计。原始地理数据只读。'; notes.style.cssText = 'font-size:11px;color:#697566;margin:14px 0 8px;'
+    const notes = document.createElement('p'); notes.textContent = '地形：USGS 3DEP，约 20m 采样。轨面/水位为可视化近似。绿色=OSM height 标签；琥珀色=按楼层数换算的估值；灰蓝 footprint=高度缺失，不伪造立面。真实建筑立面材质暂无数据。原始地理数据只读。'; notes.style.cssText = 'font-size:11px;color:#697566;margin:14px 0 8px;'
     const credits = document.createElement('div'); credits.style.cssText = 'font-size:11px;display:flex;gap:10px;'
     for (const [name, url] of [['FRA / Amtrak', 'https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0'], ['USGS', 'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer'], ['© OSM contributors', 'https://www.openstreetmap.org/copyright']]) {
       const link = document.createElement('a'); link.textContent = name; link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.style.color = '#506b51'; credits.append(link)
@@ -86,7 +93,7 @@ export class GeoInspector {
       input.setAttribute('aria-label', `真实地理${name}`); input.onchange = () => { this.layers[key] = input.checked }
       label.append(input, document.createTextNode(name)); layers.append(label)
     }
-    this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, notes, credits)
+    this.panel.append(title, description, layers, this.buildingStats, this.buildingQuery, this.buildingSource, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, notes, credits)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
     this.applyVisibility()
@@ -98,6 +105,8 @@ export class GeoInspector {
   }
   setData(data: GeoData) {
     this.data = data
+    const stats = data.buildingStats
+    this.buildingStats.textContent = `OSM footprint ${stats.total.toLocaleString()} 栋 · height 标签 ${stats.tagged.toLocaleString()} · building:levels 标签 ${stats.floorTags.toLocaleString()}（可换算 ${stats.estimated.toLocaleString()}）· 高度缺失 ${stats.missing.toLocaleString()} · 屋顶形状 ${stats.roof.toLocaleString()}（${Math.round(stats.roof / Math.max(1, stats.total) * 100)}%） · 外部模型高度估计 0（未并入 Overture）`
     this.progress.max = String(data.length); this.progress.value = String(data.checkpoints[0].s)
     for (const point of data.checkpoints) { const option = document.createElement('option'); option.value = String(point.s); option.textContent = point.label; this.checkpoint.append(option) }
     this.refreshPreview(); this.applyVisibility()
@@ -130,7 +139,7 @@ export class GeoInspector {
     if (!this.real || !this.data || !world) return
     if (this.editing) this.controls.update()
     const pose = this.data.pose(s)
-    this.status.textContent = `${world.chunkCount}/6 详细区块 · DEM 20m · 模型 ${world.assetStatus}${world.pending ? ' · 加载区块中' : ''}`
+    this.status.textContent = `${world.chunkCount}/49 地理区块 · 约 1.8km × 1.8km 实景范围 · DEM 20m${world.pending ? ' · 加载区块中' : ''}`
     this.position.textContent = `${(pose.s / 1000).toFixed(2)} / ${(this.data.length / 1000).toFixed(2)} km · ${pose.latitude.toFixed(5)}, ${pose.longitude.toFixed(5)}${s >= this.data.length - 0.01 ? ' · 样板终点' : ''}`
   }
   private refreshPreview() {
@@ -145,7 +154,29 @@ export class GeoInspector {
     this.ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.camera)
     const hit = new THREE.Vector3()
     if (!this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.controls.target.y), hit)) return
+    const building = this.data.buildingAt(hit.x, hit.z)
+    if (building) this.showBuilding(building)
     this.progress.value = String(this.data.nearestRoute(hit.x, hit.z).s); this.refreshPreview()
+  }
+  private showBuilding(feature: MappedFeature) {
+    const height = buildingHeight(feature)
+    const osm = /^osm\/(way|relation|node)\/(\d+)$/.exec(String(feature.id))
+    this.buildingSource.replaceChildren()
+    const label = document.createElement('span')
+    label.textContent = `${feature.id} · OpenStreetMap · ${height.status === 'tagged' ? `${height.metres?.toFixed(1)}m OSM height=${height.raw}` : height.status === 'estimated-from-levels' ? `${height.metres?.toFixed(1)}m 楼层换算估值` : '高度缺失；只显示 footprint'}${feature.tags['roof:shape'] || feature.tags['building:roof:shape'] ? ` · roof=${feature.tags['roof:shape'] ?? feature.tags['building:roof:shape']}` : ''}`
+    this.buildingSource.append(label)
+    if (osm) {
+      const link = document.createElement('a'); link.href = `https://www.openstreetmap.org/${osm[1]}/${osm[2]}`; link.textContent = '打开该建筑源记录'; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.style.cssText = 'display:block;color:#506b51;margin-top:3px;'
+      this.buildingSource.append(link)
+    }
+  }
+  private showBuildingById(query: string) {
+    if (!this.data) return
+    const normalized = query.trim().toLowerCase()
+    const feature = this.data.features.find(item => item.kind === 'building' && String(item.id).toLowerCase() === normalized)
+      ?? this.data.features.find(item => item.kind === 'building' && String(item.id).toLowerCase().endsWith(`/${normalized}`))
+    if (feature) this.showBuilding(feature)
+    else this.buildingSource.textContent = '未在当前真实数据包中找到该建筑 ID。'
   }
   get focus() { return this.controls.target }
   consume() { const result = this.pending; this.pending = {}; return result }

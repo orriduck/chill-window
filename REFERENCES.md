@@ -164,3 +164,15 @@
 | --- | --- | --- |
 | [Playwright 官方 CI 指引](https://playwright.dev/docs/ci)、[GitHub Actions 工作流语法](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) | 使用GitHub云端Ubuntu runner构建真实应用，并由Chromium拍摄车窗、F5俯视、站点里程跳转前后与移动视口。截图、视频、日志和临时脚本均在runner临时目录，作为artifact提供，不把报告/图片写入仓库。软件WebGL不代表用户GPU性能；自动运行健康检查不能代替人工画面检查，也不代表五项目标完成。 | `.github/workflows/cloud-visual-review.yml` |
 | [Poly Haven Tree Small 02](https://polyhaven.com/a/tree_small_02)、[官方文件清单](https://api.polyhaven.com/files/tree_small_02)、[许可](https://polyhaven.com/license)、[作者导出说明](https://blog.polyhaven.com/dev-log-20/) | 实际读到CC0、4.6m高、约5M三角形，1k glTF依赖约95MB几何buffer；网站标签为Burkea africana，不能直接作为哈德逊河本地成熟树种。尚未下载模型或接入，作为被排除的直接替换候选；保留现有枝叶图集作LOD方案研究，具体树高/单株位置未由该素材提供。 | 云端`RealWorld`树木表现评估；不作为运行时新模型 |
+
+<!-- Recovered cloud implementation notes; later data acquisition above supersedes download limitations. -->
+
+### 云端真实建筑接续（2026-10-09 更新）
+
+本次以已提交的 Hudson GIS 快照直接统计，而非从地图截图估算：当前包内 OSM 有 6,302 栋 building footprint；3,567 个包含 `height` 标签；12 个包含 `building:levels`，其中 9 个为可解析的正数；2,726 栋没有可用高度；roof shape 字段 1 条。OSM `height` 是源标签，不代表本项目独立测量。楼层换算采用 3.1m/层，仅用于显示并标为估值；其余无高度建筑只画贴地 footprint，不建假立面。
+
+已按官方客户端 `overturemaps` 1.0.2 对 bbox `[-74.08,41.25,-73.85,41.46]` 分别尝试 `building` 和 `building_part`，锁定 release `2026-09-23.1`；S3 分区数据请求在该运行环境失败，AWS endpoint 主机名无法 DNS 解析。本次没有导入 Overture 数据，运行 UI 会明确显示“未并入 Overture”，没有虚构数量、ID 或高度来源。获取渠道恢复后，应保留官方原始 Parquet/GeoJSON、release、bbox、GERS 与来源记录、请求元数据和 SHA-256，再按稳定源 ID/IoU>0.5 合并。
+
+当前真实世界构建只从 `ThreeCanvas.tsx` 初始化 Hudson `GeoData` / `RealWorld`，不再创建程序 `TerrainLOD`、生成水域/城镇、编辑器或 `TerrainInspector`。真实路线范围内的细节区块由单侧 2×3 扩至全方向 7×7（最多 49 个 256m 地理区块）；按 OSM height 标签、楼层换算估值、无高度 footprint 分色，并可输入/点击 footprint 查询 OSM 源记录。局部地表由 USGS DEM、土地覆盖与 OSM 线/面数据提供；树木按 OSM 林地范围呈现，树种/单株位置、建筑真实立面材料仍没有数据，不能称为测绘实景。
+
+开源转换器沿用既有研究结论但本次没有 vendoring 或运行 OSM2World/Blosm：OSM2World 的 Web 模块会返回可供 Three.js 使用的网格/材质数据，适合后续离线按区块评测；Blosm 的 GPL Blender 插件有独立许可证影响；Three-geo-play 是可检查的 MIT 矢量瓦片实现。此次为保留真实 OSM 标签与逐栋 ID，继续使用本项目 `GeoData`/`RealWorld` 直接渲染；没有把转换器默认屋顶/高度当作观测数据。

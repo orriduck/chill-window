@@ -22,6 +22,8 @@ export interface MappedFeature extends Omit<GeographicFeature, 'coordinates' | '
   coordinates: GeoPoint[]; holes: GeoPoint[][]; bounds: [number, number, number, number]
 }
 export interface RoutePose extends GeoPoint { s: number; dx: number; dz: number; heading: number; longitude: number; latitude: number }
+export type BuildingHeightStatus = 'tagged' | 'estimated-from-levels' | 'missing'
+export interface BuildingHeightInfo { status: BuildingHeightStatus; metres: number | null; raw: string | null }
 const R = 6378137
 const RAD = Math.PI / 180
 const mercatorNorth = (lat: number) => R * Math.log(Math.tan(Math.PI / 4 + lat * RAD / 2))
@@ -132,6 +134,15 @@ export class GeoData {
     return MathUtils.lerp(MathUtils.lerp(data[i], data[i + 1], tx), MathUtils.lerp(data[i + width], data[i + width + 1], tx), tz)
   }
   nearbyFeatures(x: number, z: number) { return this.featureBins.get(`${Math.floor(x / 256)},${Math.floor(z / 256)}`) ?? [] }
+  get buildingStats() {
+    const buildings = this.features.filter(feature => feature.kind === 'building')
+    const tagged = buildings.filter(feature => buildingHeight(feature).status === 'tagged').length
+    const estimated = buildings.filter(feature => buildingHeight(feature).status === 'estimated-from-levels').length
+    return { total: buildings.length, tagged, estimated, missing: buildings.length - tagged - estimated, floorTags: buildings.filter(feature => feature.tags['building:levels']).length, roof: buildings.filter(feature => feature.tags['roof:shape'] || feature.tags['building:roof:shape']).length }
+  }
+  buildingAt(x: number, z: number) {
+    return this.nearbyFeatures(x, z).find(feature => feature.kind === 'building' && contains(feature, x, z)) ?? null
+  }
   landAt(x: number, z: number, kind: GeographicFeature['kind']) { return this.nearbyFeatures(x, z).some(f => f.kind === kind && contains(f, x, z)) }
   railProximity(x: number, z: number) {
     let best = { distance: Infinity, s: 0 }
@@ -183,6 +194,23 @@ export class GeoData {
     for (let i = 1; i < count; i++) this.railHeights[i] = MathUtils.clamp(this.railHeights[i], this.railHeights[i - 1] - 0.4, this.railHeights[i - 1] + 0.4)
     for (let i = count - 2; i >= 0; i--) this.railHeights[i] = MathUtils.clamp(this.railHeights[i], this.railHeights[i + 1] - 0.4, this.railHeights[i + 1] + 0.4)
   }
+}
+
+/** Use explicit source height tags as given. Floor counts yield a labeled
+ * visualization estimate; buildings without either stay as footprints. */
+export function buildingHeight(feature: Pick<MappedFeature, 'tags'>): BuildingHeightInfo {
+  const raw = feature.tags.height?.trim() || null
+  if (raw) {
+    const match = raw.match(/^\s*(\d+(?:\.\d+)?)\s*(m|meter|meters|metre|metres|ft|feet|')?\s*$/i)
+    if (match) {
+      const value = Number(match[1])
+      const metres = /^(ft|feet|')$/i.test(match[2] ?? '') ? value * 0.3048 : value
+      if (Number.isFinite(metres) && metres > 0 && metres <= 500) return { status: 'tagged', metres, raw }
+    }
+  }
+  const levels = Number.parseFloat(feature.tags['building:levels'] ?? '')
+  if (Number.isFinite(levels) && levels > 0 && levels <= 120) return { status: 'estimated-from-levels', metres: levels * 3.1, raw: `${levels} levels × 3.1 m visualization assumption` }
+  return { status: 'missing', metres: null, raw }
 }
 
 export async function loadHudsonData(signal?: AbortSignal) {
