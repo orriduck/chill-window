@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { buildingAppearance } from './GeoBuilding'
 import { pyramidalRoof } from './GeoRoof'
+import { detailCoverageDeclarations, detailCoverageLookup, type GeoDetailCoverage } from './GeoDetailCoverage'
 import { buildingHeight, buildingStructureKind, type BuildingHeightStatus, type GeoData, type GeoPoint, type MappedBuildingPart, type MappedFeature } from './GeoData'
 
 export const DISTANT_BUILDING_REGION_METRES = 1024
@@ -11,15 +12,16 @@ export type BuildingFadeRole = 'near' | 'far'
 export interface BuildingFadeController {
   readonly role: BuildingFadeRole
   readonly focus: THREE.Vector2
+  readonly coverage?: GeoDetailCoverage
   updateFocus(x: number, z: number): void
 }
 
 /** Shared by near and distant batches. Every vertex of a source building or
  * part must carry the same geographic centre so the two LODs cross-fade as a
  * pair, including large footprints that span chunk/region boundaries. */
-export function createBuildingFadeController(role: BuildingFadeRole): BuildingFadeController {
+export function createBuildingFadeController(role: BuildingFadeRole, coverage?: GeoDetailCoverage): BuildingFadeController {
   const focus = new THREE.Vector2()
-  return { role, focus, updateFocus: (x, z) => focus.set(x, z) }
+  return { role, focus, coverage, updateFocus: (x, z) => focus.set(x, z) }
 }
 
 export function setBuildingCenterAttribute(geometry: THREE.BufferGeometry, x: number, z: number) {
@@ -40,6 +42,11 @@ export function installBuildingDistanceFade(material: THREE.MeshStandardMaterial
     shader.uniforms.geoBuildingFocus = { value: controller.focus }
     shader.uniforms.geoBuildingFadeStart = { value: BUILDING_DETAIL_FADE_START_METRES }
     shader.uniforms.geoBuildingFadeEnd = { value: BUILDING_DETAIL_FADE_END_METRES }
+    if (controller.coverage) {
+      shader.uniforms.geoDetailCoverage = { value: controller.coverage.texture }
+      shader.uniforms.geoDetailMinTile = { value: controller.coverage.minTile }
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\n${detailCoverageDeclarations}`)
+    }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute vec2 geoBuildingCenter;\nvarying vec2 vGeoBuildingCenter;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGeoBuildingCenter = geoBuildingCenter;')
@@ -49,13 +56,14 @@ export function installBuildingDistanceFade(material: THREE.MeshStandardMaterial
 // Use one threshold in screen space for both LODs. Independent alphaHash
 // tests with alpha=t and alpha=1-t leave holes and duplicate coverage.
 float geoBuildingDistance = distance(vGeoBuildingCenter, geoBuildingFocus);
-float geoBuildingBlend = smoothstep(geoBuildingFadeStart, geoBuildingFadeEnd, geoBuildingDistance);
+${controller.coverage ? detailCoverageLookup('vGeoBuildingCenter') : 'float geoDetailReady = 1.0;'}
+float geoBuildingBlend = mix(1.0, smoothstep(geoBuildingFadeStart, geoBuildingFadeEnd, geoBuildingDistance), geoDetailReady);
 float geoBuildingThreshold = fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453);
 ${controller.role === 'far' ? 'if (geoBuildingThreshold >= geoBuildingBlend) discard;\nfloat geoHorizon = 1.0 - smoothstep(3000.0, 4500.0, geoBuildingDistance);\nif (geoBuildingThreshold >= geoHorizon) discard;' : 'if (geoBuildingThreshold < geoBuildingBlend) discard;'}
 `)
 
   }
-  material.customProgramCacheKey = () => `${previousKey()}|geographic-building-fade-${controller.role}-650-740-v1`
+  material.customProgramCacheKey = () => `${previousKey()}|geographic-building-fade-${controller.role}-650-740-v2-${!!controller.coverage}`
   // Enable the hash shader path, replacing its coverage test above with
   // exactly complementary near/far tests. Keep opaque depth writes.
   material.alphaHash = true

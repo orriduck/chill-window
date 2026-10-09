@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { treeNearTex, treeNearBTex } from '../textures'
+import { detailCoverageDeclarations, detailCoverageLookup, type GeoDetailCoverage } from './GeoDetailCoverage'
 
 export interface ForestPlacement { x: number; y: number; z: number; height: number; yaw: number; variant: number }
 
@@ -13,7 +14,7 @@ export class GeoForest {
   private materials = [treeNearTex, treeNearBTex].map(map => new THREE.MeshLambertMaterial({
     map, alphaTest: 0.42, side: THREE.DoubleSide,
   }))
-  constructor(mode: 'near' | 'far' = 'near') {
+  constructor(mode: 'near' | 'far' = 'near', coverage?: GeoDetailCoverage) {
     const plane = new THREE.PlaneGeometry(0.74, 1)
     plane.translate(0, 0.5, 0)
     const second = plane.clone().rotateY(Math.PI / 2)
@@ -22,17 +23,22 @@ export class GeoForest {
     for (const material of this.materials) {
       material.onBeforeCompile = shader => {
         shader.uniforms.geoForestFocus = { value: this.focus }
+        if (coverage) {
+          shader.uniforms.geoDetailCoverage = { value: coverage.texture }
+          shader.uniforms.geoDetailMinTile = { value: coverage.minTile }
+        }
         // Both inspected atlases are 512x256. Keep linear filtering inside
         // each cell so a neighbouring crown cannot bleed into its border.
         shader.uniforms.geoTreeAtlasInset = { value: new THREE.Vector2(0.5 / 512, 0.5 / 256) }
         shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 treeAtlasCell;\nuniform vec2 geoTreeAtlasInset;\nuniform vec2 geoForestFocus;\nvarying float geoTreeDistance;')
           .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = vMapUv * (vec2(0.25, 0.5) - 2.0 * geoTreeAtlasInset) + treeAtlasCell + geoTreeAtlasInset;\n#endif')
-          .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoTreeDistance = length((instanceMatrix * vec4(position, 1.0)).xz - geoForestFocus);')
-        const fade = mode === 'near' ? '1.0 - smoothstep(500.0, 650.0, geoTreeDistance)' : 'smoothstep(500.0, 650.0, geoTreeDistance) * (1.0 - smoothstep(3000.0, 4500.0, geoTreeDistance))'
-        shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float geoTreeDistance;')
-          .replace('#include <alphatest_fragment>', `diffuseColor.a *= ${fade};\n#include <alphatest_fragment>`)
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoTreeCenter = instanceMatrix[3].xz;\ngeoTreeDistance = length(geoTreeCenter - geoForestFocus);')
+        shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 geoTreeCenter;')
+        const fade = mode === 'near' ? 'geoDetailReady * (1.0 - smoothstep(500.0, 650.0, geoTreeDistance))' : 'mix(1.0, smoothstep(500.0, 650.0, geoTreeDistance), geoDetailReady) * (1.0 - smoothstep(3000.0, 4500.0, geoTreeDistance))'
+        shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\nvarying float geoTreeDistance;\nvarying vec2 geoTreeCenter;\n${coverage ? detailCoverageDeclarations : ''}`)
+          .replace('#include <alphatest_fragment>', `${coverage ? detailCoverageLookup('geoTreeCenter') : 'float geoDetailReady = 1.0;'}\ndiffuseColor.a *= ${fade};\n#include <alphatest_fragment>`)
       }
-      material.customProgramCacheKey = () => `geographic-forest-atlas-inset-v3-${mode}`
+      material.customProgramCacheKey = () => `geographic-forest-coverage-v4-${mode}-${!!coverage}`
     }
   }
   setFocus(x: number, z: number) { this.focus.set(x, z) }

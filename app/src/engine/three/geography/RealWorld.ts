@@ -5,6 +5,7 @@ import { applyBuildingAppearance, buildingAppearance } from './GeoBuilding'
 import { GeoForest, type ForestPlacement } from './GeoForest'
 import { pyramidalRoof } from './GeoRoof'
 import { LAND_COVER } from './GeoLandCover'
+import { GeoDetailCoverage } from './GeoDetailCoverage'
 import { createBuildingFadeController, installBuildingDistanceFade, prepareDistantBuildings, setBuildingCenterAttribute, type DistantBuildingSet } from './GeoDistantBuildings'
 import { hash01 } from '../core/procedural'
 import { groundGrassTex, groundRockTex, geographicTexturesReady } from '../textures'
@@ -66,10 +67,11 @@ export class RealWorld {
   private landSourceMap: THREE.CanvasTexture
   private landSourceMode = { value: 0 }
   private landPixels!: Uint8ClampedArray
-  private forest = new GeoForest()
-  private distantForest = new GeoForest('far')
+  private detailCoverage = new GeoDetailCoverage()
+  private forest = new GeoForest('near', this.detailCoverage)
+  private distantForest = new GeoForest('far', this.detailCoverage)
   private distantForestGroup = new THREE.Group()
-  private nearBuildingFade = createBuildingFadeController('near')
+  private nearBuildingFade = createBuildingFadeController('near', this.detailCoverage)
   private distantBuildings: DistantBuildingSet
   private textureFailures = 0
   presentable = false
@@ -110,11 +112,12 @@ export class RealWorld {
   private prefetchPending = 0
   private preparationTarget: number | null = null
   private advanceTarget: number | null = null
+  private gpuPriority = new Map<string, number>()
   get streamingStats() {
     return { cached: this.chunks.size, visible: [...this.chunks.values()].filter(c => c.group.visible).length,
       pending: this.pending, preloadMetres: PRELOAD_METRES, nearestMissingMetres: this.nearestMissingMetres,
       lastBuildMs: this.lastBuildMs, maxBuildMs: this.maxBuildMs, visibleMissing: this.visibleMissing,
-      suddenAppearanceFrames: this.suddenAppearanceFrames, assets: this.assetStatus, ready: this.presentable, gpuWarmupMs: this.gpuWarmupMs, pendingGpu: [...this.chunks.values()].filter(chunk => !chunk.gpuReady).length, prefetchPending: this.prefetchPending, distantBuildings: this.distantBuildings.stats }
+      suddenAppearanceFrames: this.suddenAppearanceFrames, assets: this.assetStatus, ready: this.presentable, gpuWarmupMs: this.gpuWarmupMs, sceneFrame: this.frame, pendingGpu: [...this.chunks.values()].filter(chunk => !chunk.gpuReady).length, prefetchPending: this.prefetchPending, distantBuildings: this.distantBuildings.stats }
   }
   get visibleTiles() { return [...this.chunks.values()].map(c => ({ x: c.x, z: c.z, mesh: c.ground })) }
 
@@ -170,7 +173,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.buildStations()
     this.buildDistantForest()
     for (const material of [this.roofMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial]) installBuildingDistanceFade(material, this.nearBuildingFade)
-    this.distantBuildings = prepareDistantBuildings(data, { groundAt: (x, z) => this.terrainHeight(x, z), isWater: (x, z) => this.data.landAt(x, z, 'water') })
+    this.distantBuildings = prepareDistantBuildings(data, { fade: createBuildingFadeController('far', this.detailCoverage), groundAt: (x, z) => this.terrainHeight(x, z), isWater: (x, z) => this.data.landAt(x, z, 'water') })
     this.group.add(this.distantBuildings.group)
     this.initialKeys = this.initialPreloadKeys(initialS)
     // Shared assets are loaded before any chunks are meshed. Asset completion
@@ -201,21 +204,36 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     }
     return keys
   }
-  canAdvance(s: number) {
+  private tilesBetween(fromS: number, toS: number) {
+    const low = Math.min(fromS, toS), high = Math.max(fromS, toS)
+    const points = [this.data.pose(low), this.data.pose(high)]
+    // Endpoint coverage can miss a corner tile crossed inside a curved route
+    // segment. The bounding rectangle of every source vertex in this step
+    // contains the complete piecewise-linear path, including extrema.
+    for (let i = 0; i < this.data.points.length; i++) if (this.data.distances[i] > low && this.data.distances[i] < high) points.push(this.data.pose(this.data.distances[i]))
+    const minX = Math.floor(Math.min(...points.map(p => p.x)) / TILE) - DETAIL_RADIUS
+    const maxX = Math.floor(Math.max(...points.map(p => p.x)) / TILE) + DETAIL_RADIUS
+    const minZ = Math.floor(Math.min(...points.map(p => p.z)) / TILE) - DETAIL_RADIUS
+    const maxZ = Math.floor(Math.max(...points.map(p => p.z)) / TILE) + DETAIL_RADIUS
+    const tiles = new Map<string, { x: number; z: number }>()
+    for (let z = minZ; z <= maxZ; z++) for (let x = minX; x <= maxX; x++) tiles.set(`${x},${z}`, { x, z })
+    return tiles
+  }
+  canAdvance(s: number, fromS = s) {
     if (!this.presentable) return false
-    const pose = this.data.pose(s)
-    return [...this.tilesAt(pose.x, pose.z).keys()].every(key => this.chunks.get(key)?.gpuReady === true)
+    return [...this.tilesBetween(fromS, s).keys()].every(key => this.chunks.get(key)?.gpuReady === true)
   }
   captureGpuChunks() { return [...this.chunks.values()].map(chunk => chunk.group) }
   markGpuChunks(groups: THREE.Group[]) {
     const prepared = new Set(groups)
     for (const chunk of this.chunks.values()) if (prepared.has(chunk.group)) { chunk.gpuReady = true; chunk.gpuPreparing = false }
   }
-  takeGpuChunk() {
-    const chunk = [...this.chunks.values()].find(chunk => !chunk.gpuReady && !chunk.gpuPreparing)
-    if (!chunk) return null
-    chunk.gpuPreparing = true
-    return chunk.group
+  takeGpuChunks() {
+    const pending = [...this.chunks.entries()].filter(([, chunk]) => !chunk.gpuReady && !chunk.gpuPreparing)
+      .sort(([a], [b]) => (this.gpuPriority.get(a) ?? Infinity) - (this.gpuPriority.get(b) ?? Infinity))
+      .slice(0, 12)
+    for (const [, chunk] of pending) chunk.gpuPreparing = true
+    return pending.map(([, chunk]) => chunk.group)
   }
   prepareAt(s: number | null) { this.preparationTarget = s }
   prepareAdvance(s: number | null) { this.advanceTarget = s }
@@ -244,6 +262,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.waterGroup.visible = layers.water
     this.stationGroup.visible = layers.stations ?? true
     const point = inspection ? focus : pose
+    this.detailCoverage.update(point.x, point.z, key => this.chunks.get(key)?.gpuReady === true)
     this.landSourceMode.value = inspection && layers.sourceLandCover ? 1 : 0
     this.forest.setFocus(point.x, point.z); this.distantForest.setFocus(point.x, point.z)
     this.distantForestGroup.visible = layers.vegetation
@@ -270,13 +289,19 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       for (const [key, tile] of this.tilesAt(ahead.x, ahead.z)) required.set(key, tile)
     }
     const preparing = this.preparationTarget === null ? null : this.data.pose(this.preparationTarget)
+    const urgent = new Set(this.tilesAt(pose.x, pose.z).keys())
     if (preparing) for (const [key, tile] of this.tilesAt(preparing.x, preparing.z)) required.set(key, tile)
+    if (preparing) for (const key of this.tilesAt(preparing.x, preparing.z).keys()) urgent.add(key)
     if (this.advanceTarget !== null) {
-      const next = this.data.pose(this.advanceTarget)
       // A bend between the 256m route samples may enter a corner tile that
       // none of those samples cover. Always queue the exact motion target,
       // or the coverage guard could hold the train without building it.
-      for (const [key, tile] of this.tilesAt(next.x, next.z)) required.set(key, tile)
+      for (const [key, tile] of this.tilesBetween(s, this.advanceTarget)) { required.set(key, tile); urgent.add(key) }
+    }
+    this.gpuPriority.clear()
+    for (const [key, tile] of required) {
+      const rank = wanted.has(key) ? 0 : urgent.has(key) ? 1 : 2
+      this.gpuPriority.set(key, rank * 1e12 + ((tile.x + 0.5) * TILE - point.x) ** 2 + ((tile.z + 0.5) * TILE - point.z) ** 2)
     }
     const missing = [...required.entries()].filter(([key]) => !this.chunks.has(key))
       .map(([key, tile]) => {
@@ -285,8 +310,8 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
         const distance = preparing ? Math.hypot(centerX - preparing.x, centerZ - preparing.z) : route && route.distance < 420
           ? Math.abs(route.s - currentS) * 0.3 + route.distance
           : Math.hypot(centerX - point.x, centerZ - point.z)
-        return { key, tile, distance }
-      }).sort((a, b) => a.distance - b.distance)
+        return { key, tile, distance, priority: wanted.has(key) ? 0 : urgent.has(key) ? 1 : 2 }
+      }).sort((a, b) => a.priority - b.priority || a.distance - b.distance)
     this.pending = [...wanted.keys()].filter(key => !this.chunks.get(key)?.gpuReady).length
     this.visibleMissing = this.presentable ? this.pending : 0
     if (this.presentable && !inspection && this.visibleMissing) this.suddenAppearanceFrames++
@@ -294,8 +319,9 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.nearestMissingMetres = missing.length ? Math.round(missing[0].distance) : PRELOAD_METRES
     // Tile creation is time-sliced across animation frames; the current view
     // has priority, followed by the route-aligned safety buffer.
-    if (this.assetsReady && missing.length) {
-      const { key, tile } = missing[0], started = performance.now()
+    const buildStarted = performance.now()
+    while (this.assetsReady && missing.length && performance.now() - buildStarted < 8) {
+      const { key, tile } = missing.shift()!, started = performance.now()
       const created = this.createChunk(tile.x, tile.z)
       this.lastBuildMs = performance.now() - started
       this.maxBuildMs = Math.max(this.maxBuildMs, this.lastBuildMs)
@@ -322,7 +348,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       this.readyResolved = true
       this.resolveReady()
     }
-    const cachedOutsideView = [...this.chunks.entries()].filter(([key]) => !required.has(key)).sort((a, b) => a[1].lastUsed - b[1].lastUsed)
+    const cachedOutsideView = [...this.chunks.entries()].filter(([key, chunk]) => !required.has(key) && !chunk.gpuPreparing).sort((a, b) => a[1].lastUsed - b[1].lastUsed)
     while (this.chunks.size > CACHE_LIMIT && cachedOutsideView.length) {
       const [key, chunk] = cachedOutsideView.shift()!
       this.disposeChunk(chunk); this.chunks.delete(key)
@@ -759,7 +785,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
   }
   private clearChunks() { for (const chunk of this.chunks.values()) this.disposeChunk(chunk); this.chunks.clear() }
   dispose() {
-    this.disposed = true; this.clearChunks(); this.distantBuildings.dispose(); this.forest.dispose(); this.distantForest.dispose()
+    this.disposed = true; this.clearChunks(); this.distantBuildings.dispose(); this.detailCoverage.dispose(); this.forest.dispose(); this.distantForest.dispose()
     this.distantForestGroup.traverse(object => { if (object instanceof THREE.InstancedMesh) { object.dispose(); object.geometry.dispose() } })
     this.background?.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose() }); this.routeLine.geometry.dispose(); (this.routeLine.material as THREE.Material).dispose()
     this.marker.geometry.dispose(); (this.marker.material as THREE.Material).dispose()

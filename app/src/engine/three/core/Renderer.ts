@@ -55,25 +55,33 @@ export class WebGLRenderer {
     this.warmupMs = performance.now() - started
   }
 
-  async preload(scene: THREE.Scene, camera: THREE.Camera, preparedWorld: THREE.Object3D) {
-    await this.renderer.compileAsync(preparedWorld, camera, scene)
+  async preload(scene: THREE.Scene, camera: THREE.Camera, preparedWorld: THREE.Object3D[]) {
+    for (const group of preparedWorld) await this.renderer.compileAsync(group, camera, scene)
     await this.uploadPreparedObject(scene, camera, preparedWorld)
   }
 
-  private async uploadPreparedObject(scene: THREE.Scene, camera: THREE.Camera, preparedWorld: THREE.Object3D) {
+  private async uploadPreparedObject(scene: THREE.Scene, camera: THREE.Camera, preparedWorld: THREE.Object3D | THREE.Object3D[]) {
     const started = performance.now()
     // Shader compilation alone does not upload hidden geometry. Submit all
     // already prepared world batches to a tiny offscreen target once. No
     // visibility change survives this synchronous pass or reaches the canvas.
     const states: Array<{ object: THREE.Object3D; visible: boolean; culled: boolean; upload: boolean }> = []
     const scope = new Set<THREE.Object3D>()
-    preparedWorld.traverse(object => { scope.add(object); states.push({ object, visible: object.visible, culled: object.frustumCulled, upload: true }) })
-    for (let parent = preparedWorld.parent; parent; parent = parent.parent) states.push({ object: parent, visible: parent.visible, culled: parent.frustumCulled, upload: true })
+    const recorded = new Set<THREE.Object3D>()
+    const record = (object: THREE.Object3D, upload: boolean) => {
+      if (recorded.has(object)) return
+      recorded.add(object)
+      states.push({ object, visible: object.visible, culled: object.frustumCulled, upload })
+    }
+    for (const group of Array.isArray(preparedWorld) ? preparedWorld : [preparedWorld]) {
+      group.traverse(object => { scope.add(object); record(object, true) })
+      for (let parent = group.parent; parent; parent = parent.parent) record(parent, true)
+    }
     // Future chunks need only their own buffer submission, not another full
     // world draw. Keep the real objects/attributes so the original instance
     // buffers are uploaded, and preserve all lights and parent transforms.
     scene.traverse(object => {
-      if (!scope.has(object) && (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points || object instanceof THREE.Sprite)) states.push({ object, visible: object.visible, culled: object.frustumCulled, upload: false })
+      if (!scope.has(object) && (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points || object instanceof THREE.Sprite)) record(object, false)
     })
     const target = new THREE.WebGLRenderTarget(16, 16)
     const previousTarget = this.renderer.getRenderTarget()

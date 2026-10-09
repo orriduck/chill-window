@@ -78,6 +78,11 @@ jobs:
           }
           async function ready() {
             await page.getByLabel('真实地理加载状态', { exact: true }).waitFor();
+            const previousFrame = await page.getByLabel('真实地理加载状态', { exact: true }).getAttribute('data-scene-frame');
+            await page.waitForFunction(previous => {
+              const current = document.querySelector('[aria-label="真实地理加载状态"]')?.dataset.sceneFrame;
+              return current !== undefined && current !== previous;
+            }, previousFrame, { timeout: 180000 });
             await page.waitForFunction(() => {
               const text = document.querySelector('[aria-label="真实地理加载状态"]')?.textContent ?? '';
               return text.includes('49/49') && text.includes('场景就绪');

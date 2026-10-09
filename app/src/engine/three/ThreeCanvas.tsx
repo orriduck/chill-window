@@ -169,7 +169,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       if (data && world && camera.targetSpeed > 0 && data.length - camera.z <= TrainCamera.STATION_STOP_DISTANCE) camera.beginStationApproach(data.length)
       const nextS = camera.z + Math.max(camera.currentSpeed, camera.targetSpeed) * motionDt
       world?.prepareAdvance(worldReady && !inspection ? nextS : null)
-      const coverageReady = worldReady && !!world?.canAdvance(nextS)
+      const coverageReady = worldReady && !!world?.canAdvance(nextS, camera.z)
       inspector.setMotionDiagnostic(requestedSpeed, camera.targetSpeed, paused, inspection, worldReady, coverageReady, pendingJump)
       camera.update(motionDt, !paused && !inspection && pendingJump === null && coverageReady)
       if (data && camera.z >= data.length) { camera.setZ(data.length); camera.setTargetSpeed(0); camera.currentSpeed = 0 }
@@ -185,11 +185,11 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       const fog = scene.scene.fog as THREE.Fog; fog.color.copy(state.fogColor); fog.near = THREE.MathUtils.lerp(1100, 8, tunnel); fog.far = THREE.MathUtils.lerp(6000, 130, tunnel)
       if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers)
       if (worldReady && world && !gpuChunkInFlight) {
-        const prepared = world.takeGpuChunk()
-        if (prepared) {
+        const prepared = world.takeGpuChunks()
+        if (prepared.length) {
           gpuChunkInFlight = true
           void renderer.preload(scene.scene, camera.getCamera(), prepared)
-            .then(() => { if (!disposed) world?.markGpuChunks([prepared]) })
+            .then(() => { if (!disposed) world?.markGpuChunks(prepared) })
             .catch(error => { if (!disposed && world) { worldReady = false; world.presentable = false; inspector.fail(`区块 GPU 预热失败：${error.message}`) } })
             .finally(() => { gpuChunkInFlight = false })
         }

@@ -249,3 +249,30 @@ run37997465057 实际行驶710m、六次missing/late均0；已查看截图确认
 已读本地安装 Three.js `WebGLRenderer.js` 的 compile/compileAsync 实现并对照[官方 renderer 文档](https://threejs.org/docs/pages/WebGLRenderer.html)：编译遍历隐藏对象的材质，不能据此说几何已上传。`core/Renderer.ts` 增加16×16离屏提交，用原对象/实例缓冲、保留灯光和父坐标；同步pass结束立即恢复显隐和渲染目标，然后通过[WebGL2 fenceSync](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/fenceSync)及非阻塞clientWaitSync等待GPU完成，不调用gl.finish。初始全世界及后续新近景区块均先提交；后续只绘制被准备区块，避免额外整世界提交。`RealWorld.canAdvance`现在要求下一位置49块的gpuReady，`ThreeCanvas.tsx`完成后才标记，调试诊断展示待上传队列。该新路径待云端实际运行、着色器编译与图片核验；硬件平滑度和全路线连续性仍未证明。
 
 树模型候选再次核查：[Poly Haven Pine Tree 01](https://polyhaven.com/a/pine_tree_01)、[官方 files API](https://api.polyhaven.com/files/pine_tree_01)、[许可](https://polyhaven.com/license)。实际读取1k glTF（MD5 9bc0153071011411957a74e473d24858）只含3个LOD0，共17,182,252三角形，bin948,849,556bytes；1k表示纹理档，不代表低几何LOD，未把该大包接入场景。[LOLIPOP Maple 作者页](https://sketchfab.com/3d-models/maple-trees-pack-lowpoly-game-ready-lods-b5d2833c258f4054a01ee2b4ef85adf0)提供成熟17–20m及LOD2约2825–5321tri的CC Attribution候选；下载认证尚未解决，不使用viewer提取绕过下载。Poly Haven Tree Small02源种为Burkea africana，继续排除。独立云端任务正处理其他合法公开温带静态模型，尚未进入本次运行代码。
+
+
+2026-10-09 建筑材质云端复核：[run38002543420](https://github.com/orriduck/chill-window/actions/runs/38002543420)，8e67aa5，读取health并实际查看03e/03f图片。白色木材标签立面、#778899屋顶、源模型估计3.9m和缺失roof_height说明均存在；建筑关闭后画面中的建筑消失。连续740m六次抽查missing/late为0，无请求失败或运行错误。截图同时暴露 ready() 在定位后的新视野更新前读到了旧49/49：03e实际只有2/49，03f只有10/49，不能把这组视图当作完整就绪验收。修正方案是等待新的场景更新帧，再检查当前49/49；新等待方案尚未跑云端。
+
+接续 `GeoDetailCoverage.ts`：用7×7可用性小纹理记录当前视野细节区块的真实gpuReady，建筑与森林均在匹配区块未上传时保持已准备远景。此前纯距离淡化会在俯视快速定位后把近中心的远景裁掉，而细节仍在准备，产生临时空白。这里不新增地理要素，只调整已有来源模型的显示覆盖；数据坐标仍为地理米、按原256m中心区块判定。当前仅生产构建和定向lint核查，新着色器与快速定位备用画面仍待云端验收。
+
+## 2026-10-09：OSM 开源地景管线比较
+
+响应用户关于 GitHub 现成地景项目的询问，重新读取下列作者仓库与官方文档；本节为研究结果，未运行其转换器、未接入新引擎、未验证线上 demo 的实际可用性。
+
+| 项目与主要来源 | 可借鉴能力及边界 | 对当前代码的适用点 |
+| --- | --- | --- |
+| [Streets GL](https://github.com/StrandedKitty/streets-gl) | TypeScript / 自研 WebGL2，OSM复杂建筑、道路、树木，地形LOD、PBR与大气；数据来自改版Planetiler矢量瓦片和Esri高程。不是直接可替换的Three.js组件。仓库仍注明早期开发；不能从README的demo链接推断当前服务可用。 | `GeoRoof.ts`、`GeoBuilding.ts`、`GeoForest.ts`、`core/Renderer.ts`的屋顶解析、材质和分级显示参考；目前仅部分屋顶/材质机制参考，未导入渲染器。 |
+| [OSM2World](https://github.com/tordanik/OSM2World)、[官方功能页](https://osm2world.org/)、[Web library](https://osm2world.org/docs/library-web/) | 输出glTF/GLB、PBR材质、LOD；新ES模块返回带材质的三角网格，可供Three.js使用，官方建议客户端只处理较小数据集。候选方案为云端预转换路线片区，再加载静态模型；尚未实现。 | 潜在替代部分`RealWorld.ts`建筑/沿线设施自建网格的离线准备步骤，须先对同一Peekskill片区做来源字段、坐标、高度和显示成本对照。 |
+| [Blosm](https://github.com/vvoovv/blosm) | 代码在release分支。免费基础版导入OSM建筑/屋顶、约30m真实地形、道路/铁路与植被多边形；贴图/UV、三维森林和单树列在Pro功能中，不将其误写为全套免费功能。 | 可选Blender离线资产制作路线，尚未安装、购买或导出；不替换当前USGS DEM。 |
+| [three-geo](https://github.com/w3reality/three-geo) | Three.js地形网格，Mapbox Terrain-RGB DEM与卫星纹理，需要Mapbox token；主要提供地表，不提供完整OSM建筑街景管线。 | `RealWorld.ts`地理投影与地形贴图研究参考，当前仍使用已获取的USGS数据。 |
+| [osm2city官方仓库](https://gitlab.com/osm2city/osm2city)、[算法说明](https://osm2city.readthedocs.io/en/latest/how_it_works.html) | 主仓库在GitLab，面向FlightGear。根据OSM生成建筑、道路、电力线、码头、站台等；文档明确使用启发式和随机性形成合理外观，不能当作当地完整实测复原。 | 沿线设施和批次/LOD实现参考；没有接入其生成资产。 |
+
+[OSM2World 2026地形路线图](https://osm2world.org/blog/2026/06/03/ptf-roadmap-2026-osm-3d-terrain/)明确OSM不包含连续地形高程，需额外数据；建筑、道路、桥隧与地形贴合、瓦片边界连续性仍属于专门工作。当前判断：优先评估OSM2World的云端片区转换，并借鉴Streets GL的运行显示机制；保留真实DEM和来源审计。通用材质/默认窗户不能表述为当地逐栋照片纹理，默认补高也不能覆盖来源缺失状态。
+
+### f89bc93 云端运行失败及队列修正
+
+实际核对 [run38004369924](https://github.com/orriduck/chill-window/actions/runs/38004369924) 的health与02b/03e图片。初始GPU离屏预热完成（SwiftShader约12.1秒），整段远景建筑初始化完成，加载前上车意图保留、实际连续780m六次抽查missing/late均0；其后进入调试已有1次行驶缺块计数，因此不能把整次运行描述为无迟到。Peekskill源案例截图为0/49并实际显示空白地表；旧ready状态误读仍存在。后续远处定位等待180秒失败，最终0/49、171块待GPU上传；没有请求失败或shader错误。初始准备成功不代表后续地图切换成功，远景建筑的视觉/显隐情景尚未完成。
+
+当前修正关联`RealWorld.ts`、`core/Renderer.ts`、`ThreeCanvas.tsx`：CPU/GPU均优先当前视野，其次列车位置/跳转/下一步覆盖，再处理缓冲；GPU每批最多12块，同一离屏提交与fence，保留原对象/父变换，不在准备过程中驱逐该批。CPU每帧按8ms预算推进，单块仍可能超过预算，不把该预算说成硬上限。移动门控与准备范围覆盖起终点及中间原路线顶点的包围区块，避免只验证预测终点却漏掉弯道中途；该保护并非已经证明上述1次缺块的确切原因。新帧确认、远景可用性备用显示和这些队列改动均待下一次云端运行；本地构建/定向lint和26项既有数据/几何/相机检查通过，既有检查不直接验收新异步GPU队列。
+
+云端已处理两种静态三维树候选，root取回`GeoCloseTrees.ts`、准备脚本与来源metadata完整源码；GLB转交尚待完成，模型尚未接入本次发布。成熟Scots pine候选与8.6m橡树街树样本不能替代所有落叶林，当前图片中的交叉贴片仍清晰可辨，树木视觉目标继续未完成。
