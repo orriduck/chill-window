@@ -1,4 +1,5 @@
 import { MathUtils } from 'three'
+import { loadLandCover, type GeoLandCover } from './GeoLandCover'
 
 export type LonLat = [number, number]
 export interface GeographicFeature {
@@ -95,9 +96,11 @@ export class GeoData {
   readonly buildingParts: MappedBuildingPart[]
   readonly buildingOverlay: BuildingOverlaySnapshot | null
   readonly elevations: Float32Array
-  constructor(bundle: GeoBundle, elevations: Float32Array, stationSnapshot?: HudsonStationSnapshot, buildingOverlay?: BuildingOverlaySnapshot) {
+  readonly landCover: GeoLandCover | null
+  constructor(bundle: GeoBundle, elevations: Float32Array, stationSnapshot?: HudsonStationSnapshot, buildingOverlay?: BuildingOverlaySnapshot, landCover?: GeoLandCover) {
     this.bundle = bundle; this.elevations = elevations
     this.buildingOverlay = buildingOverlay ?? null
+    this.landCover = landCover ?? null
     const d = bundle.dem
     if (!Number.isInteger(d.width) || !Number.isInteger(d.height) || d.width < 2 || d.height < 2 || elevations.length !== d.width * d.height || d.rowOrder !== 'south-to-north') throw new Error('DEM 网格或行序无效')
     for (const height of elevations) if (!Number.isFinite(height) || height < -500 || height > 9000) throw new Error('DEM 包含无效高程')
@@ -339,9 +342,11 @@ export async function loadHudsonData(signal?: AbortSignal) {
   const buildingBaseHash = await crypto.subtle.digest('SHA-256', worldBuffer)
   const buildingHash = [...new Uint8Array(buildingBaseHash)].map(value => value.toString(16).padStart(2, '0')).join('')
   if (buildingHash !== buildingOverlay.baseWorldSha256) throw new Error('建筑数据绑定的路线快照校验失败')
-  const demResponse = await fetch(`${base}${bundle.dem.file}`, { signal })
+  const [demResponse, landCover] = await Promise.all([
+    fetch(`${base}${bundle.dem.file}`, { signal }), loadLandCover(base, hash, bundle.dem.bounds, signal),
+  ])
   if (!demResponse.ok) throw new Error(`高程数据 HTTP ${demResponse.status}`)
   const buffer = await demResponse.arrayBuffer()
   if (buffer.byteLength % 4) throw new Error('高程文件长度错误')
-  return new GeoData(bundle, new Float32Array(buffer), stationSnapshot, buildingOverlay)
+  return new GeoData(bundle, new Float32Array(buffer), stationSnapshot, buildingOverlay, landCover)
 }

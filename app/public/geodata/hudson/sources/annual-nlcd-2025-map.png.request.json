@@ -1,0 +1,22 @@
+{
+  "url": "https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms?service=WMS&version=1.1.1&request=GetMap&layers=Land-Cover-Native_conus_year_data&styles=&srs=EPSG%3A3857&bbox=-8246534.556694695%2C5049300.15512425%2C-8220957.716354264%2C5080416.846020287&width=640&height=779&format=image%2Fpng&transparent=true&time=2025-01-01T00%3A00%3A00.000Z",
+  "parameters": {
+    "service": "WMS",
+    "version": "1.1.1",
+    "request": "GetMap",
+    "layers": "Land-Cover-Native_conus_year_data",
+    "styles": "",
+    "srs": "EPSG:3857",
+    "bbox": "-8246534.556694695,5049300.15512425,-8220957.716354264,5080416.846020287",
+    "width": "640",
+    "height": "779",
+    "format": "image/png",
+    "transparent": "true",
+    "time": "2025-01-01T00:00:00.000Z"
+  },
+  "method": "GET",
+  "contentType": "image/png",
+  "retrievedAt": "2026-10-09T22:12:38+00:00",
+  "responseSha256": "3e934f94187bc7ed9fbfd449d92248e27a6256243d1afe5a3d970e187d1608ec",
+  "responseBytes": 161398
+}

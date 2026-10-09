@@ -61,3 +61,32 @@ Reproduce the offline conflation with `python app/scripts/prepare-hudson-buildin
 (Shapely required). `--refresh` requests upstream data. The full regional
 snapshot, exact requests, partition paths, timestamps and source-response
 SHA-256 values are recorded in `buildings.json` and `sources/`.
+
+## Annual NLCD land coverage supplement
+
+`landcover.u8` contains a 640 × 779 categorical sample of the official 2025
+Annual NLCD Collection 1.2 WMS, approximately 30 ground metres per cell.
+Unlike the elevation grid, its bounds are **outer cell edges** and rows run
+**north to south**. `landcover.json` binds it to the unchanged world snapshot
+and records its checksum, acquisition request, source capabilities, class
+counts and independent GetFeatureInfo checks of forest/water/developed pixels.
+
+The native WCS endpoint returned a server error during acquisition. The retained
+PNG is decoded with exact RGB values from the USGS v1.2 user guide, table 2-2;
+unknown or blended colors fail preparation. This is a categorical WMS sample,
+not a downloaded native COG or a tree inventory. Run
+`python app/scripts/prepare-hudson-landcover.py` with Pillow to reproduce from
+checked cached responses; `--refresh` reacquires and revalidates them.
+
+Forest classes 41/42/43 supplement unmapped OSM ground. OSM land/water polygons
+retain priority and their holes; individual trees still use explicitly estimated
+visual placements and heights. Woody wetlands, shrubs and developed classes
+are not automatically filled with mature trees. Debug's “NLCD 分类对照” shows
+the source categories without rebuilding the scene; turn off 林木 to inspect it.
+
+- [USGS Annual NLCD classification](https://www.usgs.gov/centers/eros/science/annual-nlcd-land-cover-classification)
+- [USGS science user guide](https://www.usgs.gov/centers/eros/science/annual-nlcd-science-user-product-guide)
+- [MRLC official data services](https://www.mrlc.gov/data-services-page)
+
+USGS Annual NLCD science products are public domain. Satellite classifications
+can contain errors and represent predominant land cover, not surveyed objects.

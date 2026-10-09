@@ -1,0 +1,13 @@
+{
+  "url": "https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms?service=WMS&version=1.3.0&request=GetCapabilities",
+  "parameters": {
+    "service": "WMS",
+    "version": "1.3.0",
+    "request": "GetCapabilities"
+  },
+  "method": "GET",
+  "contentType": "text/xml",
+  "retrievedAt": "2026-10-09T22:15:40+00:00",
+  "responseSha256": "03cbd45098260853bd36a216aebf5b6f72cddaaa36cfe96761643861d8f83fed",
+  "responseBytes": 225982
+}

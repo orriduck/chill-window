@@ -68,6 +68,7 @@ jobs:
               station: await page.getByLabel('Metro-North 实际车站', { exact: true }).textContent(),
               performance: await page.getByLabel('地理渲染性能', { exact: true }).textContent(),
               motionGate: await page.getByLabel('地理运动门控', { exact: true }).textContent(),
+              landCover: await page.getByLabel('真实土地覆盖来源', { exact: true }).textContent(),
               capturedAt: new Date().toISOString(),
               viewport: page.viewportSize() });
             await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
@@ -133,6 +134,11 @@ jobs:
               await page.keyboard.press('F5');
               await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
               await snapshot('03-geography-debug');
+              await page.getByLabel('真实地理NLCD 分类对照', { exact: true }).check();
+              await page.getByLabel('真实地理林木', { exact: true }).uncheck();
+              await snapshot('03b-nlcd-classification');
+              await page.getByLabel('真实地理NLCD 分类对照', { exact: true }).uncheck();
+              await page.getByLabel('真实地理林木', { exact: true }).check();
               const range = page.getByLabel('真实路线里程', { exact: true });
               await range.evaluate((input) => { input.value = '7393.844'; input.dispatchEvent(new Event('input', { bubbles: true })); });
               await page.getByRole('button', { name: '列车跳到这个位置', exact: true }).click();

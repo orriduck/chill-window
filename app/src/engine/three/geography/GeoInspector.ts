@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { buildingHeight, buildingStructureKind, platformRise, type GeoData, type MappedFeature } from './GeoData'
 import type { RealWorld } from './RealWorld'
+import { LAND_COVER } from './GeoLandCover'
 
 export interface GeoCommand { editing?: boolean; jump?: number; recenter?: boolean; time?: 'day' | 'night'; weather?: 'clear' | 'rain' }
 /** Geographic inspection uses the ride's actual data and has no synthetic
@@ -22,7 +23,7 @@ export class GeoInspector {
   private jump: HTMLButtonElement
   private time = document.createElement('select')
   private weather = document.createElement('select')
-  readonly layers = { ground: true, vegetation: true, settlements: true, water: true, farmland: true, stations: true }
+  readonly layers = { ground: true, vegetation: true, settlements: true, water: true, farmland: true, stations: true, sourceLandCover: false }
   private pending: GeoCommand = {}
   private data: GeoData | null = null
   private real = true
@@ -34,6 +35,7 @@ export class GeoInspector {
   private stationReadout = document.createElement('output')
   private performanceReadout = document.createElement('output')
   private motionReadout = document.createElement('output')
+  private landCoverReadout = document.createElement('output')
   private buildingQuery = document.createElement('input')
   private buildingSource = document.createElement('output')
   private lastPointer: [number, number] = [0, 0]
@@ -79,6 +81,7 @@ export class GeoInspector {
     this.stationReadout.setAttribute('aria-label', 'Metro-North 实际车站'); this.stationReadout.style.cssText = 'display:block;padding:8px;background:#e8e1d2;border-radius:6px;font-size:11px;line-height:1.65;margin:8px 0;'
     this.performanceReadout.setAttribute('aria-label', '地理渲染性能'); this.performanceReadout.style.cssText = this.streamingStats.style.cssText
     this.motionReadout.setAttribute('aria-label', '地理运动门控'); this.motionReadout.style.cssText = this.streamingStats.style.cssText
+    this.landCoverReadout.setAttribute('aria-label', '真实土地覆盖来源'); this.landCoverReadout.style.cssText = this.streamingStats.style.cssText
     this.buildingQuery.type = 'search'; this.buildingQuery.placeholder = '查询 OSM ID / GERS ID'; this.buildingQuery.setAttribute('aria-label', '查询建筑源记录 ID 或 GERS ID'); this.buildingQuery.style.cssText = this.checkpoint.style.cssText + 'margin:4px 0;'
     this.buildingQuery.addEventListener('change', () => this.showBuildingById(this.buildingQuery.value))
     this.buildingSource.setAttribute('aria-label', '建筑来源记录详情'); this.buildingSource.style.cssText = 'display:block;min-height:44px;font-size:11px;line-height:1.6;overflow-wrap:anywhere;'
@@ -96,14 +99,14 @@ export class GeoInspector {
       const link = document.createElement('a'); link.textContent = name; link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.style.color = '#506b51'; credits.append(link)
     }
     const layers = document.createElement('div'); layers.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin:10px 0;'
-    for (const [key, name] of [['ground', '地表'], ['vegetation', '林木'], ['settlements', '建筑 / 道路'], ['stations', 'Metro-North 站台'], ['water', '水域']] as const) {
-      const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.checked = true
+    for (const [key, name] of [['ground', '地表'], ['vegetation', '林木'], ['settlements', '建筑 / 道路'], ['stations', 'Metro-North 站台'], ['water', '水域'], ['sourceLandCover', 'NLCD 分类对照']] as const) {
+      const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.checked = this.layers[key]
       input.setAttribute('aria-label', `真实地理${name}`); input.onchange = () => { this.layers[key] = input.checked }
       label.append(input, document.createTextNode(name)); layers.append(label)
     }
     const diagnostics = document.createElement('details'), summary = document.createElement('summary')
     summary.textContent = '数据来源与加载诊断'; summary.style.cssText = 'cursor:pointer;font-size:12px;margin-top:14px;'
-    diagnostics.append(summary, this.buildingStats, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingSource, notes, credits)
+    diagnostics.append(summary, this.buildingStats, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
@@ -117,7 +120,7 @@ export class GeoInspector {
   setData(data: GeoData) {
     this.data = data
     const stats = data.buildingStats
-    this.buildingStats.textContent = `建筑 ${stats.total.toLocaleString()} 栋（新增 Overture ${stats.added.toLocaleString()}）\n源高度标签 ${stats.sourceTag.toLocaleString()} · Microsoft 模型估计 ${stats.sourceEstimate.toLocaleString()} · 仅楼层数 ${stats.floorsOnly.toLocaleString()} · 高度缺失 ${stats.missing.toLocaleString()}\n开放遮棚 ${stats.shelters} · 已记录楼层 ${stats.floorTags.toLocaleString()} · 屋顶形状 ${stats.roof.toLocaleString()} · 建筑分段 ${stats.parts}\n数据：Overture ${data.buildingOverlay?.release ?? '未加载'} · 原始 OSM footprint ${(stats.total - stats.added).toLocaleString()}`
+    this.buildingStats.textContent = `建筑组件 ${stats.total.toLocaleString()} 个（新增 Overture ${stats.added.toLocaleString()}）\n源高度标签 ${stats.sourceTag.toLocaleString()} · Microsoft 模型估计 ${stats.sourceEstimate.toLocaleString()} · 仅楼层数 ${stats.floorsOnly.toLocaleString()} · 高度缺失 ${stats.missing.toLocaleString()}\n开放遮棚 ${stats.shelters} · 已记录楼层 ${stats.floorTags.toLocaleString()} · 屋顶记录 ${stats.roof.toLocaleString()} · 建筑分段 ${stats.parts}\n数据：Overture ${data.buildingOverlay?.release ?? '未加载'} · 原始 OSM footprint ${(stats.total - stats.added).toLocaleString()}`
     this.progress.max = String(data.length); this.progress.value = String(data.checkpoints[0].s)
     for (const point of data.checkpoints) { const option = document.createElement('option'); option.value = String(point.s); option.textContent = point.label; this.checkpoint.append(option) }
     this.refreshPreview(); this.applyVisibility()
@@ -157,6 +160,11 @@ export class GeoInspector {
     if (!this.real || !this.data || !world) return
     if (this.editing) this.controls.update()
     const pose = this.data.pose(s)
+    const focus = this.editing ? this.controls.target : pose
+    const cover = this.data.landCover, code = cover?.sample(focus.x, focus.z) ?? null
+    this.landCoverReadout.textContent = cover
+      ? `USGS Annual NLCD ${cover.snapshot.year} · 原数据30m / WMS分类采样约30m\n当前${this.editing ? '俯视中心' : '列车位置'}：${code === null ? '无覆盖' : `${code} ${LAND_COVER.get(code)?.label ?? ''}`}\n41/42/43林地补充OSM；绿色林地、粉红/红色开发区、蓝色水域。分类与逐株位置不同；原OSM水域/土地几何优先。`
+      : '未接入 NLCD 土地覆盖数据。'
     const stream = world.streamingStats
     this.status.textContent = this.error ? `真实场景加载失败 · ${this.error}` : `${stream.visible}/49 可视区块 · 缓存 ${stream.cached} · DEM 20m${!stream.ready ? ' · 正在加载周边场景' : stream.pending ? ' · 预建中' : ' · 场景就绪'}`
     this.position.textContent = `${(pose.s / 1000).toFixed(2)} / ${(this.data.length / 1000).toFixed(2)} km · ${pose.latitude.toFixed(5)}, ${pose.longitude.toFixed(5)}${s >= this.data.length - 0.01 ? ' · 样板终点' : ''}`

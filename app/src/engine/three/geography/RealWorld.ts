@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { buildingHeight, buildingStructureKind, platformRise, GeoData, type GeoPoint, type MappedFeature, type BuildingHeightStatus } from './GeoData'
 import { GeoForest, type ForestPlacement } from './GeoForest'
 import { pyramidalRoof } from './GeoRoof'
+import { LAND_COVER } from './GeoLandCover'
 import { hash01 } from '../core/procedural'
 import { groundGrassTex, groundRockTex, geographicTexturesReady } from '../textures'
 
@@ -11,6 +12,11 @@ const DETAIL_RADIUS = 3
 const CACHE_LIMIT = 256
 const PRELOAD_METRES = 1536
 const SHELTER_HEIGHT_ESTIMATE = 3.6
+// Visually inspected existing 4x2 atlases: A is broadleaf; B cells 0/1/4/5
+// have evergreen silhouettes. These are class-level stand-ins, not species IDs.
+const BROADLEAF_VARIANTS = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 14, 15]
+const EVERGREEN_VARIANTS = [8, 9, 12, 13]
+const MIXED_VARIANTS = [...BROADLEAF_VARIANTS, ...EVERGREEN_VARIANTS]
 interface RealChunk { group: THREE.Group; ground: THREE.Mesh; x: number; z: number }
 interface CachedChunk extends RealChunk { lastUsed: number }
 const shapeOf = (feature: MappedFeature) => {
@@ -53,8 +59,10 @@ export class RealWorld {
   private resolveReady!: () => void
   private rejectReady!: (error: Error) => void
   readonly ready: Promise<void>
-  private background: THREE.Mesh | null = null
+  private background: THREE.Group | null = null
   private landMask: THREE.CanvasTexture
+  private landSourceMap: THREE.CanvasTexture
+  private landSourceMode = { value: 0 }
   private landPixels!: Uint8ClampedArray
   private forest = new GeoForest()
   private distantForest = new GeoForest('far')
@@ -110,15 +118,18 @@ export class RealWorld {
     this.data = data
     this.ready = new Promise((resolve, reject) => { this.resolveReady = resolve; this.rejectReady = reject })
     this.landMask = this.buildLandMask()
+    this.landSourceMap = this.buildLandSourceMap()
     this.group.name = 'real-hudson-world'
     this.groundMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, map: groundGrassTex, roughness: 0.95 })
     this.groundMaterial.onBeforeCompile = shader => {
       shader.uniforms.geoRock = { value: groundRockTex }
       shader.uniforms.geoLandMask = { value: this.landMask }
+      shader.uniforms.geoLandSourceMap = { value: this.landSourceMap }
+      shader.uniforms.geoLandSourceMode = this.landSourceMode
       shader.uniforms.geoBounds = { value: new THREE.Vector4(...data.bundle.dem.bounds) }
       shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 geoPosition;\nvarying vec3 geoNormal;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoPosition = position; geoNormal = normal;')
-      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D geoRock;\nuniform sampler2D geoLandMask;\nuniform vec4 geoBounds;\nvarying vec3 geoPosition;\nvarying vec3 geoNormal;')
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D geoRock;\nuniform sampler2D geoLandMask;\nuniform sampler2D geoLandSourceMap;\nuniform float geoLandSourceMode;\nuniform vec4 geoBounds;\nvarying vec3 geoPosition;\nvarying vec3 geoNormal;')
         .replace('#include <map_fragment>', `
 #ifdef USE_MAP
 vec2 landUv = (geoPosition.xz - geoBounds.xy) / (geoBounds.zw - geoBounds.xy);
@@ -130,9 +141,10 @@ vec3 blend = pow(abs(n), vec3(4.0)); blend /= max(dot(blend,vec3(1.0)),0.001);
 vec3 rock = texture2D(geoRock,geoPosition.zy*0.055).rgb*blend.x + texture2D(geoRock,geoPosition.xz*0.055).rgb*blend.y + texture2D(geoRock,geoPosition.xy*0.055).rgb*blend.z;
 vec3 grass = texture2D(map,geoPosition.xz*0.085).rgb;
 diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
+if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, landUv).rgb;
 #endif`)
     }
-    this.groundMaterial.customProgramCacheKey = () => 'geographic-terrain-v2'
+    this.groundMaterial.customProgramCacheKey = () => 'geographic-terrain-nlcd-v3'
     for (let s = 0; s < data.length; s += 4) this.rails.push({ a: data.pose(s), b: data.pose(Math.min(data.length, s + 4)), s, end: Math.min(data.length, s + 4) })
     const points = data.points.map((p, i) => new THREE.Vector3(p.x, data.railHeight(data.distances[i]) + 1.5, p.z))
     this.routeLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0xf0c66b, depthTest: false }))
@@ -140,9 +152,14 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     this.marker.rotation.x = Math.PI; this.marker.renderOrder = 110
     this.group.add(this.routeLine, this.marker, this.waterGroup)
     const [minX, minZ, maxX, maxZ] = data.bundle.dem.bounds
-    this.background = new THREE.Mesh(this.terrainGeometry(minX, minZ, maxX - minX, maxZ - minZ, 64), this.groundMaterial)
+    this.background = new THREE.Group()
     this.background.name = 'whole-corridor-dem-low-detail'
-    this.background.receiveShadow = true
+    // Fixed 64m source grid, prepared once. Separate patches allow normal
+    // frustum culling instead of submitting the entire 448km² footprint.
+    for (let x = minX; x < maxX; x += 1024) for (let z = minZ; z < maxZ; z += 1024) {
+      const mesh = new THREE.Mesh(this.terrainGeometry(x, z, Math.min(1024, maxX - x), Math.min(1024, maxZ - z), 64), this.groundMaterial)
+      mesh.receiveShadow = true; this.background.add(mesh)
+    }
     this.group.add(this.background)
     this.buildWater()
     this.buildStations()
@@ -195,7 +212,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     }
     return raw
   }
-  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; water: boolean; farmland: boolean; stations?: boolean }) {
+  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
     const pose = this.data.pose(s)
     this.group.visible = this.presentable || inspection
     if (inspection) { this.group.position.set(0, 0, 0); this.group.rotation.y = 0 }
@@ -208,8 +225,15 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     this.waterGroup.visible = layers.water
     this.stationGroup.visible = layers.stations ?? true
     const point = inspection ? focus : pose
+    this.landSourceMode.value = inspection && layers.sourceLandCover ? 1 : 0
     this.forest.setFocus(point.x, point.z); this.distantForest.setFocus(point.x, point.z)
     this.distantForestGroup.visible = layers.vegetation
+    // Everything is already prepared. Skip distant instance batches that are
+    // entirely outside the shader's fade range without evicting/rebuilding them.
+    for (const child of this.distantForestGroup.children) if (child instanceof THREE.InstancedMesh && child.boundingSphere) {
+      const sphere = child.boundingSphere
+      child.visible = Math.hypot(sphere.center.x - point.x, sphere.center.z - point.z) - sphere.radius < 4500
+    }
     const wanted = this.tilesAt(point.x, point.z)
     const currentS = inspection ? this.data.nearestRoute(point.x, point.z).s : s
     const required = new Map(wanted)
@@ -555,7 +579,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       if (height === null) continue
       const delta = Math.abs((this.terrainHeight(x + 4, z) ?? height) - (this.terrainHeight(x - 4, z) ?? height))
       if (delta > 10 || hash01(x, z, 4) < 0.12) continue
-      placements.push({ x, z, y: height - 0.12, height: 18 + hash01(x, z, 8) * 6, yaw: hash01(x, z, 10) * Math.PI * 2, variant: Math.min(15, Math.floor(hash01(x, z, 11) * 16)) })
+      placements.push({ x, z, y: height - 0.12, height: 18 + hash01(x, z, 8) * 6, yaw: hash01(x, z, 10) * Math.PI * 2, variant: this.forestVariant(x, z, 11) })
     }
     this.forest.addInstances(parent, placements)
   }
@@ -580,12 +604,17 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       const key = `${Math.floor(px / 1024)},${Math.floor(pz / 1024)}`
       const batch = regions.get(key) ?? []
       batch.push({ x: px, z: pz, y, height: 18 + hash01(x, z, 23) * 6, yaw: hash01(x, z, 24) * Math.PI * 2,
-        variant: Math.min(15, Math.floor(hash01(x, z, 25) * 16)) })
+        variant: this.forestVariant(px, pz, 25) })
       regions.set(key, batch)
     }
     this.distantForestGroup.name = 'whole-corridor-textured-forest'
     for (const placements of regions.values()) this.distantForest.addInstances(this.distantForestGroup, placements)
     this.group.add(this.distantForestGroup)
+  }
+  private forestVariant(x: number, z: number, salt: number) {
+    const code = this.data.landCover?.sample(x, z)
+    const choices = code === 41 ? BROADLEAF_VARIANTS : code === 42 ? EVERGREEN_VARIANTS : MIXED_VARIANTS
+    return choices[Math.min(choices.length - 1, Math.floor(hash01(x, z, salt) * choices.length))]
   }
   /** Rasterized OSM polygons mask the terrain surface, so coarse mountain
    * triangles cannot create fictitious islands or erase shoreline holes. */
@@ -594,6 +623,17 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     const ctx = canvas.getContext('2d')!
     const [minX, minZ, maxX, maxZ] = this.data.bundle.dem.bounds
     ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+    const cover = this.data.landCover
+    if (cover) {
+      const source = document.createElement('canvas'); source.width = cover.snapshot.width; source.height = cover.snapshot.height
+      const pixels = new Uint8ClampedArray(source.width * source.height * 4)
+      for (let i = 0; i < cover.classes.length; i++) {
+        pixels[i * 4 + 1] = [41, 42, 43].includes(cover.classes[i]) ? 255 : 0
+        pixels[i * 4 + 3] = 255
+      }
+      source.getContext('2d')!.putImageData(new ImageData(pixels, source.width, source.height), 0, 0)
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(source, 0, 0, canvas.width, canvas.height)
+    }
     for (const kind of ['farmland', 'forest', 'water'] as const) for (const feature of this.data.features) if (feature.kind === kind) {
       ctx.beginPath()
       for (const ring of [feature.coordinates, ...feature.holes]) {
@@ -607,6 +647,19 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     this.landPixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
     const texture = new THREE.CanvasTexture(canvas)
     texture.minFilter = THREE.LinearFilter; texture.magFilter = THREE.LinearFilter; texture.generateMipmaps = false
+    return texture
+  }
+  private buildLandSourceMap() {
+    const cover = this.data.landCover
+    const canvas = document.createElement('canvas'); canvas.width = cover?.snapshot.width ?? 1; canvas.height = cover?.snapshot.height ?? 1
+    const pixels = new Uint8ClampedArray(canvas.width * canvas.height * 4)
+    for (let i = 0; i < canvas.width * canvas.height; i++) {
+      const color = LAND_COVER.get(cover?.classes[i] ?? 250)?.color ?? [0, 0, 0]
+      pixels.set([...color, 255], i * 4)
+    }
+    canvas.getContext('2d')!.putImageData(new ImageData(pixels, canvas.width, canvas.height), 0, 0)
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.minFilter = texture.magFilter = THREE.NearestFilter; texture.generateMipmaps = false
     return texture
   }
   private sampleLand(x: number, z: number) {
@@ -679,12 +732,12 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
   dispose() {
     this.disposed = true; this.clearChunks(); this.forest.dispose(); this.distantForest.dispose()
     this.distantForestGroup.traverse(object => { if (object instanceof THREE.InstancedMesh) { object.dispose(); object.geometry.dispose() } })
-    this.background?.geometry.dispose(); this.routeLine.geometry.dispose(); (this.routeLine.material as THREE.Material).dispose()
+    this.background?.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose() }); this.routeLine.geometry.dispose(); (this.routeLine.material as THREE.Material).dispose()
     this.marker.geometry.dispose(); (this.marker.material as THREE.Material).dispose()
     this.waterGroup.traverse(o => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() } })
     this.stationGroup.traverse(o => { if (o instanceof THREE.Mesh || o instanceof THREE.Line) o.geometry.dispose() })
     for (const material of [this.outlineMaterial, this.groundMaterial, this.roadMaterial, this.ballastMaterial, this.railMaterial, this.roofMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial, this.platformMaterial, this.platformOutlineMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.tieMaterial]) material.dispose()
-    this.landMask.dispose(); this.engineeringGeometry.dispose(); this.shelterSupportGeometry.dispose(); this.engineeringMaterial.dispose()
+    this.landMask.dispose(); this.landSourceMap.dispose(); this.engineeringGeometry.dispose(); this.shelterSupportGeometry.dispose(); this.engineeringMaterial.dispose()
     this.tieGeometry.dispose(); this.group.removeFromParent()
   }
 }

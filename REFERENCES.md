@@ -205,3 +205,15 @@
 源数据 Perkins Memorial Tower 为 Overture `e82919a0-184c-47e2-bfe1-584ff22fb02a`，匹配OSM `w459098921@6`，源 height=12m、roof_shape=pyramidal、roof_height=3m。新增 `GeoRoof.ts` 为有内部可见顶点的足迹建三角面屋顶，避免仅在边界三角化而把金字塔画平。直接投影实际足迹验证生成15顶点、屋檐相对0m、顶点3m；总楼高保持来源12m。顶点位置由足迹几何推导，不是屋顶实测；不支持的形状/带洞轮廓保留源属性及完整楼高，不擅自压低建筑。
 
 源码审查另确认纹理失败会使ready永久等待；已让预热Promise reject并在真实数据已加载后仍显示失败状态。F5切换先定位检查镜头再更新世界；源站点加入路线快速选段。详细数据/加载/帧性能诊断默认折叠，保留主要导航控件；运动门控同时记录请求/目标速度、暂停、俯视、预热和下一步覆盖。
+
+### 实际土地覆盖补充 OSM 林地记录空白
+
+2026-10-09 读取 [USGS Annual NLCD 数据入口](https://www.usgs.gov/centers/eros/science/annual-nlcd-data-access)、[MRLC 官方服务目录](https://www.mrlc.gov/data-services-page)、[USGS 分类定义](https://www.usgs.gov/centers/eros/science/annual-nlcd-land-cover-classification) 与 [Science User Guide v1.2](https://www.usgs.gov/centers/eros/science/annual-nlcd-science-user-product-guide) PDF第10页（Table 2-2）。NLCD是30m卫星分类；41/42/43为落叶/常绿/混交林，52灌木与90木本湿地不直接当成成熟森林。
+
+官方WMS capabilities明列2025时间切片。WCS下载两种时间subset均返回startTime空值服务错误，1.0请求不受支持；没有将错误响应当作GeoTIFF。取得WMS 2025分类PNG，像素全部精确匹配官方色表、没有混合颜色/缺值；对四个均质位置分别用GetFeatureInfo独立核对41、11、21、22源编号。保留PNG、capabilities、查询响应、完整请求与SHA-256，导出640×779 UInt8（498,560字节）及绑定原world快照的metadata。此派生物是约30m的WMS分类采样，不能称为原生COG。关联 `prepare-hudson-landcover.py`、`GeoLandCover.ts`、`GeoData.ts` 与 geodata README。
+
+NLCD林地填入4096²显示掩码底层，再保留OSM土地/水域几何与holes的优先级，避免把未标注区域一律画成草地。仅森林类补充成熟树；依据本次实际查看的既有两张树木图集，落叶林选阔叶轮廓，常绿林选针叶轮廓，非逐种植物识别。远景批次在整个范围一次建好；距离超过4500m的完整批次只剔除绘制、不删除重建。关联 `RealWorld.ts`。调试模式先加入“NLCD 分类对照”与中心分类/数据年份读数，可关林木检查原分类；切换仅改shader uniform，不重建世界。云端新画面与成本尚待检查。
+
+已查看 run37995594034 的车窗、四站、俯视和移动端截图：遮棚没有原来的实墙，但远山林木仍稀疏、许多建筑无立面细节，因此没有将任务标为视觉完成。该运行实际跨920m，六次采样missing/late均0；这是有限区间运行证据，不是全22.84km验收。SwiftShader仅0–2FPS，帧间隔466–6261ms，不能据此声称硬件性能通过。
+
+同一实际64m DEM背景网格按1024m固定片区预先建好，以Three.js正常frustum culling减少原来单个大网格每帧提交整个区域；没有降低DEM采样、修改地形或随行驶重建背景。参考本机已安装Three.js `Object3D.frustumCulled` / InstancedMesh.boundingSphere。已查看两张现有512×256 atlas的原图，增加半像素内缩避免线性过滤跨单元采样；天空边缘叶片是否消除仍待新截图确认。关联 `RealWorld.ts`、`GeoForest.ts`。

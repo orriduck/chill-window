@@ -22,14 +22,17 @@ export class GeoForest {
     for (const material of this.materials) {
       material.onBeforeCompile = shader => {
         shader.uniforms.geoForestFocus = { value: this.focus }
-        shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 treeAtlasCell;\nuniform vec2 geoForestFocus;\nvarying float geoTreeDistance;')
-          .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = vMapUv * vec2(0.25, 0.5) + treeAtlasCell;\n#endif')
+        // Both inspected atlases are 512x256. Keep linear filtering inside
+        // each cell so a neighbouring crown cannot bleed into its border.
+        shader.uniforms.geoTreeAtlasInset = { value: new THREE.Vector2(0.5 / 512, 0.5 / 256) }
+        shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 treeAtlasCell;\nuniform vec2 geoTreeAtlasInset;\nuniform vec2 geoForestFocus;\nvarying float geoTreeDistance;')
+          .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = vMapUv * (vec2(0.25, 0.5) - 2.0 * geoTreeAtlasInset) + treeAtlasCell + geoTreeAtlasInset;\n#endif')
           .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoTreeDistance = length((instanceMatrix * vec4(position, 1.0)).xz - geoForestFocus);')
         const fade = mode === 'near' ? '1.0 - smoothstep(500.0, 650.0, geoTreeDistance)' : 'smoothstep(500.0, 650.0, geoTreeDistance) * (1.0 - smoothstep(3000.0, 4500.0, geoTreeDistance))'
         shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nvarying float geoTreeDistance;')
           .replace('#include <alphatest_fragment>', `diffuseColor.a *= ${fade};\n#include <alphatest_fragment>`)
       }
-      material.customProgramCacheKey = () => `geographic-forest-atlas-v2-${mode}`
+      material.customProgramCacheKey = () => `geographic-forest-atlas-inset-v3-${mode}`
     }
   }
   setFocus(x: number, z: number) { this.focus.set(x, z) }
