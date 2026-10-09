@@ -55,6 +55,7 @@ jobs:
             commit: process.env.CW_CAPTURE_SHA,
             browserPath: 'Browser plugin not available in GitHub runner; Playwright Chromium',
             rendering: 'SwiftShader software WebGL; hardware performance is not assessed',
+            serviceWorkers: 'Blocked for deterministic source-readiness interception; offline/PWA behavior is not assessed',
             visualReviewRequired: true,
             console: [], requestFailures: [], states: [],
           };
@@ -87,18 +88,19 @@ jobs:
             // human must inspect; this is not an automatic visual acceptance.
             await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
           }
-          async function boardInDaylight() {
+          async function boardInDaylight(beforeReady) {
             await page.getByText('Advanced settings', { exact: true }).click();
             await page.getByRole('button', { name: 'Daylight', exact: true }).click();
             await page.getByRole('button', { name: 'Clear', exact: true }).click();
             await page.getByRole('button', { name: 'Board train', exact: true }).click();
             await page.getByRole('button', { name: 'Board train', exact: true }).waitFor({ state: 'hidden' });
+            if (beforeReady) await beforeReady();
             await ready();
           }
           (async () => {
             try {
               browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
-              context = await browser.newContext({ viewport: { width: 1280, height: 720 }, recordVideo: { dir: output, size: { width: 1280, height: 720 } } });
+              context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1280, height: 720 }, recordVideo: { dir: output, size: { width: 1280, height: 720 } } });
               page = await context.newPage();
               page.setDefaultTimeout(30000);
               page.on('console', message => {
@@ -108,9 +110,19 @@ jobs:
               page.on('requestfailed', request => {
                 if (!request.url().endsWith('/favicon.ico')) health.requestFailures.push({ url: request.url(), error: request.failure()?.errorText });
               });
+              let releaseRaster;
+              const rasterHold = new Promise(resolve => { releaseRaster = resolve; });
+              await page.route('**/geodata/hudson/landcover.u8', async route => { await rasterHold; await route.continue(); });
               await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=3123.283', { waitUntil: 'domcontentloaded' });
-              await ready();
-              await boardInDaylight();
+              await boardInDaylight(async () => {
+                health.earlyBoardStatus = await page.getByLabel('真实地理加载状态', { exact: true }).textContent();
+                if (health.earlyBoardStatus.includes('场景就绪')) throw new Error('Early boarding did not precede required land-cover loading');
+                releaseRaster();
+              });
+              await page.unroute('**/geodata/hudson/landcover.u8');
+              const departure = await page.getByLabel('地理运动门控', { exact: true }).textContent();
+              if (!departure.includes('请求/目标速度 44.4/44.4m/s')) throw new Error(`Queued departure was lost: ${departure}`);
+              health.earlyBoardDepartureVerified = true;
               await snapshot('01-cold-spring-ride-initial');
               const initialPosition = await page.getByLabel('真实列车位置', { exact: true }).textContent();
               await page.waitForTimeout(12000);

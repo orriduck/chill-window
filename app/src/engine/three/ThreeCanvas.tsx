@@ -82,12 +82,13 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     let world: RealWorld | null = null
     let data: GeoData | null = null
     let disposed = false, paused = false, elapsed = 0, requestedSpeed = 0, worldReady = false
+    let pendingDeparture = false
     let pendingJump: number | null = null
     let motionSampleTime = performance.now(), motionSampleZ = camera.z, measuredSpeed = 0, previousTime = motionSampleTime
     const abort = new AbortController()
     const motionSpeed = () => paused || debug.isTopDown || !world ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH
     if (controlRef) controlRef.current = {
-      setSpeed: speed => { requestedSpeed = speed; if (worldReady) camera.setTargetSpeed(speed) }, setPaused: value => { paused = value }, getZ: () => camera.z, getGrade: () => camera.grade,
+      setSpeed: speed => { requestedSpeed = speed; pendingDeparture = false; if (worldReady) camera.setTargetSpeed(speed) }, setPaused: value => { paused = value }, getZ: () => camera.z, getGrade: () => camera.grade,
       getRouteContext: () => ({ currentLabel: camera.z < 11420 ? 'Hudson Highlands · 真实路线' : 'Empire Service · Hudson Valley', nextLabel: 'Empire Service · 南行' }),
       getMotion: () => ({ speedKmh: motionSpeed(), speedRatio: motionSpeed() / CRUISE_SPEED_KMH, acceleration: paused || debug.isTopDown || !world ? 0 : camera.acceleration }),
       setWindowHud: readout => {
@@ -103,7 +104,10 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       // Source-backed Metro-North platforms are rendered by RealWorld. The
       // Empire Service train passes these stations without a scheduled stop.
       approachStation: () => {},
-      departStation: () => camera.departStation(CRUISE_SPEED), resetView: () => camera.resetView(), hideStation: () => {},
+      departStation: () => {
+        requestedSpeed = CRUISE_SPEED; pendingDeparture = !worldReady
+        if (worldReady) camera.departStation(requestedSpeed)
+      }, resetView: () => camera.resetView(), hideStation: () => {},
     }
     const canvas = renderer.getDomElement()
     canvas.style.width = '100%'; canvas.style.height = '100%'; canvas.style.display = 'block'; canvas.style.cursor = 'grab'; canvas.style.touchAction = 'none'; container.appendChild(canvas)
@@ -116,7 +120,13 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       camera.setRailProfile({ height: s => route.railHeight(s), grade: s => route.railGrade(s) }); inspector.setData(route)
       void world.ready
         .then(() => renderer.warmup(scene.scene, camera.getCamera()))
-        .then(() => { if (!disposed && world) { world.presentable = true; worldReady = true; camera.setTargetSpeed(requestedSpeed) } })
+        .then(() => {
+          if (!disposed && world) {
+            world.presentable = true; worldReady = true
+            if (pendingDeparture) { camera.departStation(requestedSpeed); pendingDeparture = false }
+            else camera.setTargetSpeed(requestedSpeed)
+          }
+        })
         .catch(error => { if (!disposed) inspector.fail(`场景预热失败：${error.message}`) })
     }).catch(error => { if (!disposed && error.name !== 'AbortError') inspector.fail(error.message) })
 

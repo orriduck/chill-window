@@ -217,3 +217,5 @@ NLCD林地填入4096²显示掩码底层，再保留OSM土地/水域几何与hol
 已查看 run37995594034 的车窗、四站、俯视和移动端截图：遮棚没有原来的实墙，但远山林木仍稀疏、许多建筑无立面细节，因此没有将任务标为视觉完成。该运行实际跨920m，六次采样missing/late均0；这是有限区间运行证据，不是全22.84km验收。SwiftShader仅0–2FPS，帧间隔466–6261ms，不能据此声称硬件性能通过。
 
 同一实际64m DEM背景网格按1024m固定片区预先建好，以Three.js正常frustum culling减少原来单个大网格每帧提交整个区域；没有降低DEM采样、修改地形或随行驶重建背景。参考本机已安装Three.js `Object3D.frustumCulled` / InstancedMesh.boundingSphere。已查看两张现有512×256 atlas的原图，增加半像素内缩避免线性过滤跨单元采样；天空边缘叶片是否消除仍待新截图确认。关联 `RealWorld.ts`、`GeoForest.ts`。
+
+run37997465057 实际行驶710m、六次missing/late均0；已查看截图确认树冠更密、诊断折叠后主导航可见，沿河仍有覆盖空白。该版运动读数请求0/目标44.4揭示“上车”直接修改camera却没有保留requestedSpeed；若预热随后完成会将目标改回0。改为在加载时保留待出发意图，完成预热再采用原有缓加速出发。新增云端情景先阻止必要的landcover.u8响应，上车后才释放，核对请求/目标44.4并实际移动。为让响应拦截确定可重复，该QA情景禁用service worker；不验收PWA/offline。关联 `ThreeCanvas.tsx`、云端workflow；新情景待运行。
