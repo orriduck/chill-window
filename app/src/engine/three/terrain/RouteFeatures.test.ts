@@ -205,3 +205,11 @@ describe('procedural anchors', () => {
     expect(hash01(-12, 6400, 51)).toBeLessThan(1)
   })
 })
+
+
+it('finds scheduled stations beyond four route cycles for long 160 km/h journeys', () => {
+  const distance = 160 / 3.6 * 45 * 60
+  const anchor = nearestStationAnchor(0, distance)
+  expect(Math.abs(anchor.z - distance)).toBeLessThan(ROUTE_SEGMENT_LENGTH * DEFAULT_ROUTE_PLAN.beats.length)
+  expect(anchor.z).toBeGreaterThan(100000)
+})

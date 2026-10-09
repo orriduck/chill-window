@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { terrainFootprint } from '../terrain/TerrainFootprint'
 import type { PassengerView } from './PassengerView'
 import type { CarriageDebugPart } from '../interior/WindowFrame'
 
@@ -11,7 +12,8 @@ const CHUNK_SIZE = 256
  *   F2  — toggle the seated-coach inspection panel
  *   F3  — cycle HUD: off → perf only → full debug → off
  *   F4  — trigger the station arrival motion probe
- *   F5  — toggle top-down aerial view (follows train, shows boundaries)
+ *   F5  — enter / exit the independent terrain editor camera
+ *   Esc — return to the train from terrain editing
  *   F6  — toggle scene-hidden mode (hide everything but window frame)
  *   F7  — toggle terrain surface-mask diagnostics
  *   F8  — freeze / resume terrain streaming
@@ -25,6 +27,8 @@ export class DebugMode {
 
   // ---- State ----
   topDown = false
+  private geographic = false
+  onTerrainEditingChange: (active: boolean) => void = () => {}
   sceneHidden = false
   terrainDebugView: 0 | 1 = 0
   streamingFrozen = false
@@ -33,6 +37,9 @@ export class DebugMode {
   private jumpTarget: number | null = null
   private stationProbeRequested = false
   private scenePreset: string | null = null
+  private speedPreset: number | null = null
+  private speedSelect: HTMLSelectElement | null = null
+  private motionReadout: HTMLOutputElement | null = null
   private passengerView: PassengerView | null = null
 
   // ---- HUD DOM ----
@@ -99,6 +106,18 @@ export class DebugMode {
   }
 
   private onKey = (e: KeyboardEvent) => {
+    if (e.repeat) return
+    // Mode shortcuts remain available while a terrain slider is focused.
+    if (e.key === 'F5') {
+      e.preventDefault()
+      this.setTerrainEditing(!this.topDown)
+      return
+    }
+    if (e.key === 'Escape' && this.topDown) {
+      e.preventDefault()
+      this.setTerrainEditing(false)
+      return
+    }
     // Only handle if not typing in an input
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
@@ -115,10 +134,6 @@ export class DebugMode {
       case 'F4':
         e.preventDefault()
         this.stationProbeRequested = true
-        break
-      case 'F5':
-        e.preventDefault()
-        this.toggleTopDown()
         break
       case 'F6':
         e.preventDefault()
@@ -170,15 +185,38 @@ export class DebugMode {
       case 2: // full debug
         this.perfMonitor?.hide()
         this.hudEl.style.display = 'block'
-        this.boundaryGroup.visible = true
+        this.boundaryGroup.visible = !this.geographic
         break
     }
   }
 
+  setGeographic(active: boolean) {
+    this.geographic = active
+    this.boundaryGroup.visible = !active && this.hudLevel === 2
+    for (const element of this.carriageInspectorEl.querySelectorAll<HTMLElement>('[data-synthetic-preset]')) element.style.display = active ? 'none' : ''
+  }
+
   // ---- Toggles ----
 
-  private toggleTopDown() {
-    this.topDown = !this.topDown
+  setTerrainEditing(active: boolean) {
+    if (active === this.topDown) return
+    this.topDown = active
+    this.carriageInspectorVisible = false
+    this.carriageInspectorEl.style.display = 'none'
+    // A prior isolated-carriage or frozen-streaming probe must not hide the
+    // editor or prevent its neighbourhood from loading.
+    this.sceneHidden = false
+    if (this.exteriorGroup) this.exteriorGroup.visible = true
+    if (this.exteriorInput) this.exteriorInput.checked = true
+    this.streamingFrozen = false
+    if (!active) {
+      this.terrainDebugView = 0
+      this.hudLevel = 0
+      this.perfMonitor?.hide()
+      this.hudEl.style.display = 'none'
+      this.boundaryGroup.visible = false
+    }
+    this.onTerrainEditingChange(active)
   }
 
   private toggleSceneHidden() {
@@ -217,7 +255,7 @@ export class DebugMode {
     const viewSelect = document.createElement('select')
     viewSelect.setAttribute('aria-label', '乘客眼位')
     viewSelect.style.cssText = 'min-width:0;flex:1;background:#343b36;color:#f4efe3;border:1px solid #ffffff30;border-radius:4px;padding:5px;'
-    for (const [value, text] of [['window', '靠窗座位'], ['aisle', '原走道眼位']]) {
+    for (const [value, text] of [['window', '靠窗座位'], ['aisle', '原走道眼位'], ['seats', '座面与窗墙间隙']]) {
       const option = document.createElement('option')
       option.value = value
       option.textContent = text
@@ -294,21 +332,65 @@ export class DebugMode {
     panel.appendChild(buttons)
     const presets = document.createElement('div')
     presets.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;'
-    for (const [id, label] of [['field', '晴日田野'], ['forest', '林间行驶'], ['lake', '湖畔远山'], ['mountain', '山地铁路'], ['rain', '雨天窗边'], ['night', '夜间软座']]) {
+    for (const [id, label] of [['field', '湖州塘田原型'], ['forest', '林间行驶'], ['lake', '湖畔远山'], ['mountain', '山地铁路'], ['rain', '雨天窗边'], ['night', '夜间软座']]) {
       const button = document.createElement('button')
       button.textContent = label
+      if (id !== 'rain' && id !== 'night') button.dataset.syntheticPreset = 'true'
       button.type = 'button'
       button.style.cssText = 'padding:7px 4px;border:1px solid #ffffff28;border-radius:5px;background:#ffffff0d;color:inherit;cursor:pointer;'
-      button.addEventListener('click', () => { this.scenePreset = id })
+      button.addEventListener('click', () => {
+        this.scenePreset = id
+        if (this.speedSelect) this.speedSelect.value = '160'
+      })
       presets.appendChild(button)
     }
     panel.appendChild(presets)
+    const terrainEntry = document.createElement('button')
+    terrainEntry.type = 'button'
+    terrainEntry.textContent = '打开六区块地形编辑器'
+    terrainEntry.style.cssText = 'width:100%;margin-top:10px;padding:8px;background:#49604b;color:#f4efe3;border:1px solid #ffffff30;border-radius:5px;cursor:pointer;'
+    terrainEntry.onclick = () => {
+      this.setTerrainEditing(true)
+    }
+    panel.appendChild(terrainEntry)
+    const speedLabel = document.createElement('label')
+    speedLabel.textContent = '速度对比（km/h） '
+    const speed = document.createElement('select')
+    this.speedSelect = speed
+    speed.setAttribute('aria-label', '速度对比')
+    speed.style.cssText = viewSelect.style.cssText
+    for (const kmh of [160, 80, 54, 0]) {
+      const option = document.createElement('option')
+      option.value = String(kmh)
+      option.textContent = kmh === 54 ? '54 · 原移动速度' : String(kmh)
+      speed.appendChild(option)
+    }
+    speed.onchange = () => { this.speedPreset = Number(speed.value) }
+    speedLabel.style.cssText = 'display:flex;gap:6px;margin-top:12px;'
+    speedLabel.appendChild(speed)
+    panel.appendChild(speedLabel)
+    this.motionReadout = document.createElement('output')
+    this.motionReadout.setAttribute('aria-label', '实测行驶')
+    this.motionReadout.style.cssText = 'display:block;white-space:pre-line;margin-top:10px;font-size:10px;color:#cfdfc3;'
+    panel.appendChild(this.motionReadout)
     return panel
   }
 
   /** Whether the debug camera should override the normal camera. */
   get isTopDown(): boolean {
     return this.topDown
+  }
+
+  consumeSpeedPreset(): number | null {
+    const speed = this.speedPreset
+    this.speedPreset = null
+    return speed
+  }
+
+  updateMotion(z: number, speed: number, measured: number) {
+    if (this.motionReadout && this.carriageInspectorVisible) {
+      this.motionReadout.textContent = `里程 ${z.toFixed(1)} m · 速度 ${(speed * 3.6).toFixed(0)} km/h\n实测 ${measured.toFixed(1)} m/s · 50 m 杆距 ${speed > 0.1 ? (50 / speed).toFixed(2) + ' s' : '—'}`
+    }
   }
 
   consumePassengerView(): PassengerView | null {
@@ -346,8 +428,8 @@ export class DebugMode {
 
   /** Override camera to top-down view.  Call AFTER camera.update() so Z position is fresh. */
   applyTopDown(cam: THREE.PerspectiveCamera) {
-    cam.position.set(0, 100, cam.position.z)
-    cam.lookAt(0, 0, cam.position.z + 20)
+    cam.position.set(120, 260, cam.position.z)
+    cam.lookAt(120, 0, cam.position.z + 20)
     cam.fov = 45
     cam.updateProjectionMatrix()
   }
@@ -410,20 +492,13 @@ export class DebugMode {
     }
 
     const pts: number[] = []
-    const gridRadius = 3
-    const cz = Math.floor(cameraZ / CHUNK_SIZE) * CHUNK_SIZE
-    const halfW = 25
+    const bounds = terrainFootprint(256, cameraZ)
     const y = 1.5
-
-    for (let dz = -gridRadius; dz <= gridRadius + 1; dz++) {
-      const z = cz + dz * CHUNK_SIZE
-      pts.push(-halfW, y, z, halfW, y, z)
+    for (let z = bounds.minZ; z <= bounds.maxZ; z += CHUNK_SIZE) {
+      pts.push(bounds.minX, y, z, bounds.maxX, y, z)
     }
-
-    const cx = Math.floor(0 / CHUNK_SIZE) * CHUNK_SIZE
-    for (let dx = 0; dx <= 3; dx++) {
-      const x = cx + dx * CHUNK_SIZE
-      pts.push(x, y, cz - gridRadius * CHUNK_SIZE, x, y, cz + (gridRadius + 1) * CHUNK_SIZE)
+    for (let x = bounds.minX; x <= bounds.maxX; x += CHUNK_SIZE) {
+      pts.push(x, y, bounds.minZ, x, y, bounds.maxZ)
     }
 
     if (pts.length === 0) return

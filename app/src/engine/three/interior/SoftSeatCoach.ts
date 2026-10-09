@@ -55,24 +55,28 @@ export function buildSoftSeatCoach(track: Track, centers: readonly number[], win
   }
   const seat = new THREE.Group()
   // Seat back spans across Z. The inside face points toward the opposite pair.
-  mesh(seat, [0.23, 1.46, 0.86], [0, -0.34, 0], edging, 0.1)
-  const back = mesh(seat, [0.19, 1.33, 0.8], [-0.1, -0.33, 0], fabric, 0.08)
+  mesh(seat, [0.25, 1.32, 1.08], [0, -0.40, 0], edging, 0.1)
+  const back = mesh(seat, [0.23, 1.21, 1.01], [-0.13, -0.39, 0], fabric, 0.08)
   back.rotation.z = -0.055
-  mesh(seat, [0.95, 0.25, 0.84], [-0.42, -1.13, 0], fabric, 0.1)
-  mesh(seat, [0.87, 0.08, 0.86], [-0.42, -1.29, 0], edging)
-  mesh(seat, [0.055, 0.34, 0.69], [-0.225, 0.12, 0], linen, 0.025)
-  for (const z of [-0.39, 0.39]) {
-    mesh(seat, [0.028, 1.04, 0.016], [-0.204, -0.42, z], edging, 0.007)
-    mesh(seat, [0.64, 0.085, 0.07], [-0.37, -0.73, z * 1.17], armrest)
+  mesh(seat, [1.18, 0.28, 1.05], [-0.52, -1.13, 0], fabric, 0.1)
+  mesh(seat, [1.1, 0.08, 1.07], [-0.52, -1.31, 0], edging)
+  mesh(seat, [0.055, 0.29, 0.85], [-0.27, 0.05, 0], linen, 0.025)
+  for (const z of [-0.5, 0.5]) {
+    mesh(seat, [0.028, 1.04, 0.016], [-0.255, -0.47, z], edging, 0.007)
+    mesh(seat, [0.82, 0.105, 0.09], [-0.46, -0.75, z * 1.17], armrest)
     mesh(seat, [0.055, 0.44, 0.045], [-0.12, -0.93, z * 1.17], hardware)
     mesh(seat, [0.07, 0.68, 0.07], [-0.36, -1.66, z * 0.84], hardware)
   }
+  // A distinct front bolster and shallow lumbar pad read as upholstery,
+  // with daylight between the outer armrest and the window wall.
+  mesh(seat, [0.19, 0.24, 1.01], [-1.02, -1.10, 0], fabric, 0.08)
+  mesh(seat, [0.13, 0.34, 0.92], [-0.28, -0.72, 0], fabric, 0.05)
   // One reusable mesh family for the whole coach, with shared textures/geometries.
   for (const centerX of centers) {
     for (const side of [-1, 1]) {
-      for (const z of [0.62, 1.62]) {
+      for (const z of [0.94, 2.2]) {
         const chair = seat.clone(true)
-        chair.position.set(centerX + side * 2.18, 0, z)
+        chair.position.set(centerX + side * 2.06, 0, z)
         if (side < 0) chair.rotation.y = Math.PI
         group.add(chair)
       }

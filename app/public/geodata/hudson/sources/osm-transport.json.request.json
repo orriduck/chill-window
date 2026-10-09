@@ -1,0 +1,9 @@
+{
+  "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A90%5D%5Bmaxsize%3A134217728%5D%3B%0A%28%0A%0A++way%5B%22highway%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++way%5B%22railway%22~%22%5E%28rail%7Clight_rail%7Ctram%7Cnarrow_gauge%7Cdisused%7Cabandoned%29%24%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A%29%3B%0Aout+body+geom%3B%0A",
+  "method": "GET",
+  "body": null,
+  "retrievedAt": "2026-10-09T17:14:19+00:00",
+  "contentType": "application/json",
+  "responseBytes": 15659606,
+  "responseSha256": "7e07d129c3172e1893ec7ef2a3ee8ecc66503e43f58ecf288a9abe6fd925f77d"
+}

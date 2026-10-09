@@ -1,0 +1,268 @@
+{
+  "generatedAt": "2026-10-09T17:19:40+00:00",
+  "bounds": [
+    -74.08,
+    41.25,
+    -73.85,
+    41.46
+  ],
+  "origin": [
+    -73.96,
+    41.36
+  ],
+  "dependencies": {
+    "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "Pillow": "12.3.0",
+    "shapely": "2.2.0"
+  },
+  "featureCoverage": {
+    "building": "Whole unsimplified footprints intersecting a 1200 m route buffer",
+    "road": "Clipped to 1200 m route buffer",
+    "waterForestFarmlandRail": "Full regional bbox"
+  },
+  "projection": "E=(R*lonRad-R*originLonRad)*cos(originLat); N=(R*ln(tan(pi/4+latRad/2))-R*ln(tan(pi/4+originLatRad/2)))*cos(originLat); R=6378137",
+  "coordinateConvention": "Longitude/latitude in world.json features; local east/north metres for DEM pixel-centre bounds; little-endian Float32 south-to-north rows, west-to-east columns.",
+  "requests": [
+    {
+      "snapshot": "sources/usgs-service.json.gz",
+      "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer?f=pjson",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:12:19+00:00",
+      "contentType": "text/plain;charset=UTF-8",
+      "responseBytes": 12988,
+      "responseSha256": "74b4d74deceb9fc1728945ec27cec809bdcb7427e1949ed80c48a9bf60c0e777"
+    },
+    {
+      "snapshot": "sources/usgs-export.json.gz",
+      "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=pjson&bbox=-8246547.8779657055%2C5049286.83462301%2C-8220944.395083253%2C5080430.166521527&bboxSR=3857&imageSR=3857&size=961%2C1169&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&adjustAspectRatio=false&noDataInterpretation=esriNoDataMatchAny",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:12:19+00:00",
+      "contentType": "text/plain;charset=UTF-8",
+      "responseBytes": 414,
+      "responseSha256": "f614648d9207814c0646af15b58f26f6a807649e425cf3b0b5ab83a9c863c211"
+    },
+    {
+      "snapshot": "sources/usgs-elevation.tiff",
+      "url": "https://elevation.nationalmap.gov/arcgis/rest/directories/elevation_output/3DEPElevation_ImageServer/_ags_36aa3450_5beb_4f11_9f5e_2bd1e6eda4d1.tif",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:12:19+00:00",
+      "contentType": "image/tiff",
+      "responseBytes": 5244666,
+      "responseSha256": "c3f758a48ac9e0757617d4b32acc89c646ccc784ff0c5ecb66308eb5bd0d3708"
+    },
+    {
+      "snapshot": "sources/fra-service.json.gz",
+      "url": "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0?f=pjson",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:17:38+00:00",
+      "contentType": "application/json; charset=utf-8",
+      "responseBytes": 11777,
+      "responseSha256": "424e91c47d648975e4411da517d8c32bd4d66877df36587b2cc995e711579672"
+    },
+    {
+      "snapshot": "sources/fra-empire-service.geojson.gz",
+      "url": "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0/query?where=name%3D%27Empire+Service%27&outFields=name%2CROUTE_URL&f=geojson&outSR=4326&returnGeometry=true",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:12:19+00:00",
+      "contentType": "application/json; charset=utf-8",
+      "responseBytes": 288338,
+      "responseSha256": "4384701c122f8722499933fed08461d0551271c1543068ae9d5a170131336ba0"
+    },
+    {
+      "snapshot": "sources/osm-water.json.gz",
+      "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A90%5D%5Bmaxsize%3A134217728%5D%3B%0A%28%0A%0A++way%5B%22natural%22~%22%5E%28water%7Cwood%29%24%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++relation%5B%22type%22%3D%22multipolygon%22%5D%5B%22natural%22~%22%5E%28water%7Cwood%29%24%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++way%5B%22waterway%22%3D%22riverbank%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++relation%5B%22type%22%3D%22multipolygon%22%5D%5B%22waterway%22%3D%22riverbank%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A%29%3B%0Aout+body+geom%3B%0A",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:14:19+00:00",
+      "contentType": "application/json",
+      "responseBytes": 4092140,
+      "responseSha256": "1c8dccf71a97a25afe0c5a85fea7ceae65b560aaefd619bdeffa175a00079a7f"
+    },
+    {
+      "snapshot": "sources/osm-land.json.gz",
+      "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A90%5D%5Bmaxsize%3A134217728%5D%3B%0A%28%0A%0A++way%5B%22landuse%22~%22%5E%28forest%7Cfarmland%7Corchard%7Cvineyard%7Creservoir%29%24%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++relation%5B%22type%22%3D%22multipolygon%22%5D%5B%22landuse%22~%22%5E%28forest%7Cfarmland%7Corchard%7Cvineyard%7Creservoir%29%24%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A%29%3B%0Aout+body+geom%3B%0A",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:14:19+00:00",
+      "contentType": "application/json",
+      "responseBytes": 72176,
+      "responseSha256": "78c7b795292a1b55c9cbf8e0b45cdeabe39ca63bfebcf549465e1540caa8141e"
+    },
+    {
+      "snapshot": "sources/osm-buildings.json.gz",
+      "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A90%5D%5Bmaxsize%3A134217728%5D%3B%0A%28%0A%0A++way%5B%22building%22%5D%5B%22building%22%21%3D%22no%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++relation%5B%22type%22%3D%22multipolygon%22%5D%5B%22building%22%5D%5B%22building%22%21%3D%22no%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A%29%3B%0Aout+body+geom%3B%0A",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:14:19+00:00",
+      "contentType": "application/json",
+      "responseBytes": 23984657,
+      "responseSha256": "502ce3cadc711105ea1c2a6d9d633192a39207a94bcce804e965f220cc59eaac"
+    },
+    {
+      "snapshot": "sources/osm-transport.json.gz",
+      "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A90%5D%5Bmaxsize%3A134217728%5D%3B%0A%28%0A%0A++way%5B%22highway%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A++way%5B%22railway%22~%22%5E%28rail%7Clight_rail%7Ctram%7Cnarrow_gauge%7Cdisused%7Cabandoned%29%24%22%5D%2841.25%2C-74.08%2C41.46%2C-73.85%29%3B%0A%29%3B%0Aout+body+geom%3B%0A",
+      "method": "GET",
+      "body": null,
+      "retrievedAt": "2026-10-09T17:14:19+00:00",
+      "contentType": "application/json",
+      "responseBytes": 15659606,
+      "responseSha256": "7e07d129c3172e1893ec7ef2a3ee8ecc66503e43f58ecf288a9abe6fd925f77d"
+    }
+  ],
+  "osmMetadata": {
+    "snapshots": [
+      {
+        "timestamp_osm_base": "2026-10-09T17:12:51Z",
+        "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+      },
+      {
+        "timestamp_osm_base": "2026-10-09T17:12:51Z",
+        "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+      },
+      {
+        "timestamp_osm_base": "2026-10-09T17:12:51Z",
+        "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+      },
+      {
+        "timestamp_osm_base": "2026-10-09T17:12:51Z",
+        "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+      }
+    ],
+    "timestamp_osm_base": "2026-10-09T17:12:51Z"
+  },
+  "validation": {
+    "routePoints": 443,
+    "routeLengthMetres": 22837.381660374882,
+    "demFinite": true,
+    "demRangeMetres": [
+      -13.642911911010742,
+      441.3053283691406
+    ],
+    "demResolutionMetres": [
+      19.99716122486352,
+      19.99600568702019
+    ],
+    "routeInsideDEM": true,
+    "areaRingsClosedAndValid": true,
+    "featureCounts": {
+      "water": 326,
+      "forest": 248,
+      "farmland": 16,
+      "building": 6302,
+      "rail": 216,
+      "road": 3335
+    },
+    "waterHoles": 47
+  },
+  "knownGaps": [
+    "OSM coverage is community-maintained and incomplete; absent features are not inferred.",
+    "DEM is bare earth, not a surface model; buildings and vegetation heights are not measured by this raster.",
+    "USGS 3DEP dynamic service combines source resolutions/dates; 20 m export sampling is not a claim of native source resolution.",
+    "The official route is a cartographic line and does not provide exact track elevation or travel timetable.",
+    "No imagery textures or measured vegetation species/heights included.",
+    "relation/8975990 (NewYork-Presbyterian/Hudson Valley Hospital): unclosed outer line fragments excluded"
+  ],
+  "files": {
+    "elevation.f32": {
+      "bytes": 4493636,
+      "sha256": "dbaea90e81f2ba29d4f6ffacbb9d955e94b5c2fe0f562cd05451356579a78023"
+    },
+    "sources/fra-empire-service.geojson.gz": {
+      "bytes": 110869,
+      "sha256": "eaa49f913f6a6505f8abb8d02e549401bcd5cadfada1abc15ff91d134d4131b3"
+    },
+    "sources/fra-empire-service.geojson.request.json": {
+      "bytes": 472,
+      "sha256": "400f2b2313be36b4f7d71cb78f649e22732e6dc6f0eb06c8f996e31a1b61f25e"
+    },
+    "sources/fra-service.json.gz": {
+      "bytes": 3354,
+      "sha256": "0f78fefd654d87683b7d9b266f80f5a5c5e63d4f160e0ccd002cbf1333ddbd06"
+    },
+    "sources/fra-service.json.request.json": {
+      "bytes": 371,
+      "sha256": "8340bc7097c84617b5236328a51955ac1c31722b2e02a36cb19b2f8ac6953a5f"
+    },
+    "sources/osm-buildings.json.gz": {
+      "bytes": 3125245,
+      "sha256": "58f7693ba550c91403180874675d7c602f74f5eb55621408b475a93d18d51cc9"
+    },
+    "sources/osm-buildings.json.request.json": {
+      "bytes": 644,
+      "sha256": "616ac1ea3077a59268017a7d6c1c81dc970a6cdf58addc26eadbbcb71f0a471b"
+    },
+    "sources/osm-land.json.gz": {
+      "bytes": 12738,
+      "sha256": "a60e9212c2afd053df587a6ae0b52b6e52a1b8dd460fd4a3fd4626ba7863e9e6"
+    },
+    "sources/osm-land.json.request.json": {
+      "bytes": 709,
+      "sha256": "7a5428e365868d8fc165fcdc6d7689a279c86229ba375cb07c3ad24b4da9a392"
+    },
+    "sources/osm-transport.json.gz": {
+      "bytes": 2502001,
+      "sha256": "781150cc7e55b175ce937429087ec27249176cb87af315704f9b9352f4b9a1fa"
+    },
+    "sources/osm-transport.json.request.json": {
+      "bytes": 612,
+      "sha256": "e4230f1465c9d7ed9538b0255dfe1d6d36421309df3045eb58bfa8795aea27c2"
+    },
+    "sources/osm-water.json.gz": {
+      "bytes": 630647,
+      "sha256": "fbe4e2d6586f746c451814f332b2d3cc913846339457253bdeee9e68c0637e25"
+    },
+    "sources/osm-water.json.request.json": {
+      "bytes": 849,
+      "sha256": "21c9497470f17fbcaf9845739d4b2e342a0127d4bdd70b458faa816202feff5e"
+    },
+    "sources/overpass-buildings.ql": {
+      "bytes": 220,
+      "sha256": "33b6f0d6efcc0dfceace5a0dfc361ec99c904dce069dd0ae2cc82c1049d07cbe"
+    },
+    "sources/overpass-land.ql": {
+      "bytes": 280,
+      "sha256": "ed24a40a1dcb8605591985ffefb1ea1bb893a9caf302c5de194bcb75eda73ff7"
+    },
+    "sources/overpass-transport.ql": {
+      "bytes": 212,
+      "sha256": "3590583087229fe18cf73454b54a9a7c0946043a6ca58b73238adfb2ddf8f675"
+    },
+    "sources/overpass-water.ql": {
+      "bytes": 360,
+      "sha256": "f2a2ee04a9fdc505070c380a38e35f28e2c2b5849bf572a5e70ad603b6474753"
+    },
+    "sources/usgs-elevation.tiff": {
+      "bytes": 5244666,
+      "sha256": "c3f758a48ac9e0757617d4b32acc89c646ccc784ff0c5ecb66308eb5bd0d3708"
+    },
+    "sources/usgs-elevation.tiff.request.json": {
+      "bytes": 390,
+      "sha256": "e0430ead3eb20edb3470e3b928e629caa5c0865126796666ce252ec156b22021"
+    },
+    "sources/usgs-export.json.gz": {
+      "bytes": 301,
+      "sha256": "81ef6586f92dd6ceed40e6a98349cdcf659ce991f45c6b3ecb77f72d561266ee"
+    },
+    "sources/usgs-export.json.request.json": {
+      "bytes": 664,
+      "sha256": "861754facecb17103421f3e42b89495e17de112a4fd2d8fbf6807644a4e7ab2e"
+    },
+    "sources/usgs-service.json.gz": {
+      "bytes": 2736,
+      "sha256": "42fb1dc6d1f36f74a4612a1a9e778afada167fdccac72ec2f319042ca9b79e94"
+    },
+    "sources/usgs-service.json.request.json": {
+      "bytes": 344,
+      "sha256": "651576dbe0d23fe6033ea5183be3afafb3110835e8e13724ba0d9eddd4a10aac"
+    },
+    "world.json": {
+      "bytes": 4368117,
+      "sha256": "c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec"
+    }
+  }
+}

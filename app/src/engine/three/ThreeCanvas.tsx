@@ -7,6 +7,7 @@ import { WebGLRenderer } from './core/Renderer'
 import { TerrainLOD } from './terrain/TerrainLOD'
 import { WaterSystem } from './terrain/WaterSystem'
 import { DistantHills } from './terrain/DistantHills'
+import { WetlandDetails } from './terrain/WetlandDetails'
 import { FieldPlots } from './terrain/FieldPlots'
 import { SkyDome } from './sky/SkyDome'
 import { TimeOfDay } from './sky/TimeOfDay'
@@ -20,9 +21,15 @@ import { ValleyBridgeManager } from './track/ValleyBridge'
 import { MountainRoadworkManager } from './track/MountainRoadworks'
 import { LevelCrossingManager } from './track/LevelCrossing'
 import { PerfMonitor } from './core/PerfMonitor'
+import { TerrainEditor } from './core/TerrainEditor'
+import { TerrainInspector } from './core/TerrainInspector'
+import { landscapeAt } from './terrain/Landscape'
+import { loadHudsonData } from './geography/GeoData'
+import { RealWorld } from './geography/RealWorld'
+import { GeoInspector } from './geography/GeoInspector'
 import { DebugMode } from './core/DebugMode'
 import {
-  createRoutePlan,
+  createContinuousRoutePlan,
   nearestStationAnchor,
   routeContextAt,
   sampleRouteFeature,
@@ -42,7 +49,7 @@ export interface TrainMotionTelemetry {
 
 /** Methods exposed to the parent for controlling the 3D train. */
 export interface TrainControl {
-  /** Set target speed (0 = stop at station, 15 = cruise). */
+  /** Set target speed (metres/second; 0 = stop at station). */
   setSpeed: (speed: number) => void
   /** Freeze/resume the journey simulation without losing its current motion state. */
   setPaused: (paused: boolean) => void
@@ -83,6 +90,7 @@ interface ThreeCanvasProps {
   timePreset?: TimeOfDayPreset
   /** A concrete departure weather or the normal ambient weather cycle. */
   weatherPreset?: WeatherPreset
+  onTerrainEditingChange?: (active: boolean) => void
 }
 
 export default function ThreeCanvas({
@@ -90,9 +98,12 @@ export default function ThreeCanvas({
   controlRef,
   timePreset = 'day',
   weatherPreset = 'auto',
+  onTerrainEditingChange,
 }: ThreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
+  const terrainEditingListener = useRef(onTerrainEditingChange)
+  useEffect(() => { terrainEditingListener.current = onTerrainEditingChange }, [onTerrainEditingChange])
 
   useEffect(() => {
     const container = containerRef.current
@@ -104,7 +115,15 @@ export default function ThreeCanvas({
     // The route is selected once for this carriage session. Every streamed
     // system receives the same immutable plan, so a station never disagrees
     // with the terrain, roads, water, or railway engineering around it.
-    const routePlan = createRoutePlan(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER))
+    const worldQuery = new URLSearchParams(window.location.search)
+    const routePlan = createContinuousRoutePlan(Number(worldQuery.get('worldSeed') ?? 42))
+
+    let realWanted = true
+    let realWorld: RealWorld | null = null
+    let disposed = false
+    let geographicDistance = 0
+    let proceduralDistance = Number(worldQuery.get('worldZ') ?? 5)
+    const geographicAbort = new AbortController()
 
     // ---- Exterior group: everything outside the window frame ----
     // DebugMode F6 toggles this group's visibility to hide the outside world.
@@ -130,7 +149,8 @@ export default function ThreeCanvas({
     const terrain = new TerrainLOD(exteriorGroup, 'field', routePlan)
     const water = new WaterSystem(routePlan)
     const fields = new FieldPlots((x, z) => terrain.sampleHeight(x, z))
-    const distantHills = new DistantHills()
+    const wetlandDetails = new WetlandDetails((x, z) => terrain.sampleHeight(x, z))
+    const distantHills = new DistantHills(z => landscapeAt(z, routePlan).lowland)
     const skyDome = new SkyDome()
     const timeOfDay = new TimeOfDay(timePreset)
     const weather = new WeatherSystem()
@@ -145,6 +165,9 @@ export default function ThreeCanvas({
     const levelCrossings = new LevelCrossingManager(routePlan)
     const perfMonitor = new PerfMonitor(renderer.renderer)
     const debugMode = new DebugMode()
+    debugMode.setGeographic(realWanted)
+    debugMode.onTerrainEditingChange = active => terrainEditingListener.current?.(active)
+    const terrainInspector = new TerrainInspector(routePlan)
     let preparedStationStopZ: number | null = null
     let scheduledStationStopZ: number | null = null
     let scheduledStationCruiseSpeed: number | null = null
@@ -167,6 +190,7 @@ export default function ThreeCanvas({
     exteriorGroup.add(levelCrossings.group)
     exteriorGroup.add(water.mesh)
     exteriorGroup.add(fields.group)
+    exteriorGroup.add(wetlandDetails.group)
     exteriorGroup.add(distantHills.group)
 
     // The cabin renders in a dedicated foreground pass after the exterior.
@@ -191,18 +215,24 @@ export default function ThreeCanvas({
         setPaused: (nextPaused: boolean) => { paused = nextPaused },
         getZ: () => camera.z,
         getGrade: () => camera.grade,
-        getRouteContext: () => routeContextAt(camera.z, routePlan),
+        getRouteContext: () => ({ ...routeContextAt(camera.z, routePlan), ...(realWanted ? { currentLabel: 'Hudson Highlands · 真实路线', nextLabel: 'Empire Service · 南行' } : {}) }),
         getMotion: () => ({
-          speedKmh: paused ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
-          speedRatio: paused ? 0 : Math.min(1, camera.currentSpeed / CRUISE_SPEED),
-          acceleration: paused ? 0 : camera.acceleration,
+          speedKmh: paused || debugMode.isTopDown || (realWanted && !realWorld) ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH,
+          speedRatio: paused || debugMode.isTopDown || (realWanted && !realWorld) ? 0 : Math.min(1, camera.currentSpeed / CRUISE_SPEED),
+          acceleration: paused || debugMode.isTopDown || (realWanted && !realWorld) ? 0 : camera.acceleration,
         }),
-        setWindowHud: (readout: WindowHudReadout) => windowFrame.setHudReadout(readout),
+        setWindowHud: (readout: WindowHudReadout) => windowFrame.setHudReadout(realWanted ? {
+          ...readout, journey: 'Hudson Highlands · 南行', routeLabel: 'Empire Service · 南行', segmentLabel: 'Hudson Highlands · 真实路线',
+          stationNames: ['样板起点', '样板终点'], currentSegment: 0,
+          progress: realWorld ? camera.z / realWorld.data.length : 0,
+        } : readout),
         getWindowHudAnchor: () => windowFrame.getHudControlAnchor(camera.getCamera()),
         getWindowHudControlHitAreas: () => windowFrame.getHudControlHitAreas(camera.getCamera()),
-        showStation: (name: string, zCenter: number) => stations.showStation(name, zCenter),
+        showStation: (name: string, zCenter: number) => { if (!realWanted) stations.showStation(name, zCenter) },
         planStation: (name: string, durationSeconds: number) => {
-          const anchor = nearestStationAnchor(camera.z, CRUISE_SPEED * durationSeconds, routePlan)
+          if (realWanted) return
+          const cruiseSeconds = durationSeconds - CRUISE_SPEED / (2 * TrainCamera.DEPARTURE_ACCELERATION) - TrainCamera.STATION_BRAKE_SECONDS / 2
+          const anchor = nearestStationAnchor(camera.z, CRUISE_SPEED * Math.max(1, cruiseSeconds), routePlan)
           scheduledStationStopZ = anchor.z - StationManager.APPROACH_STATION_LEAD
           scheduledStationCruiseSpeed = cruiseSpeedForScheduledStop(
             scheduledStationStopZ - camera.z,
@@ -211,10 +241,12 @@ export default function ThreeCanvas({
           stations.queueStation(name, anchor.z)
         },
         prepareStation: (name: string) => {
+          if (realWanted) return
           preparedStationStopZ = scheduledStationStopZ ?? camera.z + TrainCamera.STATION_PREPARE_DISTANCE
           stations.activateQueuedStation(name, preparedStationStopZ + StationManager.APPROACH_STATION_LEAD)
         },
         approachStation: (name: string) => {
+          if (realWanted) { camera.beginStationApproach(Math.min(realWorld?.data.length ?? camera.z, camera.z + TrainCamera.STATION_STOP_DISTANCE)); return }
           const stopZ = preparedStationStopZ ?? scheduledStationStopZ ?? camera.z + TrainCamera.STATION_STOP_DISTANCE
           if (preparedStationStopZ === null) {
             stations.activateQueuedStation(name, stopZ + StationManager.APPROACH_STATION_LEAD)
@@ -222,7 +254,7 @@ export default function ThreeCanvas({
           camera.beginStationApproach(stopZ)
           preparedStationStopZ = null
         },
-        departStation: () => camera.departStation(scheduledStationCruiseSpeed ?? CRUISE_SPEED),
+        departStation: () => camera.departStation(realWanted ? CRUISE_SPEED : scheduledStationCruiseSpeed ?? CRUISE_SPEED),
         resetView: () => camera.resetView(),
         hideStation: () => stations.hideStation(),
       }
@@ -235,6 +267,33 @@ export default function ThreeCanvas({
     canvas.style.cursor = 'grab'
     canvas.style.touchAction = 'none'
     container.appendChild(canvas)
+    const terrainEditor = new TerrainEditor(terrain, canvas, scene.scene)
+    terrainInspector.attachEditor(terrainEditor)
+    const geoInspector = new GeoInspector(canvas, realWanted)
+    terrainInspector.setGeographic(realWanted)
+    const applyGeographicMode = (real: boolean) => {
+      if (real !== realWanted) {
+        if (realWanted) geographicDistance = camera.z
+        else proceduralDistance = camera.z
+        preparedStationStopZ = scheduledStationStopZ = debugStationStopZ = debugStationStopTarget = debugStationDwellUntil = null
+      }
+      realWanted = real
+      debugMode.setGeographic(real)
+      geoInspector.setReal(real); terrainInspector.setGeographic(real)
+      camera.setRailProfile(real && realWorld ? { height: s => realWorld!.data.railHeight(s), grade: s => realWorld!.data.railGrade(s) } : null)
+      camera.setZ(real ? geographicDistance : proceduralDistance)
+      camera.getCamera().far = real ? 8000 : 2000; camera.getCamera().updateProjectionMatrix()
+      if (real && debugMode.isTopDown) geoInspector.recenter(camera.z)
+    }
+    void loadHudsonData(geographicAbort.signal).then(data => {
+      if (disposed) return
+      realWorld = new RealWorld(data); exteriorGroup.add(realWorld.group)
+      geographicDistance = THREE.MathUtils.clamp(Number(worldQuery.get('routeMetres') ?? data.checkpoints[0].s), 0, data.length)
+      geoInspector.setData(data)
+      if (realWanted) applyGeographicMode(true)
+    }).catch(error => {
+      if (!disposed && error.name !== 'AbortError') geoInspector.fail(error.message)
+    })
 
     let activePointerId: number | null = null
     let lastPointerX = 0
@@ -246,7 +305,7 @@ export default function ThreeCanvas({
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
     }
     const onPointerDown = (event: PointerEvent) => {
-      if (event.button !== 0) return
+      if (event.button !== 0 || debugMode.isTopDown) return
       activePointerId = event.pointerId
       lastPointerX = event.clientX
       lastPointerY = event.clientY
@@ -254,12 +313,12 @@ export default function ThreeCanvas({
       canvas.style.cursor = 'grabbing'
     }
     const onPointerMove = (event: PointerEvent) => {
-      if (activePointerId !== event.pointerId) return
+      if (activePointerId !== event.pointerId || debugMode.isTopDown) return
       camera.panBy(event.clientX - lastPointerX, event.clientY - lastPointerY)
       lastPointerX = event.clientX
       lastPointerY = event.clientY
     }
-    const onDoubleClick = () => camera.resetView()
+    const onDoubleClick = () => { if (!debugMode.isTopDown) camera.resetView() }
     canvas.addEventListener('pointerdown', onPointerDown)
     canvas.addEventListener('pointermove', onPointerMove)
     canvas.addEventListener('pointerup', endViewDrag)
@@ -268,6 +327,8 @@ export default function ThreeCanvas({
 
     const rect = container.getBoundingClientRect()
     camera.updateAspect(rect.width, rect.height)
+    terrainEditor.resize(rect.width, rect.height)
+    geoInspector.resize(rect.width, rect.height)
     renderer.resize(rect.width, rect.height)
 
     // Lights
@@ -277,6 +338,8 @@ export default function ThreeCanvas({
     dirLight.position.set(10, 20, 10)
     dirLight.castShadow = true
     dirLight.shadow.mapSize.set(2048, 2048)
+    dirLight.shadow.normalBias = 0.08
+    dirLight.shadow.bias = -0.0002
     dirLight.shadow.camera.left = -50
     dirLight.shadow.camera.right = 50
     dirLight.shadow.camera.top = 50
@@ -292,24 +355,22 @@ export default function ThreeCanvas({
     interiorKey.position.set(-2, 3, 2)
     interiorScene.add(interiorKey)
 
-    // ---- Top-down state tracking ----
-    let wasTopDown = false
-
     // ---- Biome boundary update throttle ----
     let lastSegmentZ = terrain.zSegmentStart
     let boundaryFrameCounter = 0
 
+    let motionSampleTime = performance.now()
+    let motionSampleZ = camera.z
+    let measuredSpeed = 0
     let lastFrameTime = performance.now()
     let elapsedTime = 0
     const loop = () => {
       rafRef.current = requestAnimationFrame(loop)
 
       const now = performance.now()
-      const dt = Math.min((now - lastFrameTime) / 1000, MAX_DT)
+      const motionDt = Math.min((now - lastFrameTime) / 1000, 1)
+      const dt = Math.min(motionDt, MAX_DT)
       lastFrameTime = now
-      const simulationDt = paused ? 0 : dt
-      elapsedTime += simulationDt
-
       if (debugMode.grassProbe !== wasGrassProbe) {
         wasGrassProbe = debugMode.grassProbe
         weather.setOverride(debugMode.grassProbe ? WeatherType.CLEAR : (weatherPreset === 'auto' ? null : weatherPreset))
@@ -320,38 +381,88 @@ export default function ThreeCanvas({
         camera.setTargetSpeed(0)
       }
 
+      const geoCommand = geoInspector.consume()
+      if (geoCommand.editing !== undefined) debugMode.setTerrainEditing(geoCommand.editing)
+      if (geoCommand.recenter) geoInspector.recenter(camera.z)
+      if (geoCommand.jump !== undefined && realWorld) {
+        camera.setZ(THREE.MathUtils.clamp(geoCommand.jump, 0, realWorld.data.length))
+        geoInspector.recenter(camera.z); motionSampleZ = camera.z; motionSampleTime = now; measuredSpeed = 0
+      }
+      if (geoCommand.time) timeOfDay.setPreset(geoCommand.time)
+      if (geoCommand.weather) weather.setOverride(geoCommand.weather === 'rain' ? WeatherType.RAIN : WeatherType.CLEAR)
+      const worldCommand = terrainInspector.consume()
+      if (worldCommand.z !== undefined && !realWanted) {
+        camera.setZ(worldCommand.z)
+        motionSampleZ = camera.z
+        motionSampleTime = now
+        measuredSpeed = 0
+      }
+      if (worldCommand.speed !== undefined) {
+        paused = false
+        camera.setTargetSpeed(worldCommand.speed / 3.6)
+        camera.currentSpeed = worldCommand.speed / 3.6
+      }
+      if (worldCommand.aerial !== undefined) debugMode.setTerrainEditing(worldCommand.aerial)
+      if (worldCommand.recenter) terrainEditor.recenter(camera.z)
+      if (worldCommand.inspectZ !== undefined) terrainEditor.recenter(worldCommand.inspectZ)
+      if (worldCommand.mask !== undefined) debugMode.terrainDebugView = worldCommand.mask ? 1 : 0
+      if (worldCommand.time) timeOfDay.setPreset(worldCommand.time)
+      if (worldCommand.weather) weather.setOverride(worldCommand.weather === 'rain' ? WeatherType.RAIN : WeatherType.CLEAR)
+      const editorMode = debugMode.isTopDown
+      const simulationDt = paused || editorMode || (realWanted && !realWorld) ? 0 : dt
+      elapsedTime += paused || editorMode || (realWanted && !realWorld) ? 0 : motionDt
+
       const passengerView = debugMode.consumePassengerView()
       if (passengerView) {
         camera.setPassengerView(passengerView)
         windowFrame.setPassengerView(passengerView)
       }
       const scenePreset = debugMode.consumeScenePreset()
-      if (scenePreset) {
+      if (scenePreset && realWanted) {
+        if (scenePreset === 'night') timeOfDay.setPreset('night')
+        if (scenePreset === 'rain') weather.setOverride(WeatherType.RAIN)
+      }
+      if (scenePreset && !realWanted) {
         debugMode.grassProbe = false
         const biome = scenePreset === 'forest' ? 'forest' : scenePreset === 'lake' ? 'river' : scenePreset === 'mountain' ? 'mountain' : 'field'
         const segment = routePlan.beats.findIndex(beat => beat.biome === biome)
         camera.setZ(Math.max(0, segment) * 1500 + (scenePreset === 'lake' ? 1090 : 650))
         camera.resetView()
+        motionSampleZ = camera.z
+        motionSampleTime = now
+        measuredSpeed = 0
         camera.setTargetSpeed(CRUISE_SPEED)
+        camera.currentSpeed = CRUISE_SPEED
         timeOfDay.setPreset(scenePreset === 'night' ? 'night' : 'day')
         weather.setOverride(scenePreset === 'rain' ? WeatherType.RAIN : WeatherType.CLEAR)
       }
 
-      // ---- Top-down camera toggle ----
-      if (debugMode.isTopDown !== wasTopDown) {
-        if (debugMode.isTopDown) {
-          debugMode.enterTopDown(camera.camera)
-        } else {
-          debugMode.exitTopDown(camera.camera)
-        }
-        wasTopDown = debugMode.isTopDown
+      const speedPreset = debugMode.consumeSpeedPreset()
+      if (speedPreset !== null) {
+        camera.setTargetSpeed(speedPreset / 3.6)
+        camera.currentSpeed = speedPreset / 3.6
       }
 
       // Keep camera panning responsive while journey physics is paused.
-      camera.update(dt, !paused)
+      if (realWanted && realWorld && camera.targetSpeed > 0 && realWorld.data.length - camera.z <= TrainCamera.STATION_STOP_DISTANCE) camera.beginStationApproach(realWorld.data.length)
+      camera.update(motionDt, !paused && !editorMode && (!realWanted || !!realWorld))
+      if (realWanted && realWorld && camera.z > realWorld.data.length) { camera.setZ(realWorld.data.length); camera.setTargetSpeed(0); camera.currentSpeed = 0 }
+      if (realWanted && realWorld && camera.currentSpeed === 0 && camera.targetSpeed === 0 && realWorld.data.length - camera.z < 0.05) camera.setZ(realWorld.data.length)
       const jumpTarget = debugMode.consumeJumpTarget()
-      if (jumpTarget !== null) camera.setZ(jumpTarget)
-      if (debugMode.consumeStationProbe()) {
+      if (jumpTarget !== null) {
+        camera.setZ(realWanted && realWorld ? realWorld.data.checkpoints[jumpTarget === 3400 ? 2 : jumpTarget === 5450 ? 0 : 1].s : jumpTarget)
+        motionSampleZ = camera.z
+        motionSampleTime = now
+        measuredSpeed = 0
+      }
+      if (now - motionSampleTime >= 1000) {
+        measuredSpeed = Math.abs(camera.z - motionSampleZ) / ((now - motionSampleTime) / 1000)
+        motionSampleZ = camera.z
+        motionSampleTime = now
+      }
+      debugMode.updateMotion(camera.z, paused || editorMode ? 0 : camera.currentSpeed, measuredSpeed)
+
+      if (debugMode.consumeStationProbe() && !realWanted) {
         const stopZ = camera.z + TrainCamera.STATION_PREPARE_DISTANCE
         stations.showStation('Test Station', stopZ + StationManager.APPROACH_STATION_LEAD)
         debugStationStopZ = stopZ
@@ -376,17 +487,17 @@ export default function ThreeCanvas({
         debugStationDwellUntil = null
       }
 
-      if (debugMode.isTopDown) {
-        // Override position/orientation for top-down aerial view
-        debugMode.applyTopDown(camera.camera)
-      }
-
-      const cam = camera.getCamera()
-      const camPos = cam.position
+      terrainEditor.setEnabled(editorMode && !realWanted, camera.z)
+      terrainEditor.update(camera.z)
+      terrainInspector.setEditing(editorMode)
+      geoInspector.setEditing(editorMode, camera.z)
+      const cam = editorMode ? (realWanted ? geoInspector.camera : terrainEditor.camera) : camera.getCamera()
+      const camPos = editorMode ? (realWanted ? geoInspector.focus : terrainEditor.focus) : cam.position
 
       // Tunnel coverage must reach weather before rendering so snow/rain
       // cannot appear on the interior side of the bore wall.
-      const tunnelD = tunnels.update(camPos.z)
+      const geographicPose = realWorld?.data.pose(camera.z)
+      const tunnelD = realWanted ? (!editorMode && geographicPose && realWorld?.data.engineeringKindAt(geographicPose.x, geographicPose.z) === 'tunnel' ? 1 : 0) : tunnels.update(camPos.z)
 
       // Time of day drives sky, sun and lighting; weather modulates on top
       timeOfDay.update(simulationDt)
@@ -417,11 +528,25 @@ export default function ThreeCanvas({
       fog.near = THREE.MathUtils.lerp(state.fogNear, 8, tunnelD)
       fog.far = THREE.MathUtils.lerp(state.fogFar, 130, tunnelD)
 
+      if (realWanted) {
+        if (realWorld) { realWorld.group.visible = true; realWorld.update(camera.z, editorMode, geoInspector.focus, geoInspector.layers) }
+        terrain.surfaceVisible = terrain.vegetationVisible = terrain.settlementsVisible = terrain.farmlandVisible = terrain.waterVisible = false
+        terrain.applyFrustumCulling(cam)
+        for (const group of [trackSystem.group, lineside.group, stations.group, tunnels.group, valleyBridges.group, mountainRoadworks.group, levelCrossings.group, water.mesh, fields.group, wetlandDetails.group, distantHills.group]) group.visible = false
+        skyDome.mesh.visible = weather.group.visible = !editorMode
+        fog.near = THREE.MathUtils.lerp(1100, 8, tunnelD); fog.far = THREE.MathUtils.lerp(6000, 130, tunnelD)
+      } else {
+        if (realWorld) realWorld.group.visible = false
       distantHills.update(camPos.z, state.fogColor, state.ambientIntensity, tunnelD)
       terrain.setDebugView(debugMode.terrainDebugView)
       terrain.setStreamingFrozen(debugMode.streamingFrozen)
       terrain.updateWind(elapsedTime)
       terrain.update(camPos)
+      terrain.surfaceVisible = terrainInspector.layers.ground
+      terrain.vegetationVisible = terrainInspector.layers.vegetation
+      terrain.settlementsVisible = terrainInspector.layers.settlements
+      terrain.farmlandVisible = terrainInspector.layers.farmland
+      terrain.waterVisible = terrainInspector.layers.water
       terrain.applyFrustumCulling(cam)
       trackSystem.update(camPos.z)
       lineside.update(camPos.z)
@@ -430,7 +555,24 @@ export default function ThreeCanvas({
       valleyBridges.update(camPos.z)
       mountainRoadworks.update(camPos.z)
       levelCrossings.update(camPos.z)
-      fields.update(camPos.z, (z) => terrain.isBiomeAt(z, 'field'))
+      if (!routePlan.continuous) fields.update(camPos.z, z => terrain.farmlandStrengthAt(z), (x, z) => terrain.isSettlementAt(x, z))
+      if (!routePlan.continuous) wetlandDetails.update(camPos.z, z => terrain.farmlandStrengthAt(z) > 0.5)
+      water.mesh.visible &&= terrainInspector.layers.water
+      fields.group.visible = !routePlan.continuous && terrainInspector.layers.farmland
+      wetlandDetails.group.visible = !routePlan.continuous && terrainInspector.layers.farmland
+      distantHills.group.visible &&= terrainInspector.layers.hills
+      for (const group of [skyDome.mesh, weather.group, trackSystem.group, lineside.group, stations.group, tunnels.group, valleyBridges.group, mountainRoadworks.group, levelCrossings.group]) {
+        group.visible = !editorMode
+      }
+      if (editorMode) {
+        water.mesh.visible = false
+        fields.group.visible = false
+        wetlandDetails.group.visible = false
+        distantHills.group.visible = false
+      }
+      }
+      geoInspector.update(camera.z, realWorld)
+      terrainInspector.update(camPos.z, camera.currentSpeed, terrain.chunkCount, terrain.debugInfo.pendingChunks, terrain.assetStatus)
       windowFrame.update(
         cam,
         elapsedTime,
@@ -441,16 +583,19 @@ export default function ThreeCanvas({
       )
 
       // Push fog back in top-down mode so terrain is visible from above
+      const savedBackground = scene.scene.background
+      if (editorMode) scene.scene.background = new THREE.Color(0xcbd7c5)
       const savedFogNear = fog.near
       const savedFogFar = fog.far
       if (debugMode.isTopDown) {
-        fog.near = 400
-        fog.far = 3000
+        fog.near = realWanted ? 5000 : editorMode ? 1600 : 400
+        fog.far = realWanted ? 15000 : editorMode ? 5000 : 3000
       }
 
       // Top-down is an exterior-only terrain inspection view. In the normal
       // carriage view the interior remains a separate foreground pass.
       renderer.render(scene.scene, cam, debugMode.isTopDown ? undefined : interiorScene)
+      scene.scene.background = savedBackground
       perfMonitor.update() // F3 perf overlay
 
       // Restore fog for HUD boundary rendering
@@ -461,7 +606,7 @@ export default function ThreeCanvas({
 
       // ---- Debug HUD (F4) ----
       boundaryFrameCounter++
-      if (boundaryFrameCounter % 30 === 0) {
+      if (boundaryFrameCounter % 30 === 0 && !realWanted) {
         // Refresh biome boundaries if segment shifted
         if (terrain.zSegmentStart !== lastSegmentZ) {
           lastSegmentZ = terrain.zSegmentStart
@@ -483,12 +628,12 @@ export default function ThreeCanvas({
         routeGrade: camera.grade,
         routeElevation: camera.elevation,
         cameraPitch: camera.pitch,
-        currentBiome: terrain.currentBiomeName,
-        nextBiome: terrain.nextBiomeName,
+        currentBiome: realWanted ? 'Hudson Highlands · 真实地理' : terrain.currentBiomeName,
+        nextBiome: realWanted ? 'Empire Service · 南行' : terrain.nextBiomeName,
         segmentStartZ: terrain.zSegmentStart,
         segmentLength: TerrainLOD.SEGMENT_LENGTH,
         blendLength: TerrainLOD.BLEND_LENGTH,
-        chunkCount: terrain.chunkCount,
+        chunkCount: realWanted ? realWorld?.chunkCount ?? 0 : terrain.chunkCount,
         fps: perfMonitor.currentFps,
         frameTime: perfMonitor.currentFrameTime,
         drawCalls: info.render.calls,
@@ -505,11 +650,15 @@ export default function ThreeCanvas({
     const onResize = () => {
       const r = container.getBoundingClientRect()
       camera.updateAspect(r.width, r.height)
+      terrainEditor.resize(r.width, r.height)
+      geoInspector.resize(r.width, r.height)
       renderer.resize(r.width, r.height)
     }
     window.addEventListener('resize', onResize)
 
     return () => {
+      disposed = true; geographicAbort.abort()
+      realWorld?.dispose(); geoInspector.dispose()
       cancelAnimationFrame(rafRef.current)
       window.removeEventListener('resize', onResize)
       canvas.removeEventListener('pointerdown', onPointerDown)
@@ -519,9 +668,12 @@ export default function ThreeCanvas({
       canvas.removeEventListener('dblclick', onDoubleClick)
       if (controlRef) controlRef.current = null
       debugMode.dispose()
+      terrainInspector.dispose()
+      terrainEditor.dispose()
       terrain.dispose()
       water.dispose()
       fields.dispose()
+      wetlandDetails.dispose()
       distantHills.dispose()
       skyDome.dispose()
       weather.dispose()

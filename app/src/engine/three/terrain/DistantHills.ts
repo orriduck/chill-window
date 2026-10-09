@@ -7,7 +7,9 @@ export class DistantHills {
   readonly group = new THREE.Group()
   private strips: { mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>; layer: number; slot: number; segment: number }[] = []
   private colors = [new THREE.Color(0x3d6559), new THREE.Color(0x668685), new THREE.Color(0x8ba2a3)]
-  constructor() {
+  private lowlandAt: (z: number) => number
+  constructor(lowlandAt: (z: number) => number = () => 0) {
+    this.lowlandAt = lowlandAt
     for (let layer = 2; layer >= 0; layer--) for (let slot = 0; slot < 5; slot++) {
       const material = new THREE.MeshStandardMaterial({ color: this.colors[layer], side: THREE.DoubleSide, fog: false, roughness: 1 })
       const mesh = new THREE.Mesh(new THREE.BufferGeometry(), material)
@@ -34,10 +36,11 @@ export class DistantHills {
           const ridge = 66 + layer * 39 + Math.sin(phase) * 31 + Math.sin(phase * 2.3 + 1.7) * 16 + Math.sin(phase * 5.1) * 4
           for (let j = 0; j <= across; j++) {
             const u = j / across
-            const x = 380 + layer * 245 + u * 290
+            const lowland = this.lowlandAt(wz)
+            const x = 380 + layer * 245 + u * 290 + lowland * 310
             const shoulder = Math.pow(Math.sin(u * Math.PI), 1.3)
             const ribs = Math.sin(phase * 4.3 + u * 9) * Math.sin(u * Math.PI) * 5
-            vertices.push(x, -12 + (ridge + ribs) * shoulder + trackElevationAt(wz), wz)
+            vertices.push(x, -12 + (ridge + ribs) * shoulder * (1 - lowland * 0.64) + trackElevationAt(wz), wz)
             if (i < 40 && j < across) {
               const n = i * (across + 1) + j
               indices.push(n, n + across + 1, n + 1, n + 1, n + across + 1, n + across + 2)

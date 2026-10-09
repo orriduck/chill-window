@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { MAX_WATER_HALF_WIDTH, riverWaterElevationAt, waterChannelAt } from './TerrainGen'
+import { landscapeAt } from './Landscape'
 import { DEFAULT_ROUTE_PLAN, type RoutePlan } from './RouteFeatures'
 
 const RIBBON_LENGTH = 700 // water follows the camera over this Z window
@@ -94,6 +95,15 @@ export class WaterSystem {
       metalness: 0.18,
     })
 
+    this.geometry.setAttribute('waterFade', new THREE.BufferAttribute(new Float32Array(this.localX.length), 1))
+    this.material.depthWrite = false
+    this.material.onBeforeCompile = shader => {
+      shader.vertexShader = 'attribute float waterFade; varying float vWaterFade;\n' + shader.vertexShader
+      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvWaterFade = waterFade;')
+      shader.fragmentShader = 'varying float vWaterFade;\n' + shader.fragmentShader
+      shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.a *= vWaterFade; if (diffuseColor.a < 0.01) discard;')
+    }
+    this.material.customProgramCacheKey = () => 'route-water-fade-v1'
     this.mesh = new THREE.Mesh(this.geometry, this.material)
     this.mesh.frustumCulled = false // world-space verts move far from origin
     this.mesh.visible = false
@@ -106,14 +116,11 @@ export class WaterSystem {
    * @param time     elapsed seconds for the ripple animation
    */
   update(camZ: number, strength: number, time: number) {
-    // Fade with the biome blend; hide entirely when the channel is shallow
-    const fade = THREE.MathUtils.clamp((strength - 0.55) / 0.35, 0, 1)
-    if (fade <= 0.01) {
-      this.mesh.visible = false
-      return
-    }
-    this.mesh.visible = true
-    this.material.opacity = 0.92 * fade
+    // Each row follows its absolute route position, including future water
+    // visible before the train enters the valley and the taper leaving it.
+    this.material.opacity = 0.92
+    let visible = false
+    const waterFade = this.geometry.attributes.waterFade.array as Float32Array
     this.rippleTexture.offset.y = waterRippleOffset(time, camZ)
 
     const pos = this.geometry.attributes.position.array as Float32Array
@@ -121,12 +128,18 @@ export class WaterSystem {
     for (let v = 0; v < this.localX.length; v++) {
       const localX = this.localX[v]
       const worldZ = zStart + this.rowT[v] * RIBBON_LENGTH
+      const localStrength = this.routePlan.continuous ? (landscapeAt(worldZ, this.routePlan).params.river ?? 0) : strength
+      const fade = THREE.MathUtils.smoothstep(localStrength, 0.55, 0.95)
+      waterFade[v] = fade
+      visible ||= fade > 0.01
       const channel = waterChannelAt(worldZ, this.routePlan)
       pos[v * 3] = channel.centerX + localX * (channel.halfWidth / (RIBBON_WIDTH / 2))
-      const waterY = riverWaterElevationAt(worldZ, strength)
+      const waterY = riverWaterElevationAt(worldZ, localStrength)
       pos[v * 3 + 1] = waterY + Math.sin(time * 1.2 + worldZ * 0.35 + localX * 0.6) * 0.05
       pos[v * 3 + 2] = worldZ
     }
+    this.mesh.visible = visible
+    this.geometry.attributes.waterFade.needsUpdate = true
     this.geometry.attributes.position.needsUpdate = true
     this.geometry.computeVertexNormals()
   }

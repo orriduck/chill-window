@@ -1,0 +1,9 @@
+{
+  "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer?f=pjson",
+  "method": "GET",
+  "body": null,
+  "retrievedAt": "2026-10-09T17:12:19+00:00",
+  "contentType": "text/plain;charset=UTF-8",
+  "responseBytes": 12988,
+  "responseSha256": "74b4d74deceb9fc1728945ec27cec809bdcb7427e1949ed80c48a9bf60c0e777"
+}

@@ -78,3 +78,8 @@ F2 / `?debugCarriage=1` 可隔离车体、软座组、设备、玻璃、灯光�
 | P1 | 暂停/恢复专注而非只能中途下车 |
 | P2 | 旅程意图、到站回顾和本地旅程记录 |
 | P2 | 性能与内存巡检，特别是长时间流式运行 |
+# 2026-09-04 后续：座椅、塘田与 160 km/h
+
+本地已落实用户截图反馈：更宽深的软座、独立可见扶手与窗墙间隙；FAO 湖州桑基鱼塘地景原型；统一米制巡航并修正长旅程车站搜索和起停预算。F2 可选择场景、眼位与 0/54/80/160 km/h，F5 查看塘田布局。正式构建视觉记录、截图、物理检查及未检查范围见 [记录](../docs/visual-checks/2026-09-04-refinement/README.md)。本轮仍为本地工作区改动，未合并、未部署。
+
+真实 Hudson 样板（2026-10-09）：默认真实模式，`?world=hudson` / `?world=procedural` 切换，`routeMetres` 指定真实路线位置。F5 / Esc 共用地理检查相机，样板约22.84km；真实数据默认本地加载，源码在 `src/engine/three/geography/`，准备脚本/来源见 `scripts/prepare-hudson.py`、`public/geodata/hudson/README.md`。验收及未检查范围见 `../docs/visual-checks/2026-10-09-real-hudson/README.md`。

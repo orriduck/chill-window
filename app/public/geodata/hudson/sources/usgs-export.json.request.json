@@ -1,0 +1,9 @@
+{
+  "url": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?f=pjson&bbox=-8246547.8779657055%2C5049286.83462301%2C-8220944.395083253%2C5080430.166521527&bboxSR=3857&imageSR=3857&size=961%2C1169&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&renderingRule=%7B%22rasterFunction%22%3A%22None%22%7D&adjustAspectRatio=false&noDataInterpretation=esriNoDataMatchAny",
+  "method": "GET",
+  "body": null,
+  "retrievedAt": "2026-10-09T17:12:19+00:00",
+  "contentType": "text/plain;charset=UTF-8",
+  "responseBytes": 414,
+  "responseSha256": "f614648d9207814c0646af15b58f26f6a807649e425cf3b0b5ab83a9c863c211"
+}

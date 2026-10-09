@@ -7,6 +7,7 @@ import {
   riverWaterElevationAt,
 } from './TerrainGen'
 import { createTownRoadBridge } from './TownRoadBridge'
+import { createCityDistrict } from './CityDistrict'
 import type { TownProfile } from './SettlementProfile'
 import { DEFAULT_ROUTE_PLAN, type RoutePlan } from './RouteFeatures'
 
@@ -25,6 +26,8 @@ type HeightSampler = (x: number, z: number) => number
 // out of planned urban space when a chunk is rebuilt.
 const TOWN_FOOTPRINT_RAIL_SIDE = 4
 const TOWN_FOOTPRINTS: Record<TownProfile, { outerSide: number; halfLength: number }> = {
+  village: { outerSide: 40, halfLength: 95 },
+  metro: { outerSide: 226, halfLength: 450 },
   regional: { outerSide: 44, halfLength: 100 },
   urban: { outerSide: 58, halfLength: 118 },
 }
@@ -367,12 +370,18 @@ export function createTownCluster(
   profile: TownProfile = 'regional',
   hasGradeSeparatedRoad = false,
 ): THREE.Group {
+  if (profile === 'metro') {
+    const district = createCityDistrict(cx, cz, sampleHeight, random)
+    if (hasGradeSeparatedRoad) district.add(createTownRoadBridge(cx, cz, sampleHeight))
+    return district
+  }
   const town = new THREE.Group()
+  town.name = `settlement-${profile}`
 
   const isUrban = profile === 'urban'
   const houseCount = isUrban ? 4 + Math.floor(random() * 3) : 8 + Math.floor(random() * 4)
-  const aptCount = isUrban ? 5 + Math.floor(random() * 3) : 2 + Math.floor(random() * 3)
-  const hasChurch = !isUrban && random() < 0.5
+  const aptCount = profile === 'village' ? 0 : isUrban ? 5 + Math.floor(random() * 3) : 2 + Math.floor(random() * 3)
+  const hasChurch = profile === 'regional' && !isUrban && random() < 0.5
   const streetWidth = isUrban ? 6.2 : 4
   const streetLength = isUrban ? 224 : 190
   const sideStreetCount = isUrban ? 4 : 3

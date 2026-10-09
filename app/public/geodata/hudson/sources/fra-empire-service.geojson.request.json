@@ -1,0 +1,9 @@
+{
+  "url": "https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0/query?where=name%3D%27Empire+Service%27&outFields=name%2CROUTE_URL&f=geojson&outSR=4326&returnGeometry=true",
+  "method": "GET",
+  "body": null,
+  "retrievedAt": "2026-10-09T17:12:19+00:00",
+  "contentType": "application/json; charset=utf-8",
+  "responseBytes": 288338,
+  "responseSha256": "4384701c122f8722499933fed08461d0551271c1543068ae9d5a170131336ba0"
+}

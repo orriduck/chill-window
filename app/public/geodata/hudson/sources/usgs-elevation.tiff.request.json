@@ -1,0 +1,9 @@
+{
+  "url": "https://elevation.nationalmap.gov/arcgis/rest/directories/elevation_output/3DEPElevation_ImageServer/_ags_36aa3450_5beb_4f11_9f5e_2bd1e6eda4d1.tif",
+  "method": "GET",
+  "body": null,
+  "retrievedAt": "2026-10-09T17:12:19+00:00",
+  "contentType": "image/tiff",
+  "responseBytes": 5244666,
+  "responseSha256": "c3f758a48ac9e0757617d4b32acc89c646ccc784ff0c5ecb66308eb5bd0d3708"
+}

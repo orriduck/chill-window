@@ -2,14 +2,14 @@ import * as THREE from 'three'
 import { PASSENGER_VIEWS, type PassengerView } from './PassengerView'
 import { trackElevationAt, trackGradeAt } from '../terrain/RouteProfile'
 
-export const CRUISE_SPEED = 15 // units/sec, matches original
-export const CRUISE_SPEED_KMH = 120
+export const CRUISE_SPEED_KMH = 160
+export const CRUISE_SPEED = CRUISE_SPEED_KMH / 3.6 // world metres per second
 const MIN_SCHEDULED_CRUISE_SPEED = CRUISE_SPEED * 0.65
-const MAX_SCHEDULED_CRUISE_SPEED = CRUISE_SPEED * 1.25
-const ACCEL_RATE = 3.5 // speed units/sec² — gentle departure
-const DECEL_RATE = 4.5 // slightly faster braking
+const MAX_SCHEDULED_CRUISE_SPEED = CRUISE_SPEED
+const ACCEL_RATE = 0.8 // speed units/sec² — gentle departure
+const DECEL_RATE = 0.9 // slightly faster braking
 const STATION_BRAKE_DECEL = 0.94
-const STATION_DEPART_ACCEL = 1.5
+const STATION_DEPART_ACCEL = 0.65
 const LOOK_AHEAD_X = 50
 const LOOK_AHEAD_Z = 12
 const CAMERA_Y = 2
@@ -44,8 +44,13 @@ export function cameraFovForAspect(aspect: number): number {
  * target. The clamp keeps long focus intervals from making the train feel
  * like a metro crawl or an arcade fast-forward. */
 export function cruiseSpeedForScheduledStop(distance: number, durationSeconds: number): number {
-  const average = distance / Math.max(durationSeconds, 1)
-  return THREE.MathUtils.clamp(average, MIN_SCHEDULED_CRUISE_SPEED, MAX_SCHEDULED_CRUISE_SPEED)
+  // Include departure and braking ramps in the distance budget.
+  let speed = distance / Math.max(durationSeconds, 1)
+  for (let i = 0; i < 8; i++) {
+    const rampLossSeconds = speed / (2 * STATION_DEPART_ACCEL) + speed / (2 * STATION_BRAKE_DECEL)
+    speed = THREE.MathUtils.clamp(distance / Math.max(1, durationSeconds - rampLossSeconds), MIN_SCHEDULED_CRUISE_SPEED, MAX_SCHEDULED_CRUISE_SPEED)
+  }
+  return speed
 }
 
 /**
@@ -53,6 +58,7 @@ export function cruiseSpeedForScheduledStop(distance: number, durationSeconds: n
  * Vibration scales with current speed — smooth when stopped, gentle at cruise.
  */
 export class TrainCamera {
+  static readonly DEPARTURE_ACCELERATION = STATION_DEPART_ACCEL
   static readonly STATION_STOP_DISTANCE = (CRUISE_SPEED * CRUISE_SPEED) / (2 * STATION_BRAKE_DECEL)
   static readonly STATION_BRAKE_SECONDS = CRUISE_SPEED / STATION_BRAKE_DECEL
   /** Preload while the complete platform is still outside the side-window frustum. */
@@ -60,6 +66,11 @@ export class TrainCamera {
     CRUISE_SPEED * TrainCamera.STATION_BRAKE_SECONDS + TrainCamera.STATION_STOP_DISTANCE
 
   camera: THREE.PerspectiveCamera
+  private railProfile = { height: trackElevationAt, grade: trackGradeAt }
+  setRailProfile(profile: { height: (s: number) => number; grade: (s: number) => number } | null) {
+    this.railProfile = profile ?? { height: trackElevationAt, grade: trackGradeAt }
+    this.applyViewPose(this.camera.position.z, 0)
+  }
   private time = 0
   private passengerView: PassengerView = 'window'
 
@@ -233,13 +244,13 @@ export class TrainCamera {
     const cosPitch = Math.cos(pitch)
     this.camera.position.set(
       this.vibX * vibration,
-      trackElevationAt(z) + CAMERA_Y + this.vibY * vibration,
+      this.railProfile.height(z) + CAMERA_Y + this.vibY * vibration,
       z,
     )
     const targetZ = this.camera.position.z + Math.cos(yaw) * cosPitch * LOOK_DISTANCE
     this.lookTarget.set(
       this.camera.position.x + Math.sin(yaw) * cosPitch * LOOK_DISTANCE,
-      trackElevationAt(targetZ) + CAMERA_Y + Math.sin(pitch) * LOOK_DISTANCE,
+      this.railProfile.height(targetZ) + CAMERA_Y + Math.sin(pitch) * LOOK_DISTANCE,
       targetZ,
     )
     this.camera.lookAt(this.lookTarget)
@@ -260,11 +271,11 @@ export class TrainCamera {
   }
 
   get grade(): number {
-    return trackGradeAt(this.camera.position.z)
+    return this.railProfile.grade(this.camera.position.z)
   }
 
   get elevation(): number {
-    return trackElevationAt(this.camera.position.z)
+    return this.railProfile.height(this.camera.position.z)
   }
 
   get pitch(): number {

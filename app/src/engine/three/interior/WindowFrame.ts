@@ -3,6 +3,9 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { buildSoftSeatCoach, buildSeatLuggageRacks } from './SoftSeatCoach'
 import { PASSENGER_VIEWS, type PassengerView } from '../core/PassengerView'
 
+// Cabin authoring uses a larger modelling grid; convert once to world metres.
+// 1.05-unit cushion -> 0.58 m; the preserved window-seat projection stays identical.
+const CABIN_METRES_PER_UNIT = 0.55
 const OPENING_W = 4.0
 const OPENING_H = 2.3
 const FRAME_T = 0.14
@@ -11,7 +14,7 @@ const WINDOW_CENTER_Y = 0.3
 const WINDOW_BOTTOM_Y = WINDOW_CENTER_Y - OPENING_H / 2
 const COACH_CEILING_Y = 2.12
 const COACH_WINDOW_CENTERS = [-5.3, 0, 5.3] as const
-const COACH_END_DOOR_X = COACH_WINDOW_CENTERS[COACH_WINDOW_CENTERS.length - 1] + OPENING_W / 2 + 0.34
+const COACH_END_DOOR_X = COACH_WINDOW_CENTERS[COACH_WINDOW_CENTERS.length - 1] + OPENING_W / 2 + 0.75
 
 // The physical cabin wall extends past the widened view volume, so the exterior
 // can only be visible through the glazed opening at every supported aspect.
@@ -126,7 +129,7 @@ export function coachCabinLayout(): CoachCabinLayout {
  * window rather than pulling the passenger back into the aisle. */
 export function windowFrameViewportLayout(_aspect: number, view: PassengerView = 'window'): WindowFrameViewportLayout {
   const pose = PASSENGER_VIEWS[view]
-  return { frameDistance: pose.wallDistance, scale: 1, yOffset: pose.wallYOffset, forwardOffset: pose.windowOffset }
+  return { frameDistance: pose.wallDistance * CABIN_METRES_PER_UNIT, scale: CABIN_METRES_PER_UNIT, yOffset: pose.wallYOffset * CABIN_METRES_PER_UNIT, forwardOffset: pose.windowOffset * CABIN_METRES_PER_UNIT }
 }
 
 /** The passive journey rail occupies one real cabin/window plane. Its
@@ -698,6 +701,10 @@ export class WindowFrame {
         opacity: 0.68,
       }),
     )
+    // Close the aisle side of the visible bay when the passenger turns.
+    const aisleWall = new THREE.Mesh(this.box(WALL_W - 1.2, 4.12, 0.12), wallMat)
+    aisleWall.position.set(0, 0.03, 4.5)
+    this.group.add(aisleWall)
     // The bulkhead ends at the window wall: extending it through local Z < 0
     // puts cabin geometry outside the train, visible from a close window seat.
     const endWall = new THREE.Mesh(this.box(0.14, 4.02, 4.6), wallMat)

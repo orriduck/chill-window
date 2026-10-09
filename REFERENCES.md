@@ -38,3 +38,102 @@
 ### 靠窗眼位调整
 
 本次沿用上述软座实景与西子号已归档观察中的“座椅与窗对应、桌面位于身侧”的空间关系，具体近窗构图由用户当次反馈及本地几何校准，不新增或声称测得真实车型尺寸。实现为 `core/PassengerView.ts`、`Camera.ts` 和 `interior/WindowFrame.ts` 的统一眼位；F2 可对比原走道视角。[同场景对照记录](docs/visual-checks/2026-09-04/README.md)。
+
+## 2026-09-04 座椅比例、塘田地景与真实速度
+
+| 来源与核查 | 可观察的内容及采用范围 | 关联代码 |
+| --- | --- | --- |
+| [FAO 湖州桑基鱼塘系统](https://www.fao.org/giahs/giahs-around-the-world/china-zhejiang-huzhou-system/en)，[页面原始航拍照片](https://www.fao.org/media/images/giahslibraries/giahs-sites/zhejiang-huzhou-mulberry-dyke---banner.jpg?sfvrsn=1a466b98_11)；本日读取说明并下载查看照片 | 水面低于塘埂；池塘由狭窄堤岸、树列与小路分隔；白墙灰屋顶的小院聚集在可达道路边。采用塘田、水渠、堤岸植被、小院的空间关系；当前仍为规则化程序地景，不是测绘重建，不声称列车经过这一遗产地。照片仅供研究，未作为运行时纹理。 | `FieldLayout.ts`、`FieldPlots.ts`、`WetlandDetails.ts`、`TerrainGen.ts`、`TerrainLOD.ts`、`DistantHills.ts` |
+| [TravelChinaGuide 软座原图](https://www.travelchinaguide.com/images/photogallery/2013/soft-seats.jpg)；本日重新下载查看 | 坐垫具有完整可坐深度，座椅之间有可辨识扶手；椅背不应像窗墙上的窄竖板。结合用户截图加宽、加深坐垫，下调靠背高宽比，外移窗边座椅，露出窗侧扶手和独立底座；具体比例是设计校准，未称为真实车型测量值。 | `SoftSeatCoach.ts`、`WindowFrame.ts`、`PassengerView.ts` |
+
+运动采用一场景单位一米，160 km/h = 44.444 m/s；原来 15 单位/秒仅相当于 54 km/h。沿线既有 50 米杆距可作通过频率标尺。F2 增加 0/54/80/160 比较与按浏览器实际时间、坐标差计算的读数；修正长旅程车站搜索范围及起停时间预算。这些是代码内物理换算，不是从视频猜测速度。
+
+## 2026-10-09：连续地形、地理顺序与聚落尺度
+
+本轮核查于 2026-10-09。技术参考查看官方文档与作者仓库；下面区分已采用机制和仅供后续选择的素材。不声称复刻真实路线。
+
+| 来源 / 具体定位 | 观察与采用内容 | 关联实现 |
+| --- | --- | --- |
+| [City Tour 的世界生成源码](https://github.com/jstrait/city-tour/blob/master/src/generators/world_generator.js)，`generate` 中 terrain → neighborhoods → roadNetwork → zonedBlocks → buildings 的调用顺序 | 先生成统一世界数据，再依赖地形与道路安排街区和建筑。借鉴依赖顺序，未复制代码。城市核心用街网与地块组织，城区外围作为路线中的独立用地。 | `RouteFeatures.ts`、`Landscape.ts`、`CityDistrict.ts`、`TownGenerator.ts` |
+| [THREE.Terrain 作者仓库](https://github.com/IceCreamYou/THREE.Terrain)，README 的 Dynamic Terrain Materials、ScatterMeshes / ScatterGrass 和 seeded randomness；[滤波源码](https://github.com/IceCreamYou/THREE.Terrain/blob/gh-pages/src/filters.js) | 借鉴按高度、坡度和空间权重混合材质，地表覆盖与坡度/用地共用约束。继续使用现有 simplex-noise 与地形网格；没有引入整个库。当前过渡直接混合两个地形的计算结果，而非改变噪声频率。 | `Landscape.ts`、`TerrainGen.ts`、`TerrainLOD.ts` |
+| [Three.js InstancedMesh 官方文档](https://threejs.org/docs/pages/InstancedMesh.html)，setMatrixAt、setColorAt、computeBoundingSphere | 重复建筑共享几何与材质，通过实例矩阵、颜色表达位置与高度梯度。屋顶采用独立材质；避免每栋楼创建完整模型与独立贴图。 | `CityDistrict.ts` |
+| [Slow Roads 作者案例（web.dev）](https://web.dev/case-studies/slow-roads)，程序化景观与几何细节章节；[原体验](https://slowroads.io/) | 借鉴行进中持续生成、远近景分工与克制的几何复杂度。原体验 URL 可达，网页没有提供可直接读出的引擎源码；不将第三方镜像当作者源码。 | `TerrainLOD.ts`、`DistantHills.ts`、`TerrainInspector.ts` |
+| [NASA：成都城市扩展](https://science.nasa.gov/earth/earth-observatory/urban-growth-in-sichuan-china-4039/)，[Landsat 1990–2000 对比原图](https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/4000/4039/chengdu_etm_1990-2000_lrg.jpg) | 本轮在浏览器查看图像：黄色城市核心与橙色外围扩展区并存，外围沿道路延伸，周边用地形成连续斑块。采用“乡村→小城→外围→核心→外围”的组织；卫星图不能证明单栋建筑立面或高度，因此立面仍为程序化占位。 | `RouteFeatures.ts`、`CityDistrict.ts` |
+| [NASA MODIS：阿尔卑斯与波河平原，2019-06-07](https://modis.gsfc.nasa.gov/gallery/individual.php?db_date=2019-06-07) | 本轮核查页面文字说明：山脉环抱低地平原。采用山地经山麓过渡到低地的地理规则；未据此测量坡度或恢复 DEM。 | `RouteFeatures.ts`、`TerrainGen.ts` |
+| 上文已留档的[藻蝦 7000 公里中国窗景](https://www.youtube.com/watch?v=tu-So4CfDoc&t=402s)，06:42 农田、30:44 草原、1:06:06 草甸与山体 | 沿用已有画面研究中“近景铁路/植被、中景成片用地、远景轮廓”的尺度划分，本轮没有重新逐帧观看，不新增视频观察结论。 | `TerrainLOD.ts`、`FieldPlots.ts`、`DistantHills.ts` |
+| [Kenney City Kit (Suburban)](https://kenney.nl/assets/city-kit-suburban)，[Poly Haven 许可](https://polyhaven.com/license) | 素材调研候选，页面注明 CC0。可供下一轮房屋模块、地面 PBR 素材选择；本轮未下载、导入或声称已经应用。现有房屋仍含此前欧洲式工厂，需要继续做地域风格校准。 | 后续 `TownGenerator.ts` 与材质资产工作 |
+
+上述代码路径均相对于 `app/src/engine/three/`（调试面板在 `core/`，其余在 `terrain/`）。本轮设计与实现顺序见 `docs/superpowers/specs/2026-10-09-continuous-landscape-design.md`、`docs/superpowers/plans/2026-10-09-continuous-landscape.md`。
+
+## 2026-10-09：九区块俯视编辑
+
+| 来源 / 核查 | 具体采用范围 | 关联实现 |
+| --- | --- | --- |
+| [Three.js OrbitControls 官方文档](https://threejs.org/docs/pages/OrbitControls.html)，本日读取 `target`、`mouseButtons`、缩放距离与俯仰限制、damping 的说明 | 独立地图相机，左键平移、滚轮缩放、右键旋转；限制距离和俯仰，回到列车时清除惯性。地图平移不改变列车坐标。 | `core/TerrainEditor.ts`、`ThreeCanvas.tsx` |
+| [Cities: Skylines II 官方介绍](https://www.paradoxinteractive.com/games/cities-skylines-ii/about)，本日读取官方页面 | 用户明确提出城市天际线式俯视交互；采用俯视地表、直接选地块、选中后再显示设置的操作模型。没有逐帧研究游戏界面或复制其资产、尺寸及游戏机制。 | `core/TerrainInspector.ts`、`core/TerrainEditor.ts` |
+
+地形与聚落素材继续沿用上节研究和现有模型。每块 256 米，编辑只作用于选中块；48 米边缘权重回到原地形。建筑与农田落在中央区域，避免占用过渡坡。当前调试改动保留在本次页面会话内，刷新恢复种子原始世界；不是 GIS 或完整城市规划模拟器。视觉记录见 [九区块编辑验收](docs/visual-checks/2026-10-09-chunk-editor/README.md)。
+
+### 同世界切换（后续用户反馈）
+
+用户提出 GTA 式自由切换的感觉，落实为游戏内模式切换：普通网址下按钮或 F5 进入独立九区块镜头，Esc 返回原列车，全程不导航。沿用上述 OrbitControls 与现有场景研究，没有增加或复制 GTA 游戏资产。`debugTerrain` 参数只用于初始模式；普通与调试共用同一个连续路线种子、地形编辑存储及列车状态。调试期间列车物理、旅程计时和环境时间暂停，用户原先手动暂停保持独立。
+
+关联实现：`core/DebugMode.ts`、`core/TerrainInspector.ts`、`core/TerrainEditor.ts`、`ThreeCanvas.tsx`、`pages/Home.tsx`。计划及验收见 [模式切换记录](docs/superpowers/plans/2026-10-09-live-debug-switch.md)。
+
+## 2026-10-09：单侧六区块、共享模型与更平滑的生成
+
+这一节更新上文九区块/48 米边缘带的实现状态。现为单侧两列、前中后三排，共六个带模型的详细地块；自然编辑采用径向 C2 权重，地形与模型在地图和车窗共用。
+
+| 一手来源与本轮定位 | 学到的机制 / 实际采用范围 | 关联代码 |
+| --- | --- | --- |
+| [Slow Roads 作者案例](https://web.dev/case-studies/slow-roads)，程序化几何、提前加载与细节分配章节 | 将详细生成限于移动走廊，外面保留低细节背景。采用六个详细地块和无模型的外围地形环；没有取得或复制 Slow Roads 引擎源码。 | `TerrainFootprint.ts`、`TerrainLOD.ts` |
+| [ZyFou/ProceduralTerrains](https://github.com/ZyFou/ProceduralTerrains/tree/7452c2ce5dc598be020a44735d78e444ae0ed255)，本轮读取 `src/engine/terrain/terrainGLSL.js` 与 `surface/terrainSurfaceTextureGLSL.js` | 多尺度噪声、坐标扰动、缓和的 ridge、世界坐标三向材质投影。采用自有 CPU 地形、圆润山脊/径向编辑、世界坐标岩石三向投影，避免斜坡纹理拉长；没有移植其整套 GLSL 地形引擎。 | `TerrainGen.ts`、`TerrainEdits.ts`、`Landscape.ts`、`TerrainLOD.ts` |
+| [dgreenheck/simcity-threejs-clone](https://github.com/dgreenheck/simcity-threejs-clone/tree/9116cf680f677c3476f8159d5bbc7a4cfda00654)，本轮读取 `src/scripts/assets/assetManager.js` 与 `sim/buildings/modules/roadAccess.js` | GLTF 目录一次加载、复用模型；建筑需要可达道路。采用本地模型缓存、实例绘制和朝街道布置的地块/入口，加地基坡度与干地约束。没有复制其城市模拟系统、界面或资产。 | `SceneryAssets.ts`、`PatchScenery.ts` |
+| [jstrait/city-tour](https://github.com/jstrait/city-tour/tree/b1fa4701b424c3b1b47757c29c2e3df7b5709964)，本轮读取 `src/generators/terrain/terrain_generator.js` | terrain → erosion → river → normalize 分阶段整理地形。本项目借鉴“地形先行，模型依赖地形”的顺序；本轮没有实现其水力侵蚀或 diamond-square。 | `TerrainGen.ts`、`PatchScenery.ts` |
+| [Kenney Nature Kit](https://kenney.nl/assets/nature-kit)、[Suburban](https://kenney.nl/assets/city-kit-suburban)、[Commercial](https://kenney.nl/assets/city-kit-commercial)，官方 ZIP 与原始许可 | 官方页面/包内许可为 CC0。本轮查看 Nature、Suburban 的 `Preview.png`：树种与岩石轮廓不同，住宅带屋顶、窗户和附属细节。导入共 16 个 GLB，保留各包许可、调色板路径与 SHA-256 清单；Commercial 的模型通过本地实际渲染检查。属于简化游戏素材，不声称为地方建筑复刻。 | `app/public/models/kenney/`、`SceneryAssets.ts`、`PatchScenery.ts` |
+| 上文已留档的 [FAO 湖州塘田系统](https://www.fao.org/giahs/giahs-around-the-world/china-zhejiang-huzhou-system/en) 和铁路视频 | 沿用已归档的低地田块/水渠/道路及近中远景观察。本轮重新读取 FAO 文字；原始照片请求返回 403，因此不声称本轮重新查看照片或视频。农田采用成片分格、田垄与近景作物，具体尺寸为程序设计值。 | `PatchScenery.ts` |
+
+代码路径除明确标注者外位于 `app/src/engine/three/terrain/`。调试先增加六区块范围、场景快捷入口与加载状态，随后才做模型/地形视觉检查。计划见 [六区块计划](docs/superpowers/plans/2026-10-09-six-chunks-and-scenery.md)，结果见 [实际视觉检查](docs/visual-checks/2026-10-09-six-chunks/README.md)。
+
+## 2026-10-09：OSM + Amtrak + 高程数据的真实地图可行性
+
+本节为数据可行性研究，尚未接入真实地图或真实车窗世界。核查于 2026-10-09。
+
+| 一手来源 | 核查结果与拟采用范围 | 接入位置（拟） |
+| --- | --- | --- |
+| [Amtrak 官方路线目录](https://www.amtrak.com/train-routes) 与 [USDOT/FRA Amtrak Routes GIS](https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0) | GIS 端点描述数据更新于 2026-05-12，支持 GeoJSON、坐标系 EPSG:4326、无 Z 高程。匿名实际查询返回 49 条路线；Empire Service 几何查询返回 288280 bytes、1 个 LineString，证明数据可以读取，不是从示意地图描线。目录/旧 XML 写着 2025-09-30，比实时服务元数据旧，接入时以实际抓取来源及日期留档。服务状态需另外核对官方站序/路线，不能把 GIS 快照当实时列车或时刻表。 | 新 GeoRoute 数据层；替换当前直线里程定位的来源 |
+| [OSM 铁路文档](https://wiki.openstreetmap.org/wiki/Railways)、[Map Features](https://wiki.openstreetmap.org/wiki/Map_features)、[ele 说明](https://wiki.openstreetmap.org/wiki/Key:ele) | OSM 提供铁路、桥隧、道路、水域、建筑和用地等几何/标签；覆盖程度因地域和对象不同。ele 是部分地物的点高程，OSM 明确不作为完整高程数据库。拟用于真实地物范围与铁路工程标签，缺失的建筑高度/立面/植被细节仍程序补足。 | 地物布局、桥隧判定、模型布置 |
+| [USGS 3DEP 产品说明](https://www.usgs.gov/3d-elevation-program/about-3dep-products-services) | 美国境内约 10m 的 1/3 arc-second 无缝 DEM 可提供山体/河谷地形骨架；地面采样间距不是垂直精度承诺。拟先裁剪小段铁路走廊、统一坐标/高程基准，再采样网格；桥面和隧道线路不能直接跟随裸地高程。尚未下载/验证某段 DEM。 | `TerrainGen.ts` 的真实高程 provider |
+| [MapLibre 3D Terrain 官方示例](https://maplibre.org/maplibre-gl-js/docs/examples/3d-terrain/) | 官方示例通过 raster-dem 与 terrain.source 渲染地形，适合先做可缩放的真实路线俯视预览；本次只读示例，没有导入依赖、运行地图或验证第三方瓦片服务。 | 可选独立真实地图预览 |
+| [OSM 许可与署名](https://www.openstreetmap.org/copyright) | OSM 数据按 ODbL 提供，地图须保留贡献者署名并按具体数据发布形式落实许可要求。原型也应保留来源，不把 OSM 栅格底图当可无限批量下载的数据服务。 | 地图归属信息、数据包 provenance |
+
+接入顺序建议：真实路线折线/站序 → DEM 地形预览 → OSM 走廊地物 → Three.js 车窗。当前代码铁路为 x=0、沿 Z 行进，高程来自 `RouteProfile.ts` 正弦函数；真实路线需要按沿线累计里程求地理位置与方向，地图与车窗共用该位置。现有六区块可作为局部详细渲染预算，需调整世界坐标与选区，不能仅替换地形噪声。第一段可选择 Empire Service 的纽约—Albany 走廊中的小范围，具体路线/预览或直接车窗接入待用户选择。
+
+## 2026-10-09：真实 Hudson 车窗样板（已接入）
+
+本节更新上节的可行性状态：已将 Empire Service 北纬 41.44–41.27 的约 22.84 km 南行样板直接接入 Three.js，地图与车窗共用真实数据。原程序世界另可切换。核查日期 2026-10-09。
+
+| 一手来源 / 本次查看内容 | 具体采用范围 | 关联实现 |
+| --- | --- | --- |
+| [FRA/BTS NTAD Amtrak Routes](https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0)，实时端点元数据及 Empire Service GeoJSON 原始响应 | 使用服务折线的 443 个点，北向南裁剪后累计 22,837.38 m；按里程插值位置和切线。不是从路线宣传图描线，也不表示实时运营或时刻表。 | `app/scripts/prepare-hudson.py`、`geography/GeoData.ts`、`ThreeCanvas.tsx` |
+| [USGS 3DEP ImageServer](https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer)，F32 exportImage 实际 TIFF、元数据及全像素对比 | 本地 961 × 1169 高程网格，约 20m 地面采样；详细和远处网格均使用该 DEM。20m 是重采样间距，不是原始传感器分辨率或垂直精度。裸地不等于轨面；桥隧以相邻非工程锚点估计高程，限制纵坡。 | `GeoData.ts`、`RealWorld.ts`；原始 TIFF、导出请求和校验记录在 `app/public/geodata/hudson/` |
+| [OSM Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API)、[Map Features](https://wiki.openstreetmap.org/wiki/Map_features) 与本次实际要素响应 | 河岸、水域、岛屿、林地、农田、道路、建筑 footprint、铁路桥隧标签。水域保留 47 个内环；用 OSM mask 避免低细节山体三角形穿过真实水面。树种/树高/建筑缺失高度、桥面/隧壁、水位均是明示的可视化近似。 | `GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts` |
+| [NYS Parks Hudson Highlands 北区步道地图](https://parks.ny.gov/sites/default/files/HudsonHighlandsTrailMapNorth.pdf)，本日下载并渲染查看单页，图注制作日期 2025-09-11；[公园说明](https://parks.ny.gov/visit/state-parks/hudson-highlands-state-park-preserve) | 地图可见 Cold Spring / Beacon 河岸狭长低地、紧邻的密集山体等高线、城镇道路和大片高地保护区。用作区域地形/用地关系核对；北区地图并不覆盖整个样板南段，没有把步道路线当铁路数据。 | `RealWorld.ts` 真实高程与土地分类、`GeoData.ts` 样板选段 |
+| [NPS：11_13 Train view.jpg](https://www.nps.gov/media/photo/gallery-item.htm?gid=BE181FF0-E399-4D9A-9242-0C7623C3ABEF&id=27d155cd-5c99-47ce-a1dc-930e7443cd44)，署名 NPS/Elizabeth LaRochelle；本日在 Chrome 查看原画面 | 宽阔水面位于车窗近中景，对岸丘陵构成较低地平线，窗框形成边缘遮挡；雨后玻璃有水滴。只借鉴沿河列车构图，不声称此照片拍摄于样板某一里程，不作为运行时纹理。 | `RealWorld.ts` 河岸与远景、`ThreeCanvas.tsx` 侧窗朝西 |
+| [OpenStreetMap 许可/署名](https://www.openstreetmap.org/copyright) | 真实世界常驻 OSM 贡献者署名，检查面板附 FRA/USGS/OSM 链接。本地包保留许可、原始来源与时间、原始响应、SHA-256、精确请求及派生处理说明。 | `GeoInspector.ts`、`app/public/geodata/hudson/README.md`、`manifest.json` |
+
+代码 `GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts` 位于 `app/src/engine/three/geography/`。数据包按阶段验证后发布，失败保留上一份有效快照；缓存要求请求身份和 checksum 一致，允许合法 fallback 来源完整离线重放。当前低细节林冠、建筑体块与桥隧工程是简化表达，未重建真实立面、车站、信号设备或完整 Amtrak 全国路线。
+
+## 2026-10-09：真实建筑数据与开源转换器调查（云端接续）
+
+核查日期 2026-10-09。下列是已读取官方文档/作者仓库的候选，尚未集成其代码或模型。
+
+| 来源 | 核查与用途 | 接续位置 |
+| --- | --- | --- |
+| [OSM2World 源码](https://github.com/tordanik/OSM2World)、[官方 Web library](https://osm2world.org/docs/library-web/) | 专用 OSM→3D converter，仓库 MIT；Web模块输出位置、法线、索引、材质网格，可接 Three.js。官方提示客户端转换适合较小数据集，样式资源建议自己托管。优先评估离线区域转换/按块GLB，而非重写整套道路和屋顶逻辑。 | geography 数据与模型管线 |
+| [Blosm 文档/源码](https://github.com/vvoovv/blosm/wiki/Documentation) | Blender 插件支持 OSM 建筑part、楼高/层数、多种屋顶、水域、道路/铁路与真实地形；文档注明缺失墙/屋顶材料使用默认材料，不能当真实立面数据。GPL 插件适合离线转换评估。 | 离线模型资产管线候选 |
+| [Three-geo-play](https://github.com/lorenzoMezza/Three-geo-play)、[Geo-three](https://github.com/tentone/geo-three) | 前者是 Three.js 矢量瓦片几何方案候选，仓库 MIT；后者强调真实高程瓦片/地图provider与LOD，并不自行补齐真实建筑属性。当前没有导入依赖或验证样板效果。 | 真实瓦片流式加载候选 |
+| [Overture building schema](https://docs.overturemaps.org/schema/reference/buildings/building/)、[building guide](https://docs.overturemaps.org/guides/buildings/)、[Python client](https://docs.overturemaps.org/getting-data/overturemaps-py/) | schema提供height、num_floors、roof_shape/height/direction、facade属性及sources，字段可为空；building_part可表述复杂建筑。优先OSM几何、合并匹配高度；官方匹配IoU>0.5。STAC实际读到latest=2026-09-23.1；尚未查询Hudson区域数量/高度覆盖。 | 云端建筑扩充与来源标注 |
+| [Microsoft GlobalMLBuildingFootprints](https://github.com/microsoft/GlobalMLBuildingFootprints) | 影像提取轮廓与模型估计高度，缺失高度为-1。可作数据候选，不能把预测高度称作测量值。NYS LiDAR可进一步研究，但本轮未取得建筑级点云高度。 | 真实建筑覆盖候选 |
+
+直接案例 [YusufEminoglu/osm_3d_model](https://github.com/YusufEminoglu/osm_3d_model) 也可研究，其README明确包含procedural建筑/树木等细节；与“全部真实数据”的目标需要区分实际OSM几何和生成的细节，不能整体照搬并宣称真实。

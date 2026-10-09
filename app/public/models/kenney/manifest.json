@@ -1,0 +1,82 @@
+[
+  {
+    "file": "nature/tree_detailed.glb",
+    "sha256": "c041daf2f0fb1d49e4325227cbcd58667adbe51e9b55e8c1f0a94b74cc521b3b",
+    "bytes": 31412
+  },
+  {
+    "file": "nature/tree_oak.glb",
+    "sha256": "d7fd8773674928c50c11b66d12c636d49bdcc15a8b1c7fbb98e6f63a3439a3f3",
+    "bytes": 14644
+  },
+  {
+    "file": "nature/tree_pineRoundA.glb",
+    "sha256": "7dc9711f31585eafdcb965d0649c30af5e19f2def1955f7a915081d30759ef8e",
+    "bytes": 14488
+  },
+  {
+    "file": "nature/tree_pineTallA.glb",
+    "sha256": "e0a56eb196d8a64ba86c7304d607136e17e6f9ad748dffcf86bd53b18b91b196",
+    "bytes": 7200
+  },
+  {
+    "file": "nature/rock_largeA.glb",
+    "sha256": "6dd15390fd96501dcd1454765a17ba61dbbd8d47705dfe5149c8dd92b353ce25",
+    "bytes": 7552
+  },
+  {
+    "file": "nature/rock_largeB.glb",
+    "sha256": "caa8b025833d4dabf6d98fe2e96cf2fbd886693ac990df0db75f9d827194374b",
+    "bytes": 8560
+  },
+  {
+    "file": "nature/crops_cornStageD.glb",
+    "sha256": "d90d9cbba85e99526b254adee638495f914480831ab41d00807378c004c112c3",
+    "bytes": 29316
+  },
+  {
+    "file": "suburban/building-type-a.glb",
+    "sha256": "49f32e20b9dcd24b1c8f6d6488807b8c8cb684cbb595bfb0bb36ad903e470faa",
+    "bytes": 98604
+  },
+  {
+    "file": "suburban/building-type-c.glb",
+    "sha256": "86a69f30f1a09461283e158514945ae5cc9d56357b0ddc83a9a3f0eecd113591",
+    "bytes": 99592
+  },
+  {
+    "file": "suburban/building-type-e.glb",
+    "sha256": "9ec43994c8c332b1ae5b058d8b9646255831fd91047c1a35b1fc1ecae4c082fc",
+    "bytes": 145512
+  },
+  {
+    "file": "commercial/building-a.glb",
+    "sha256": "5cf220f90ee3f21e7abe38055ca409a48aa8ef1d5ffab6e2deb99e5a5e1ed5e0",
+    "bytes": 108936
+  },
+  {
+    "file": "commercial/building-d.glb",
+    "sha256": "40605608e9aca0c98e294acff4af0f74afa417a51d589be490ca98f33ce4c2f5",
+    "bytes": 95160
+  },
+  {
+    "file": "commercial/building-h.glb",
+    "sha256": "6881613ce218bb33a0f56137d4d33b00d307c47e518fbb21ccba1083efbea896",
+    "bytes": 127384
+  },
+  {
+    "file": "commercial/building-skyscraper-a.glb",
+    "sha256": "d8339bbb75944ff91d1ec9a70ec6dead71bd98b94a42d3dd0fc1f3b107ddbe85",
+    "bytes": 111336
+  },
+  {
+    "file": "commercial/building-skyscraper-b.glb",
+    "sha256": "3a383e8a0a8819023d30b2aee1c6f40fa6bc28990227a306a86e531f36c6b8d5",
+    "bytes": 138480
+  },
+  {
+    "file": "commercial/building-skyscraper-c.glb",
+    "sha256": "e73c357554f7561fedb8c1cbecf9d7163ba09ada264d661c59a0f0a180e0185f",
+    "bytes": 149524
+  }
+]

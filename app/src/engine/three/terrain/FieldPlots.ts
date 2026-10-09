@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { FIELD_LANES, FIELD_LENGTH, FIELD_PITCH } from './FieldLayout'
+import { FIELD_LANES, FIELD_LENGTH, FIELD_PITCH, isPondParcel } from './FieldLayout'
+import { trackElevationAt } from './RouteProfile'
 import { hash01 } from '../core/procedural'
 
 const PLOT_COUNT = 36
@@ -12,7 +13,7 @@ const PLOT_X_MAX = 92
 const BALE_COUNT = 12
 
 type HeightSampler = (x: number, z: number) => number
-type FieldSampler = (z: number) => boolean
+type FieldSampler = (z: number) => boolean | number
 
 export function shouldShowFieldBale(isField: boolean): boolean {
   return isField
@@ -30,6 +31,8 @@ export class FieldPlots {
   private colorScratch = new THREE.Color()
 
   private materials: THREE.MeshStandardMaterial[] = []
+  private canals: THREE.Mesh[] = []
+  private pondMaterial: THREE.MeshStandardMaterial
   private plots: { mesh: THREE.Mesh; cx: number; cz: number; index: number }[] = []
   private bales: THREE.InstancedMesh
   private baleData: { x: number; z: number; rot: number; s: number; visible: boolean }[] = []
@@ -39,14 +42,25 @@ export class FieldPlots {
 
     // One material per crop type, shared across plots
     this.materials = [
-      this.makeCropMaterial('#c9a851', '#b08f3c', 0.25), // ripe wheat
-      this.makeCropMaterial('#4e7c36', '#3c6329', 0.3), // green vegetables
+      this.makeCropMaterial('#99ad56', '#859b45', 0.12), // mature rice
+      this.makeCropMaterial('#74934b', '#688640', 0.12), // green vegetables
       this.makeCropMaterial('#6e4c2f', '#5b3d25', 0.35), // ploughed soil
-      this.makeCropMaterial('#d6c63a', '#b8a92c', 0.2), // flowering rapeseed
+      this.makeCropMaterial('#b4b96b', '#a1ab55', 0.12), // flowering rapeseed
     ]
 
+    this.pondMaterial = this.makeCropMaterial('#557f86', '#527d83', 0.03)
+    this.pondMaterial.roughness = 0.3
+    this.pondMaterial.metalness = 0.12
+
+    for (let i = 0; i < 12; i++) {
+      const canal = new THREE.Mesh(new THREE.BufferGeometry(), this.pondMaterial)
+      this.canals.push(canal)
+      this.group.add(canal)
+    }
     for (let i = 0; i < PLOT_COUNT; i++) {
-      const mesh = new THREE.Mesh(this.buildPlotGeometry(0, 0), this.materials[i % this.materials.length])
+      const plotMaterial = this.track(this.materials[i % this.materials.length].clone())
+      plotMaterial.transparent = true
+      const mesh = new THREE.Mesh(this.buildPlotGeometry(0, 0), plotMaterial)
       mesh.receiveShadow = true
       const plot = {
         mesh,
@@ -84,7 +98,7 @@ export class FieldPlots {
 
   /** Each plot follows its own world-space biome, so a whole field never
    * disappears in one frame when the train crosses a segment boundary. */
-  update(camZ: number, isFieldAt: FieldSampler) {
+  update(camZ: number, isFieldAt: FieldSampler, isSettlementAt: (x: number, z: number) => boolean = () => false) {
     this.group.visible = true
     for (const plot of this.plots) {
       const baseZ = Math.floor(plot.index / FIELD_LANES.length) * FIELD_PITCH + FIELD_PITCH / 2
@@ -93,9 +107,30 @@ export class FieldPlots {
         plot.cz = desiredZ
         this.rebuildPlot(plot)
       }
-      plot.mesh.visible = isFieldAt(plot.cz)
+      const strength = Number(isFieldAt(plot.cz))
+      plot.mesh.visible = strength > 0.05 && !isSettlementAt(plot.cx, plot.cz)
+      const material = plot.mesh.material as THREE.MeshStandardMaterial
+      material.opacity = THREE.MathUtils.smoothstep(strength, 0.05, 0.9)
     }
 
+    for (let i = 0; i < this.canals.length; i++) {
+      const canal = this.canals[i]
+      const start = (Math.floor(camZ / 100) - 2 + i) * 100
+      if (canal.userData.start !== start) {
+        canal.userData.start = start
+        canal.geometry.dispose()
+        const geom = new THREE.PlaneGeometry(4, 100, 1, 25)
+        geom.rotateX(-Math.PI / 2)
+        const pos = geom.attributes.position
+        for (let v = 0; v < pos.count; v++) {
+          const wz = start + 50 + pos.getZ(v)
+          pos.setXYZ(v, 88 + pos.getX(v), trackElevationAt(wz) - 0.95, wz)
+        }
+        geom.computeVertexNormals()
+        canal.geometry = geom
+      }
+      canal.visible = Number(isFieldAt(start + 10)) > 0.8 && Number(isFieldAt(start + 90)) > 0.8 && !isSettlementAt(88, start + 50)
+    }
     let balesChanged = false
     for (let i = 0; i < BALE_COUNT; i++) {
       const b = this.baleData[i]
@@ -103,7 +138,7 @@ export class FieldPlots {
         this.resetBale(i, b.z + Math.ceil((camZ - PLOT_BEHIND - b.z) / PLOT_WINDOW) * PLOT_WINDOW)
         balesChanged = true
       }
-      const visible = shouldShowFieldBale(isFieldAt(b.z))
+      const visible = false // Wetland parcels use mulberry dykes, not scattered hay bales.
       if (visible !== b.visible) {
         b.visible = visible
         this.writeBale(i)
@@ -119,8 +154,19 @@ export class FieldPlots {
   /** Rebuild a plot's geometry at its current centre, conformed to terrain. */
   private rebuildPlot(plot: { mesh: THREE.Mesh; cx: number; cz: number; index: number }) {
     plot.mesh.geometry.dispose()
-    plot.mesh.geometry = this.buildPlotGeometry(plot.cx, plot.cz, FIELD_LANES[plot.index % FIELD_LANES.length].width)
-    plot.mesh.material = this.materials[Math.floor(hash01(plot.index, plot.cz, 2) * this.materials.length)]
+    const lane = plot.index % FIELD_LANES.length
+    const pond = isPondParcel(lane, Math.floor(plot.cz / FIELD_PITCH))
+    if (pond) {
+      const geom = new THREE.PlaneGeometry(FIELD_LANES[lane].width - 14, PLOT_L - 14)
+      geom.rotateX(-Math.PI / 2)
+      geom.translate(plot.cx, trackElevationAt(plot.cz) - 0.95, plot.cz)
+      plot.mesh.geometry = geom
+      ;(plot.mesh.material as THREE.MeshStandardMaterial).copy(this.pondMaterial)
+    } else {
+      plot.mesh.geometry = this.buildPlotGeometry(plot.cx, plot.cz, FIELD_LANES[lane].width)
+      ;(plot.mesh.material as THREE.MeshStandardMaterial).copy(this.materials[Math.floor(hash01(plot.index, plot.cz, 2) * this.materials.length)])
+    }
+    ;(plot.mesh.material as THREE.MeshStandardMaterial).transparent = true
     // The geometry is built in world coordinates; keep the mesh at origin
     plot.mesh.position.set(0, 0, 0)
   }
@@ -206,6 +252,7 @@ export class FieldPlots {
   }
 
   dispose() {
+    for (const canal of this.canals) canal.geometry.dispose()
     for (const plot of this.plots) plot.mesh.geometry.dispose()
     for (const r of this.disposables) r.dispose()
     this.disposables = []

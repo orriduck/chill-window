@@ -10,6 +10,15 @@ export interface HeightParams {
   river?: number
   /** 0..1 — strength of the parallel road surface and vegetation clearing. */
   road?: number
+  farmland?: number
+  /** Broad positive ridges outside the railway corridor. */
+  ridge?: number
+  /** Cross-section of a river valley, keeping its floor open. */
+  valley?: number
+  /** Blend evaluated heights, never noise frequency or integer octave count. */
+  naturalSource?: HeightParams
+  blendTarget?: HeightParams
+  blendWeight?: number
 }
 
 export interface BiomeColors {
@@ -31,8 +40,9 @@ export interface BiomeConfig {
 export const BIOMES: Record<BiomeType, BiomeConfig> = {
   field: {
     heightParams: {
+      farmland: 1,
       baseHeight: 0,
-      amplitude: 3,
+      amplitude: 0.6,
       frequency: 0.015,
       octaves: 4,
       persistence: 0.5,

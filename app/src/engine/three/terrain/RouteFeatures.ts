@@ -1,4 +1,5 @@
 import type { BiomeType } from './Biome'
+import { hash01 } from '../core/procedural'
 
 /**
  * The route is the common source of truth for every feature that needs to
@@ -26,10 +27,10 @@ export const RIVER_LAKE_FADE_LENGTH = 70
 export const RURAL_LEVEL_CROSSING_OFFSET = ROUTE_SEGMENT_LENGTH * 0.34
 export const MIN_ROUTE_ANCHOR_SPACING = 90
 
-export type RouteLandform = 'rolling' | 'woodland' | 'settlement' | 'valley' | 'mountain'
+export type RouteLandform = 'plain' | 'foothills' | 'rolling' | 'woodland' | 'settlement' | 'valley' | 'mountain'
 export type RailwayEngineering = 'open' | 'halt' | 'regional-station' | 'urban-through' | 'valley-bridge' | 'tunnel'
 export type RoadRelation = 'none' | 'parallel' | 'station-access' | 'valley-access' | 'grade-separated'
-export type SettlementFabric = 'none' | 'farmsteads' | 'village' | 'regional-town' | 'urban-edge'
+export type SettlementFabric = 'none' | 'farmsteads' | 'village' | 'regional-town' | 'urban-edge' | 'city-core'
 export type StationKind = 'none' | 'rural-halt' | 'regional' | 'urban-through'
 export type RouteAnchorKind = 'level-crossing' | 'road-bridge' | 'river-village' | 'lakeshore' | 'tunnel'
 
@@ -48,10 +49,12 @@ export interface RouteBeat extends RouteFeature {
   roadRelation: RoadRelation
   settlement: SettlementFabric
   station: StationKind
+  label?: string
 }
 
 export interface RoutePlan {
   seed: number
+  continuous?: boolean
   beats: readonly RouteBeat[]
 }
 
@@ -82,6 +85,22 @@ export interface RouteContext {
 }
 
 const BEATS = {
+  plain: {
+    id: 'plain', label: '平原', biome: 'field', road: 0.25, tunnel: false,
+    landform: 'plain', engineering: 'open', roadRelation: 'parallel', settlement: 'none', station: 'none',
+  },
+  foothills: {
+    id: 'foothills', label: '山麓', biome: 'forest', road: 0.3, tunnel: false,
+    landform: 'foothills', engineering: 'open', roadRelation: 'parallel', settlement: 'none', station: 'none',
+  },
+  village: {
+    id: 'village', label: '村庄', biome: 'field', road: 0.6, tunnel: false,
+    landform: 'plain', engineering: 'open', roadRelation: 'parallel', settlement: 'village', station: 'none',
+  },
+  'city-core': {
+    id: 'city-core', label: '大城市', biome: 'town', road: 1, tunnel: false,
+    landform: 'settlement', engineering: 'urban-through', roadRelation: 'grade-separated', settlement: 'city-core', station: 'urban-through',
+  },
   'open-country': {
     id: 'open-country', biome: 'field', road: 0.3, tunnel: false,
     landform: 'rolling', engineering: 'open', roadRelation: 'parallel',
@@ -162,12 +181,63 @@ export function createRoutePlan(seed = DEFAULT_ROUTE_SEED): RoutePlan {
   }
 }
 
+/** Regions meet at a plain: neither a city nor a mountain appears at a seam.
+ * Within each region, city cores have suburbs on both sides, peaks have
+ * foothills, and water stays inside an actual valley. Random access is O(1). */
+const COUNTRY_BELT: readonly RouteBeatId[] = ['plain', 'open-country', 'village', 'regional-town', 'urban-edge', 'city-core', 'urban-edge', 'regional-town', 'village', 'open-country']
+const NATURE_BELTS: readonly (readonly RouteBeatId[])[] = [
+  ['plain', 'woodland', 'foothills', 'mountain-pass', 'foothills', 'river-valley', 'river-valley', 'foothills', 'woodland', 'plain'],
+  ['plain', 'woodland', 'foothills', 'river-valley', 'foothills', 'mountain-pass', 'mountain-pass', 'foothills', 'woodland', 'plain'],
+  ['plain', 'river-valley', 'river-valley', 'foothills', 'mountain-pass', 'foothills', 'woodland', 'woodland', 'plain', 'open-country'],
+]
+const LANDSCAPE_LABELS: Record<string, string> = {
+  'open-country': '农田', 'rural-halt': '乡村车站', woodland: '树林',
+  'regional-town': '小城市', 'urban-edge': '城市外围', 'river-valley': '山谷', 'mountain-pass': '山地',
+}
+export function routeBeatLabel(beat: RouteBeat): string {
+  return beat.label ?? LANDSCAPE_LABELS[beat.id] ?? BIOME_LABELS[beat.biome]
+}
+/** Debug probes sit at the actual feature centre, rather than empty space
+ * between settlement clusters. Every inspector shortcut uses this anchor. */
+export function routeInspectionZ(segment: number, plan: RoutePlan): number {
+  const beat = routeBeatForSegment(segment, plan)
+  const offset = beat.biome === 'river' ? RIVER_VILLAGE_OFFSET
+    : beat.settlement === 'village' ? 450
+    : ['regional-town', 'urban-edge'].includes(beat.settlement) ? 675
+    : beat.settlement === 'city-core' ? 750 : 650
+  return segment * ROUTE_SEGMENT_LENGTH + offset
+}
+
+function continuousIds(seed: number, region: number): readonly RouteBeatId[] {
+  const nature = NATURE_BELTS[Math.floor(hash01(region, seed, 61) * NATURE_BELTS.length)]
+  const country = COUNTRY_BELT.map(id => id === 'open-country' && hash01(region, seed, 68) > 0.7 ? 'plain' as const : id)
+  return region !== 0 && hash01(region, seed, 63) > 0.5 ? [...nature, ...country] : [...country, ...nature]
+}
+export function createContinuousRoutePlan(seed = 42): RoutePlan {
+  const normalised = normaliseSeed(seed)
+  return { seed: normalised, continuous: true, beats: continuousIds(normalised, 0).map(id => BEATS[id]) }
+}
+
 export const DEFAULT_ROUTE_PLAN = createRoutePlan()
+
+const regionCache = new WeakMap<RoutePlan, Map<number, readonly RouteBeatId[]>>()
 
 export function routeBeatForSegment(
   segmentIndex: number,
   plan: RoutePlan = DEFAULT_ROUTE_PLAN,
 ): RouteBeat {
+  if (plan.continuous) {
+    const region = Math.floor(segmentIndex / 20)
+    let cache = regionCache.get(plan)
+    if (!cache) { cache = new Map(); regionCache.set(plan, cache) }
+    let ids = cache.get(region)
+    if (!ids) {
+      ids = continuousIds(plan.seed, region)
+      if (cache.size >= 8) cache.delete(cache.keys().next().value!)
+      cache.set(region, ids)
+    }
+    return BEATS[ids[positiveModulo(segmentIndex, 20)]]
+  }
   return plan.beats[positiveModulo(segmentIndex, plan.beats.length)]
 }
 
@@ -230,7 +300,7 @@ export function nearestStationAnchor(
   plan: RoutePlan = DEFAULT_ROUTE_PLAN,
 ): RouteStationAnchor {
   const targetZ = startZ + Math.max(expectedDistance, ROUTE_SEGMENT_LENGTH / 2)
-  const firstSegment = Math.floor(startZ / ROUTE_SEGMENT_LENGTH)
+  const firstSegment = Math.max(Math.floor(startZ / ROUTE_SEGMENT_LENGTH), Math.floor(targetZ / ROUTE_SEGMENT_LENGTH) - plan.beats.length)
   let best: RouteStationAnchor | null = null
   let bestDistance = Number.POSITIVE_INFINITY
 
@@ -262,7 +332,7 @@ export function routeBeatIssues(beat: RouteBeat): string[] {
   if (beat.station !== 'none' && !stationEngineering) issues.push('station kind requires station engineering')
   if (beat.station === 'rural-halt' && !['field', 'forest'].includes(beat.biome)) issues.push('rural halts require a rural biome')
   if (beat.station === 'regional' && beat.settlement !== 'regional-town') issues.push('regional stations require regional-town fabric')
-  if (beat.station === 'urban-through' && beat.settlement !== 'urban-edge') issues.push('urban through stations require urban-edge fabric')
+  if (beat.station === 'urban-through' && !['urban-edge', 'city-core'].includes(beat.settlement)) issues.push('urban through stations require urban-edge fabric')
   if (beat.roadRelation === 'station-access' && beat.station === 'none') issues.push('station access roads require a station')
   if (beat.engineering === 'halt' && beat.roadRelation !== 'station-access') issues.push('rural halts require station access')
   if (beat.roadRelation === 'valley-access' && !valleyEngineering) issues.push('valley access roads require a valley bridge')
@@ -298,7 +368,7 @@ export function sampleRouteFeature(
   const segmentStart = segmentIndex * ROUTE_SEGMENT_LENGTH
   const blendStart = segmentStart + ROUTE_SEGMENT_LENGTH - ROUTE_BLEND_LENGTH
   const t = Math.min(Math.max((z - blendStart) / ROUTE_BLEND_LENGTH, 0), 1)
-  const blend = t * t * (3 - 2 * t)
+  const blend = Math.min(1, Math.max(0, t * t * t * (t * (t * 6 - 15) + 10)))
 
   return {
     current: routeBeatForSegment(segmentIndex, plan),
@@ -340,7 +410,7 @@ export function routeContextAt(
   const isLakeshore = lakeBasinStrengthAt(z, plan) >= 0.12
 
   return {
-    currentLabel: isLakeshore ? 'Lakeshore' : BIOME_LABELS[route.current.biome],
-    nextLabel: BIOME_LABELS[route.next.biome],
+    currentLabel: isLakeshore ? 'Lakeshore' : plan.continuous ? routeBeatLabel(route.current) : BIOME_LABELS[route.current.biome],
+    nextLabel: plan.continuous ? routeBeatLabel(route.next) : BIOME_LABELS[route.next.biome],
   }
 }

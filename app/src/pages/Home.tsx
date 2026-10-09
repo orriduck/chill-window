@@ -7,6 +7,7 @@ import {
 } from '@/engine/journey';
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
 import { CabinOverlay } from '@/components/CabinOverlay';
+import { TrainCamera } from '@/engine/three/core/Camera';
 import ThreeCanvas, { type TrainControl, type WeatherPreset } from '@/engine/three/ThreeCanvas';
 import type { WindowHudControlAnchor, WindowHudControlHitArea } from '@/engine/three/interior/WindowFrame';
 
@@ -64,6 +65,7 @@ export default function Home() {
   const soundRef = useRef(true);
   const hudTimerRef = useRef(0);
   const pausedRef = useRef(false);
+  const terrainEditingRef = useRef(new URLSearchParams(window.location.search).has('debugTerrain'));
   const departureSchedulerRef = useRef<DepartureScheduler | null>(null);
   if (departureSchedulerRef.current === null) departureSchedulerRef.current = new DepartureScheduler();
 
@@ -79,6 +81,12 @@ export default function Home() {
   const [confirmAbort, setConfirmAbort] = useState(false);
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [terrainEditing, setTerrainEditing] = useState(() => new URLSearchParams(window.location.search).has('debugTerrain'));
+  const onTerrainEditingChange = useCallback((active: boolean) => {
+    terrainEditingRef.current = active;
+    setTerrainEditing(active);
+    if (active) audioRef.current?.setMotion({ speedRatio: 0, acceleration: 0 });
+  }, []);
 
   useEffect(() => () => departureSchedulerRef.current?.cancel(), []);
 
@@ -92,9 +100,11 @@ export default function Home() {
     let last = performance.now();
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.05, (now - last) / 1000);
+      // Match physical travel through ordinary rendering stalls; keep a cap
+      // for resuming a browser tab after a long suspension.
+      const dt = Math.min(1, (now - last) / 1000);
       last = now;
-      const paused = pausedRef.current;
+      const paused = pausedRef.current || terrainEditingRef.current;
 
       const plan = planRef.current;
       const phase = phaseRef.current;
@@ -113,11 +123,11 @@ export default function Home() {
           segElapsedRef.current += dt;
           focusDoneRef.current += dt;
           const left = seg.focusSec - segElapsedRef.current;
-          if (!stationPreparedRef.current && left <= 32 && trainControlRef.current) {
+          if (!stationPreparedRef.current && left <= TrainCamera.STATION_BRAKE_SECONDS * 2 && trainControlRef.current) {
             stationPreparedRef.current = true;
             trainControlRef.current.prepareStation(seg.name);
           }
-          if (!arrivingRef.current && left <= 16) {
+          if (!arrivingRef.current && left <= TrainCamera.STATION_BRAKE_SECONDS) {
             arrivingRef.current = true;
             trainControlRef.current?.approachStation(seg.name);
             if (audioRef.current?.isRunning) audioRef.current.chime();
@@ -341,12 +351,13 @@ export default function Home() {
         controlRef={trainControlRef}
         timePreset={tod}
         weatherPreset={weatherPreset}
+        onTerrainEditingChange={onTerrainEditingChange}
       />
 
-      <CabinOverlay />
+      {!terrainEditing && <CabinOverlay />}
 
       {/* ================= 设置页 ================= */}
-      {hud.phase === 'setup' && (
+      {hud.phase === 'setup' && !terrainEditing && (
         <div className="absolute inset-0 z-20 flex items-start justify-center overflow-y-auto p-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-4">
           <div className="max-h-[calc(100svh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-black/60 p-4 text-white shadow-2xl backdrop-blur-xl sm:p-6">
             {/* 标题 */}
@@ -448,7 +459,7 @@ export default function Home() {
       )}
 
       {/* ================= 行驶 HUD ================= */}
-      {riding && (
+      {riding && !terrainEditing && (
         <>
           <div className="journey-controls pointer-events-none absolute inset-0 z-20">
             {hud.hudControlHitAreas[0] && <button onClick={togglePause} className="journey-control rounded-full" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}
@@ -476,7 +487,7 @@ export default function Home() {
       )}
 
       {/* ================= 到达终点 ================= */}
-      {hud.phase === 'done' && (
+      {hud.phase === 'done' && !terrainEditing && (
         <EndCard
           title={`Arrived at ${plan?.terminal ?? ''}`}
           lines={[
@@ -489,7 +500,7 @@ export default function Home() {
       )}
 
       {/* ================= 中途下车 ================= */}
-      {hud.phase === 'abort' && (
+      {hud.phase === 'abort' && !terrainEditing && (
         <EndCard
           title="Journey ended early"
           lines={[
@@ -501,7 +512,7 @@ export default function Home() {
       )}
 
       {/* 下车确认 */}
-      {confirmAbort && (
+      {confirmAbort && !terrainEditing && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[calc(100svh-2rem)] w-full max-w-xs overflow-y-auto rounded-2xl bg-neutral-900 p-6 text-white shadow-xl">
             <div className="mb-2 text-lg font-semibold">End this journey?</div>
