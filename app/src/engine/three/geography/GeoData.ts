@@ -17,13 +17,44 @@ export interface GeoBundle {
   sources: GeoSource[]
   bounds: [number, number, number, number]
 }
+export interface HudsonStationSnapshot {
+  routeWorldSha256: string
+  stations: Array<{ id: string; name: string; location: LonLat; sMetres: number; distanceToRouteMetres: number; inCurrentRoute: boolean; empireServiceStopsHere: boolean; platformIds: string[]; platformAssociations: Array<{ id: string; method: string; relationId?: string; distanceMetres?: number }> }>
+  features: Array<{ id: string; coordinates: LonLat[]; tags: Record<string, string> }>
+}
+export interface BuildingOverlaySnapshot {
+  baseWorldSha256: string
+  release: string
+  sources: Array<{ release: string; bbox: [number, number, number, number]; type: string; license: string; fetchedAt: string; client: string; clientVersion: string; responseSha256: string; features: number; documentation: string }>
+  stats: { originalOSM: number; upstream: number; addedBuildings: number; matched: number; heightEnriched: number; outputComponents: number; buildingParts: number; heightStatus: Record<string, number> }
+  features: Array<{
+    id: string | number; kind: 'building'; coordinates: LonLat[]; holes?: LonLat[][]; tags: Record<string, string>
+    buildingHeight: { metres: number | null; status: 'source_tag' | 'source_estimate' | 'missing' | 'floors_only'; method: string | null; sources?: Array<{ dataset: string; property?: string }>; sourceDatasets?: string[] }
+    provenance: { geometry: { dataset: string; recordId?: string; gersId?: string; release?: string }; overtureMatches: Array<{ gersId: string; iou: number; release: string }> }
+    overtureProperties: Record<string, unknown>
+  }>
+  buildingParts: Array<{ id: string; geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: number[][][] | number[][][][] }; parentFeatureId: string; buildingHeight: { metres: number | null; status: string; method: string | null; sourceDatasets?: string[] }; properties: Record<string, unknown> }>
+}
+export type MappedHudsonStation = HudsonStationSnapshot['stations'][number] & {
+  point: GeoPoint
+  platforms: Array<MappedFeature & { closed: boolean; association: HudsonStationSnapshot['stations'][number]['platformAssociations'][number] }>
+}
 export interface GeoPoint { x: number; z: number }
 export interface MappedFeature extends Omit<GeographicFeature, 'coordinates' | 'holes'> {
   coordinates: GeoPoint[]; holes: GeoPoint[][]; bounds: [number, number, number, number]
+  buildingHeight?: BuildingOverlaySnapshot['features'][number]['buildingHeight']
+  provenance?: BuildingOverlaySnapshot['features'][number]['provenance']
+  overtureProperties?: Record<string, unknown>
+}
+export interface MappedBuildingPart {
+  id: string; parentFeatureId: string; coordinates: GeoPoint[]; holes: GeoPoint[][]; bounds: [number, number, number, number]
+  height: number | null; minHeight: number; roofShape: string | null; facadeMaterial: string | null; roofMaterial: string | null; sourceDatasets: string[]
+  roofColor: string | null
 }
 export interface RoutePose extends GeoPoint { s: number; dx: number; dz: number; heading: number; longitude: number; latitude: number }
-export type BuildingHeightStatus = 'tagged' | 'estimated-from-levels' | 'missing'
-export interface BuildingHeightInfo { status: BuildingHeightStatus; metres: number | null; raw: string | null }
+export type BuildingHeightStatus = 'tagged' | 'estimated-from-levels' | 'source-tag' | 'source-estimate' | 'floors-only' | 'missing'
+export interface BuildingHeightInfo { status: BuildingHeightStatus; metres: number | null; raw: string | null; sources?: string[]; method?: string | null }
+export type BuildingStructureKind = 'open-shelter' | 'building'
 const R = 6378137
 const RAD = Math.PI / 180
 const mercatorNorth = (lat: number) => R * Math.log(Math.tan(Math.PI / 4 + lat * RAD / 2))
@@ -60,9 +91,13 @@ export class GeoData {
   private k: number
   readonly engineeringNotice = '轨面为 DEM 平滑估计；桥隧高度为可视化近似'
   readonly bundle: GeoBundle
+  readonly stations: MappedHudsonStation[]
+  readonly buildingParts: MappedBuildingPart[]
+  readonly buildingOverlay: BuildingOverlaySnapshot | null
   readonly elevations: Float32Array
-  constructor(bundle: GeoBundle, elevations: Float32Array) {
+  constructor(bundle: GeoBundle, elevations: Float32Array, stationSnapshot?: HudsonStationSnapshot, buildingOverlay?: BuildingOverlaySnapshot) {
     this.bundle = bundle; this.elevations = elevations
+    this.buildingOverlay = buildingOverlay ?? null
     const d = bundle.dem
     if (!Number.isInteger(d.width) || !Number.isInteger(d.height) || d.width < 2 || d.height < 2 || elevations.length !== d.width * d.height || d.rowOrder !== 'south-to-north') throw new Error('DEM 网格或行序无效')
     for (const height of elevations) if (!Number.isFinite(height) || height < -500 || height > 9000) throw new Error('DEM 包含无效高程')
@@ -79,7 +114,14 @@ export class GeoData {
     }
     this.length = this.distances.at(-1)!
     if (this.length < 100 || this.points.some(p => this.heightAt(p.x, p.z) === null)) throw new Error('路线超出真实高程覆盖')
-    this.features = bundle.features.filter(f => f.coordinates.length >= 2).map(f => {
+    const overlayById = new Map((buildingOverlay?.features ?? []).filter(f => String(f.id).startsWith('osm/')).map(f => [String(f.id), f]))
+    const overlayIds = new Set((buildingOverlay?.features ?? []).filter(f => String(f.id).startsWith('overture/')).map(f => String(f.id)))
+    const baseFeatures = bundle.features.map(feature => {
+      const metadata = feature.kind === 'building' ? overlayById.get(String(feature.id)) : undefined
+      return metadata ? { ...feature, buildingHeight: metadata.buildingHeight, provenance: metadata.provenance, overtureProperties: metadata.overtureProperties } : feature
+    })
+    for (const feature of buildingOverlay?.features ?? []) if (overlayIds.has(String(feature.id))) baseFeatures.push(feature as GeographicFeature & Pick<MappedFeature, 'buildingHeight' | 'provenance' | 'overtureProperties'>)
+    this.features = baseFeatures.filter(f => f.coordinates.length >= 2).map(f => {
       const coordinates = f.coordinates.map(p => this.project(p)), holes = (f.holes ?? []).map(ring => ring.map(p => this.project(p)))
       const xs = coordinates.map(p => p.x), zs = coordinates.map(p => p.z)
       const feature: MappedFeature = { ...f, coordinates, holes, bounds: [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)] }
@@ -90,6 +132,37 @@ export class GeoData {
       }
       return feature
     })
+    const rawParts = (buildingOverlay?.buildingParts ?? []).flatMap(part => {
+      const polygons = part.geometry.type === 'Polygon' ? [part.geometry.coordinates as number[][][]] : part.geometry.coordinates as number[][][][]
+      return polygons.map((rings, index) => {
+        const coordinates = rings[0].map(([lon, lat]) => this.project([lon, lat] as LonLat)), holes = rings.slice(1).map(ring => ring.map(([lon, lat]) => this.project([lon, lat] as LonLat)))
+        const xs = coordinates.map(point => point.x), zs = coordinates.map(point => point.z), properties = part.properties
+        return { id: `${part.id}${polygons.length > 1 ? `/${index}` : ''}`, parentFeatureId: part.parentFeatureId, coordinates, holes,
+          bounds: [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)] as [number, number, number, number],
+          height: part.buildingHeight.metres, minHeight: Number(properties.min_height) || 0,
+          roofShape: typeof properties.roof_shape === 'string' ? properties.roof_shape : null,
+          facadeMaterial: typeof properties.facade_material === 'string' ? properties.facade_material : null,
+          roofMaterial: typeof properties.roof_material === 'string' ? properties.roof_material : null,
+          roofColor: typeof properties.roof_color === 'string' ? properties.roof_color : null,
+          sourceDatasets: part.buildingHeight.sourceDatasets ?? [] }
+      })
+    })
+    this.buildingParts = rawParts
+    const stationFeatures = new Map((stationSnapshot?.features ?? []).map(feature => [feature.id, feature]))
+    this.stations = (stationSnapshot?.stations ?? []).map(station => ({
+      ...station,
+      point: this.project(station.location),
+      platforms: station.platformIds.flatMap(id => {
+        const raw = stationFeatures.get(id), association = station.platformAssociations.find(item => item.id === id)
+        if (!raw || !association || Object.keys(raw.tags).some(key => key.startsWith('disused:') || key.startsWith('abandoned:'))) return []
+        const coordinates = raw.coordinates.map(point => this.project(point))
+        const first = coordinates[0], last = coordinates.at(-1)!
+        const closed = coordinates.length >= 4 && Math.hypot(first.x - last.x, first.z - last.z) < 0.25
+        const xs = coordinates.map(point => point.x), zs = coordinates.map(point => point.z)
+        const feature: MappedFeature = { id: raw.id, kind: 'rail', tags: raw.tags, coordinates, holes: [], bounds: [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)] }
+        return [{ ...feature, closed, association }]
+      }),
+    }))
     this.buildRailProfile()
     this.checkpoints = [
       { label: '北段 · 河岸', s: this.length * 0.08 },
@@ -136,9 +209,10 @@ export class GeoData {
   nearbyFeatures(x: number, z: number) { return this.featureBins.get(`${Math.floor(x / 256)},${Math.floor(z / 256)}`) ?? [] }
   get buildingStats() {
     const buildings = this.features.filter(feature => feature.kind === 'building')
-    const tagged = buildings.filter(feature => buildingHeight(feature).status === 'tagged').length
-    const estimated = buildings.filter(feature => buildingHeight(feature).status === 'estimated-from-levels').length
-    return { total: buildings.length, tagged, estimated, missing: buildings.length - tagged - estimated, floorTags: buildings.filter(feature => feature.tags['building:levels']).length, roof: buildings.filter(feature => feature.tags['roof:shape'] || feature.tags['building:roof:shape']).length }
+    const status = (key: BuildingHeightStatus) => buildings.filter(feature => buildingHeight(feature).status === key).length
+    const roof = buildings.filter(feature => feature.overtureProperties?.roof_shape || feature.tags['roof:shape'] || feature.tags['building:roof:shape']).length
+    const floors = buildings.filter(feature => feature.overtureProperties?.num_floors || feature.tags['building:levels']).length
+    return { total: buildings.length, tagged: status('tagged'), estimated: status('estimated-from-levels'), sourceTag: status('source-tag'), sourceEstimate: status('source-estimate'), floorsOnly: status('floors-only'), missing: status('missing'), shelters: buildings.filter(feature => buildingStructureKind(feature) === 'open-shelter').length, floorTags: floors, roof, parts: this.buildingParts.length, added: buildings.filter(feature => String(feature.id).startsWith('overture/')).length }
   }
   buildingAt(x: number, z: number) {
     return this.nearbyFeatures(x, z).find(feature => feature.kind === 'building' && contains(feature, x, z)) ?? null
@@ -198,7 +272,8 @@ export class GeoData {
 
 /** Use explicit source height tags as given. Floor counts yield a labeled
  * visualization estimate; buildings without either stay as footprints. */
-export function buildingHeight(feature: Pick<MappedFeature, 'tags'>): BuildingHeightInfo {
+export function buildingHeight(feature: Pick<MappedFeature, 'tags'> & Partial<Pick<MappedFeature, 'buildingHeight'>>): BuildingHeightInfo {
+  if (feature.buildingHeight) return { status: feature.buildingHeight.status.replaceAll('_', '-') as BuildingHeightStatus, metres: feature.buildingHeight.metres, raw: feature.buildingHeight.metres === null ? null : `${feature.buildingHeight.metres}m source value`, sources: feature.buildingHeight.sources?.map(source => source.dataset) ?? feature.buildingHeight.sourceDatasets, method: feature.buildingHeight.method }
   const raw = feature.tags.height?.trim() || null
   if (raw) {
     const match = raw.match(/^\s*(\d+(?:\.\d+)?)\s*(m|meter|meters|metre|metres|ft|feet|')?\s*$/i)
@@ -213,14 +288,36 @@ export function buildingHeight(feature: Pick<MappedFeature, 'tags'>): BuildingHe
   return { status: 'missing', metres: null, raw }
 }
 
+/** Structural tags and source classes take precedence over the broad
+ * `building=*` umbrella: public-transport shelters are open structures. */
+export function buildingStructureKind(feature: Pick<MappedFeature, 'tags'> & Partial<Pick<MappedFeature, 'overtureProperties'>>): BuildingStructureKind {
+  const properties = feature.overtureProperties ?? {}
+  const classes = [properties.class, properties.subtype].filter((value): value is string => typeof value === 'string').map(value => value.toLowerCase())
+  if (feature.tags.amenity === 'shelter' || feature.tags.shelter_type || classes.includes('shelter')) return 'open-shelter'
+  return 'building'
+}
+
 export async function loadHudsonData(signal?: AbortSignal) {
   const base = `${import.meta.env.BASE_URL}geodata/hudson/`
   const response = await fetch(`${base}world.json`, { signal })
   if (!response.ok) throw new Error(`路线数据 HTTP ${response.status}`)
-  const bundle = await response.json() as GeoBundle
+  const [worldBuffer, stationsResponse, buildingsResponse] = await Promise.all([
+    response.arrayBuffer(), fetch(`${base}stations.json`, { signal }), fetch(`${base}buildings.json`, { signal }),
+  ])
+  if (!stationsResponse.ok) throw new Error(`车站数据 HTTP ${stationsResponse.status}`)
+  if (!buildingsResponse.ok) throw new Error(`建筑覆盖数据 HTTP ${buildingsResponse.status}`)
+  const bundle = JSON.parse(new TextDecoder().decode(worldBuffer)) as GeoBundle
+  const stationSnapshot = await stationsResponse.json() as HudsonStationSnapshot
+  const digest = await crypto.subtle.digest('SHA-256', worldBuffer)
+  const hash = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('')
+  if (hash !== stationSnapshot.routeWorldSha256) throw new Error('车站数据绑定的路线快照校验失败')
+  const buildingOverlay = await buildingsResponse.json() as BuildingOverlaySnapshot
+  const buildingBaseHash = await crypto.subtle.digest('SHA-256', worldBuffer)
+  const buildingHash = [...new Uint8Array(buildingBaseHash)].map(value => value.toString(16).padStart(2, '0')).join('')
+  if (buildingHash !== buildingOverlay.baseWorldSha256) throw new Error('建筑数据绑定的路线快照校验失败')
   const demResponse = await fetch(`${base}${bundle.dem.file}`, { signal })
   if (!demResponse.ok) throw new Error(`高程数据 HTTP ${demResponse.status}`)
   const buffer = await demResponse.arrayBuffer()
   if (buffer.byteLength % 4) throw new Error('高程文件长度错误')
-  return new GeoData(bundle, new Float32Array(buffer))
+  return new GeoData(bundle, new Float32Array(buffer), stationSnapshot, buildingOverlay)
 }

@@ -1,13 +1,17 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { buildingHeight, GeoData, type GeoPoint, type MappedFeature, type BuildingHeightStatus } from './GeoData'
-import { SceneryAssets, type SceneryAsset, type SceneryPlacement } from '../terrain/SceneryAssets'
+import { buildingHeight, buildingStructureKind, GeoData, type GeoPoint, type MappedFeature, type BuildingHeightStatus } from './GeoData'
+import { GeoForest, type ForestPlacement } from './GeoForest'
 import { hash01 } from '../core/procedural'
-import { groundGrassTex, groundRockTex } from '../textures'
+import { groundGrassTex, groundRockTex, geographicTexturesReady } from '../textures'
 
 const TILE = 256
 const DETAIL_RADIUS = 3
+const CACHE_LIMIT = 256
+const PRELOAD_METRES = 1536
+const SHELTER_HEIGHT_ESTIMATE = 3.6
 interface RealChunk { group: THREE.Group; ground: THREE.Mesh; x: number; z: number }
+interface CachedChunk extends RealChunk { lastUsed: number }
 const shapeOf = (feature: MappedFeature) => {
   const shape = new THREE.Shape(feature.coordinates.map(p => new THREE.Vector2(p.x, -p.z)))
   for (const hole of feature.holes) shape.holes.push(new THREE.Path(hole.map(p => new THREE.Vector2(p.x, -p.z))))
@@ -15,31 +19,64 @@ const shapeOf = (feature: MappedFeature) => {
 }
 const overlaps = (f: MappedFeature, x: number, z: number) => f.bounds[0] <= x + TILE && f.bounds[2] >= x && f.bounds[1] <= z + TILE && f.bounds[3] >= z
 
+/** Batch all roof faces and all walls separately. One material group per
+ * building defeats merging, while no groups makes material-array parts
+ * invisible. Both roof and wall now draw once per source class and tile. */
+const mergeBuildingGeometry = (geometries: THREE.BufferGeometry[]) => {
+  const merged = mergeGeometries(geometries, false)
+  if (!merged) return null
+  const caps: number[] = [], walls: number[] = []
+  let vertexOffset = 0
+  for (const geometry of geometries) {
+    for (const group of geometry.groups) {
+      const target = group.materialIndex === 0 ? caps : walls
+      for (let i = group.start; i < group.start + group.count; i++) target.push(vertexOffset + (geometry.index?.getX(i) ?? i))
+    }
+    vertexOffset += geometry.getAttribute('position').count
+  }
+  merged.setIndex([...caps, ...walls]); merged.clearGroups()
+  merged.addGroup(0, caps.length, 0); merged.addGroup(caps.length, walls.length, 1)
+  return merged
+}
+
 /** A source-backed world, kept in fixed geographical metres. Only the parent
  * transform follows the train: geometry and UVs never move relative to GIS. */
 export class RealWorld {
   readonly group = new THREE.Group()
   readonly routeLine: THREE.Line
   readonly marker = new THREE.Mesh(new THREE.ConeGeometry(7, 20, 4), new THREE.MeshBasicMaterial({ color: 0xe4b654, depthTest: false }))
-  private chunks = new Map<string, RealChunk>()
+  private chunks = new Map<string, CachedChunk>()
+  private initialKeys = new Set<string>()
+  private assetsReady = false
+  private readyResolved = false
+  private resolveReady!: () => void
+  readonly ready: Promise<void>
   private background: THREE.Mesh | null = null
-  private backgroundKey = ''
-  private forestCanopies: THREE.InstancedMesh | null = null
-  private canopyGeometry = new THREE.SphereGeometry(1, 6, 5)
-  private canopyMaterial = new THREE.MeshStandardMaterial({ color: 0x536d46, roughness: 1 })
   private landMask: THREE.CanvasTexture
-  private assets = new SceneryAssets()
+  private forest = new GeoForest()
+  private distantForest = new GeoForest('far')
+  private distantForestGroup = new THREE.Group()
+  private textureFailures = 0
+  presentable = false
   private disposed = false
   private frame = 0
   private waterGroup = new THREE.Group()
+  private stationGroup = new THREE.Group()
   private groundMaterial: THREE.MeshStandardMaterial
   private outlineMaterial = new THREE.LineBasicMaterial({ color: 0xf1e8c2, transparent: true, opacity: 0.7, depthTest: false })
   private roadMaterial = new THREE.MeshStandardMaterial({ color: 0x747570, roughness: 1 })
   private ballastMaterial = new THREE.MeshStandardMaterial({ color: 0x948d7c, roughness: 1 })
   private railMaterial = new THREE.MeshStandardMaterial({ color: 0x9b9f9e, roughness: 0.5, metalness: 0.5 })
-  private roofMaterial = new THREE.MeshStandardMaterial({ color: 0x72756f, roughness: 1 })
-  private wallMaterial = new THREE.MeshStandardMaterial({ color: 0x74906d, roughness: 1 })
+  private roofMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, vertexColors: true, side: THREE.DoubleSide })
+  private shelterSupportGeometry = new THREE.CylinderGeometry(0.075, 0.075, 1, 6)
+  private shelterSupportMaterial = new THREE.MeshStandardMaterial({ color: 0x59645f, roughness: 0.9 })
+  private shelterOutlineMaterial = new THREE.LineBasicMaterial({ color: 0x58645e, depthTest: true })
+  private platformMaterial = new THREE.MeshStandardMaterial({ color: 0x737b77, roughness: 0.88, side: THREE.DoubleSide })
+  private platformOutlineMaterial = new THREE.LineBasicMaterial({ color: 0xe6c786, depthTest: false, transparent: true, opacity: 0.9 })
+  private wallMaterial = new THREE.MeshStandardMaterial({ color: 0xb0aea3, roughness: 1 })
+  private taggedWallMaterial = new THREE.MeshStandardMaterial({ color: 0x74906d, roughness: 1 })
   private estimatedWallMaterial = new THREE.MeshStandardMaterial({ color: 0xc9894f, roughness: 1 })
+  private floorsOnlyWallMaterial = new THREE.MeshStandardMaterial({ color: 0x8f79a7, roughness: 1 })
   private footprintMaterial = new THREE.MeshStandardMaterial({ color: 0x87919a, roughness: 1, side: THREE.DoubleSide })
   private tieMaterial = new THREE.MeshStandardMaterial({ color: 0x736353, roughness: 1 })
   private engineeringGeometry = new THREE.BoxGeometry(1, 1, 1)
@@ -48,12 +85,26 @@ export class RealWorld {
   private rails: { a: GeoPoint; b: GeoPoint; s: number; end: number }[] = []
   pending = 0
   get chunkCount() { return this.chunks.size }
-  get assetStatus() { return `${this.assets.loaded}/${this.assets.total}${this.assets.failed ? ` · ${this.assets.failed} 失败` : ''}` }
+  get assetStatus() { return this.textureFailures ? `纹理 ${this.textureFailures} 失败` : this.assetsReady ? '地表 / 树木纹理就绪' : '加载地表 / 树木纹理' }
+  private nearestMissingMetres = PRELOAD_METRES
+  private lastBuildMs = 0
+  private maxBuildMs = 0
+  private visibleMissing = 0
+  private suddenAppearanceFrames = 0
+  private prefetchPending = 0
+  private preparationTarget: number | null = null
+  get streamingStats() {
+    return { cached: this.chunks.size, visible: [...this.chunks.values()].filter(c => c.group.visible).length,
+      pending: this.pending, preloadMetres: PRELOAD_METRES, nearestMissingMetres: this.nearestMissingMetres,
+      lastBuildMs: this.lastBuildMs, maxBuildMs: this.maxBuildMs, visibleMissing: this.visibleMissing,
+      suddenAppearanceFrames: this.suddenAppearanceFrames, assets: this.assetStatus, ready: this.presentable, prefetchPending: this.prefetchPending }
+  }
   get visibleTiles() { return [...this.chunks.values()].map(c => ({ x: c.x, z: c.z, mesh: c.ground })) }
 
   readonly data: GeoData
-  constructor(data: GeoData) {
+  constructor(data: GeoData, initialS = data.checkpoints[0]?.s ?? 0) {
     this.data = data
+    this.ready = new Promise(resolve => { this.resolveReady = resolve })
     this.landMask = this.buildLandMask()
     this.group.name = 'real-hudson-world'
     this.groundMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, map: groundGrassTex, roughness: 0.95 })
@@ -84,12 +135,49 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     this.routeLine.renderOrder = 100
     this.marker.rotation.x = Math.PI; this.marker.renderOrder = 110
     this.group.add(this.routeLine, this.marker, this.waterGroup)
+    const [minX, minZ, maxX, maxZ] = data.bundle.dem.bounds
+    this.background = new THREE.Mesh(this.terrainGeometry(minX, minZ, maxX - minX, maxZ - minZ, 64), this.groundMaterial)
+    this.background.name = 'whole-corridor-dem-low-detail'
+    this.background.receiveShadow = true
+    this.group.add(this.background)
     this.buildWater()
-    void this.assets.load().then(() => {
+    this.buildStations()
+    this.buildDistantForest()
+    this.initialKeys = this.initialPreloadKeys(initialS)
+    // Shared assets are loaded before any chunks are meshed. Asset completion
+    // never clears an already visible tile or triggers a second rebuild.
+    void geographicTexturesReady.then(results => {
       if (this.disposed) return
-      this.clearChunks(); this.frame = 0
+      this.textureFailures = results.filter(loaded => !loaded).length
+      this.assetsReady = this.textureFailures === 0
+      if (this.textureFailures) console.error('真实地景纹理加载失败', this.textureFailures)
     })
   }
+  private tilesAt(x: number, z: number) {
+    const tiles = new Map<string, { x: number; z: number }>()
+    const bx = Math.floor(x / TILE), bz = Math.floor(z / TILE)
+    for (let dz = -DETAIL_RADIUS; dz <= DETAIL_RADIUS; dz++) for (let dx = -DETAIL_RADIUS; dx <= DETAIL_RADIUS; dx++) {
+      const tile = { x: bx + dx, z: bz + dz }
+      tiles.set(`${tile.x},${tile.z}`, tile)
+    }
+    return tiles
+  }
+  private initialPreloadKeys(s: number) {
+    const keys = new Set<string>()
+    // Prepare the entire first view AND the same-width route buffer. A
+    // narrow three-tile strip does not cover a seven-tile moving viewport.
+    for (let ahead = 0; ahead <= PRELOAD_METRES; ahead += TILE) {
+      const p = this.data.pose(Math.min(this.data.length, s + ahead))
+      for (const key of this.tilesAt(p.x, p.z).keys()) keys.add(key)
+    }
+    return keys
+  }
+  canAdvance(s: number) {
+    if (!this.presentable) return false
+    const pose = this.data.pose(s)
+    return [...this.tilesAt(pose.x, pose.z).keys()].every(key => this.chunks.has(key))
+  }
+  prepareAt(s: number | null) { this.preparationTarget = s }
   /** Rail-bed correction is a narrow engineering visualization, not a new
    * geographical landform. Bridges/tunnels keep their ground DEM below/above. */
   terrainHeight(x: number, z: number) {
@@ -102,8 +190,9 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     }
     return raw
   }
-  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; water: boolean; farmland: boolean }) {
+  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; water: boolean; farmland: boolean; stations?: boolean }) {
     const pose = this.data.pose(s)
+    this.group.visible = this.presentable || inspection
     if (inspection) { this.group.position.set(0, 0, 0); this.group.rotation.y = 0 }
     else {
       this.group.rotation.y = -pose.heading
@@ -112,31 +201,73 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     this.routeLine.visible = this.marker.visible = inspection
     this.marker.position.set(pose.x, this.data.railHeight(s) + 22, pose.z)
     this.waterGroup.visible = layers.water
+    this.stationGroup.visible = layers.stations ?? true
     const point = inspection ? focus : pose
-    const bx = Math.floor(point.x / TILE), bz = Math.floor(point.z / TILE)
-    const wanted = new Map<string, { x: number; z: number }>()
-    for (let row = -DETAIL_RADIUS; row <= DETAIL_RADIUS; row++) for (let col = -DETAIL_RADIUS; col <= DETAIL_RADIUS; col++) {
-      const x = bx + col, z = bz + row
-      wanted.set(`${x},${z}`, { x, z })
+    this.forest.setFocus(point.x, point.z); this.distantForest.setFocus(point.x, point.z)
+    this.distantForestGroup.visible = layers.vegetation
+    const wanted = this.tilesAt(point.x, point.z)
+    const currentS = inspection ? this.data.nearestRoute(point.x, point.z).s : s
+    const required = new Map(wanted)
+    for (let offset = 0; offset <= PRELOAD_METRES; offset += TILE) {
+      const ahead = this.data.pose(Math.min(this.data.length, currentS + offset))
+      for (const [key, tile] of this.tilesAt(ahead.x, ahead.z)) required.set(key, tile)
     }
-    for (const [key, chunk] of this.chunks) if (!wanted.has(key)) { this.disposeChunk(chunk); this.chunks.delete(key) }
-    const missing = [...wanted.entries()].filter(([key]) => !this.chunks.has(key))
-    const budget = this.chunks.size ? 2 : 6
-    if (this.frame++ % 3 === 0 || !this.chunks.size) for (const [key, tile] of missing.slice(0, budget)) this.chunks.set(key, this.createChunk(tile.x, tile.z))
+    const preparing = this.preparationTarget === null ? null : this.data.pose(this.preparationTarget)
+    if (preparing) for (const [key, tile] of this.tilesAt(preparing.x, preparing.z)) required.set(key, tile)
+    const missing = [...required.entries()].filter(([key]) => !this.chunks.has(key))
+      .map(([key, tile]) => {
+        const centerX = (tile.x + 0.5) * TILE, centerZ = (tile.z + 0.5) * TILE
+        const route = inspection ? this.data.nearestRoute(centerX, centerZ) : null
+        const distance = preparing ? Math.hypot(centerX - preparing.x, centerZ - preparing.z) : route && route.distance < 420
+          ? Math.abs(route.s - currentS) * 0.3 + route.distance
+          : Math.hypot(centerX - point.x, centerZ - point.z)
+        return { key, tile, distance }
+      }).sort((a, b) => a.distance - b.distance)
     this.pending = [...wanted.keys()].filter(key => !this.chunks.has(key)).length
+    this.visibleMissing = this.pending
+    if (this.presentable && !inspection && this.visibleMissing) this.suddenAppearanceFrames++
+    this.prefetchPending = missing.length
+    this.nearestMissingMetres = missing.length ? Math.round(missing[0].distance) : PRELOAD_METRES
+    // Tile creation is time-sliced across animation frames; the current view
+    // has priority, followed by the route-aligned safety buffer.
+    if (this.assetsReady && missing.length) {
+      const { key, tile } = missing[0], started = performance.now()
+      const created = this.createChunk(tile.x, tile.z)
+      this.lastBuildMs = performance.now() - started
+      this.maxBuildMs = Math.max(this.maxBuildMs, this.lastBuildMs)
+      created.group.visible = false
+      this.chunks.set(key, { ...created, lastUsed: this.frame })
+    }
     for (const chunk of this.chunks.values()) {
+      const key = `${chunk.x},${chunk.z}`
+      chunk.group.visible = wanted.has(key)
+      if (chunk.group.visible) chunk.lastUsed = this.frame
       chunk.ground.visible = layers.ground
       for (const child of chunk.group.children) {
         const layer = child.userData.geoLayer
         if (layer === 'vegetation') child.visible = layers.vegetation
-        if (layer === 'settlement') child.visible = layers.settlements
+        if (layer === 'settlement') {
+          child.visible = layers.settlements
+          if (child instanceof THREE.Mesh && Array.isArray(child.material) && child.userData.geoHeightSource) {
+            const estimate = ['source-estimate', 'estimated-from-levels'].includes(child.userData.geoHeightSource)
+            child.material[1] = inspection ? (estimate ? this.estimatedWallMaterial : this.taggedWallMaterial) : this.wallMaterial
+          }
+        }
         if (layer === 'farmland') child.visible = layers.farmland
         if (layer === 'inspection') child.visible = inspection
       }
     }
-    this.updateBackground(point.x, point.z, [...wanted.values()])
+    if (!this.readyResolved && [...this.initialKeys].every(key => this.chunks.has(key))) {
+      this.readyResolved = true
+      this.resolveReady()
+    }
+    const cachedOutsideView = [...this.chunks.entries()].filter(([key]) => !required.has(key)).sort((a, b) => a[1].lastUsed - b[1].lastUsed)
+    while (this.chunks.size > CACHE_LIMIT && cachedOutsideView.length) {
+      const [key, chunk] = cachedOutsideView.shift()!
+      this.disposeChunk(chunk); this.chunks.delete(key)
+    }
     if (this.background) this.background.visible = layers.ground
-    if (this.forestCanopies) this.forestCanopies.visible = layers.vegetation
+    this.frame++
   }
   private terrainGeometry(minX: number, minZ: number, width: number, depth: number, step: number, excluded?: { minX: number; minZ: number; maxX: number; maxZ: number }) {
     const cols = Math.round(width / step), rows = Math.round(depth / step)
@@ -170,6 +301,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
   private createChunk(cx: number, cz: number): RealChunk {
     const group = new THREE.Group(), x0 = cx * TILE, z0 = cz * TILE
     const ground = new THREE.Mesh(this.terrainGeometry(x0, z0, TILE, TILE, 8), this.groundMaterial)
+    ground.position.y = 0.18
     ground.receiveShadow = true; group.add(ground)
     const outline: THREE.Vector3[] = []
     for (let side = 0; side < 4; side++) for (let i = 0; i <= 32; i++) {
@@ -180,40 +312,153 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
     edge.userData.geoLayer = 'inspection'; edge.renderOrder = 90; group.add(edge)
     const features = this.data.nearbyFeatures(x0 + 128, z0 + 128)
     const buildings = features.filter(f => f.kind === 'building' && Math.floor((f.bounds[0] + f.bounds[2]) / 2 / TILE) === cx && Math.floor((f.bounds[1] + f.bounds[3]) / 2 / TILE) === cz)
-    const buildingGeometry = new Map<BuildingHeightStatus, THREE.BufferGeometry[]>([['tagged', []], ['estimated-from-levels', []]])
+    const buildingGeometry = new Map<BuildingHeightStatus, THREE.BufferGeometry[]>([['tagged', []], ['estimated-from-levels', []], ['source-tag', []], ['source-estimate', []]])
+    const roofGeometry = new Map<BuildingHeightStatus, THREE.BufferGeometry[]>([['source-tag', []], ['source-estimate', []]])
     const missingFootprints: THREE.BufferGeometry[] = []
     for (const feature of buildings) {
       const x = (feature.bounds[0] + feature.bounds[2]) / 2, z = (feature.bounds[1] + feature.bounds[3]) / 2
       const base = this.terrainHeight(x, z)
       if (base === null || this.data.landAt(x, z, 'water')) continue
       const measurement = buildingHeight(feature)
-      if (measurement.status === 'missing') {
+      if (buildingStructureKind(feature) === 'open-shelter') {
+        // OSM's shelter tags and Overture's class describe an open-sided
+        // canopy, even when `building=yes` is also present. Heights absent
+        // from both sources stay labelled as an explicit visual estimate;
+        // perimeter walls are never substituted for the missing value.
+        const height = measurement.metres ?? SHELTER_HEIGHT_ESTIMATE
+        const roof = new THREE.ShapeGeometry(shapeOf(feature))
+        const roofColor = feature.overtureProperties?.roof_color
+        const color = new THREE.Color(typeof roofColor === 'string' && /^#[0-9a-f]{6}$/i.test(roofColor) ? roofColor : 0x77817c)
+        const colors: number[] = []
+        for (let i = 0; i < roof.getAttribute('position').count; i++) colors.push(color.r, color.g, color.b)
+        roof.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+        roof.rotateX(-Math.PI / 2); roof.translate(0, base + height, 0)
+        const canopy = new THREE.Mesh(roof, this.roofMaterial)
+        canopy.userData.geoLayer = 'settlement'; canopy.userData.geoStructureKind = 'open-shelter'
+        canopy.userData.geoSourceId = String(feature.id); canopy.userData.geoHeightSource = measurement.status
+        canopy.userData.geoHeightEstimateMetres = measurement.metres === null ? height : undefined
+        canopy.renderOrder = 6; group.add(canopy)
+
+        const ring = [...feature.coordinates]
+        if (ring.length > 1 && Math.hypot(ring[0].x - ring.at(-1)!.x, ring[0].z - ring.at(-1)!.z) < 0.5) ring.pop()
+        const perimeter = ring.reduce((sum, point, index) => {
+          const next = ring[(index + 1) % ring.length]
+          return sum + Math.hypot(next.x - point.x, next.z - point.z)
+        }, 0)
+        const supportCount = Math.max(2, Math.ceil(perimeter / 14))
+        const supports = new THREE.InstancedMesh(this.shelterSupportGeometry, this.shelterSupportMaterial, supportCount)
+        const supportMatrix = new THREE.Object3D()
+        for (let i = 0; i < supportCount; i++) {
+          let remaining = perimeter * i / supportCount, point = ring[0]
+          for (let segment = 0; segment < ring.length; segment++) {
+            const from = ring[segment], to = ring[(segment + 1) % ring.length], length = Math.hypot(to.x - from.x, to.z - from.z)
+            if (remaining <= length || segment === ring.length - 1) {
+              const fraction = length > 0 ? Math.min(1, remaining / length) : 0
+              point = { x: THREE.MathUtils.lerp(from.x, to.x, fraction), z: THREE.MathUtils.lerp(from.z, to.z, fraction) }
+              break
+            }
+            remaining -= length
+          }
+          supportMatrix.position.set(point.x, base + height / 2, point.z)
+          supportMatrix.scale.set(1, height, 1); supportMatrix.updateMatrix(); supports.setMatrixAt(i, supportMatrix.matrix)
+        }
+        supports.instanceMatrix.needsUpdate = true
+        supports.userData.geoLayer = 'settlement'; supports.userData.geoStructureKind = 'open-shelter'
+        supports.userData.geoSourceId = String(feature.id); supports.userData.geoStructurePartsAreEstimates = true
+        supports.userData.sharedGeometry = true; group.add(supports)
+        const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(ring.map(point => new THREE.Vector3(point.x, base + height + 0.025, point.z))), this.shelterOutlineMaterial)
+        outline.userData.geoLayer = 'settlement'; outline.userData.geoStructureKind = 'open-shelter'; outline.userData.geoSourceId = String(feature.id)
+        group.add(outline)
+        continue
+      }
+      if (measurement.status === 'missing' || measurement.status === 'floors-only') {
         const footprint = new THREE.ShapeGeometry(shapeOf(feature)); footprint.rotateX(-Math.PI / 2); footprint.translate(0, base + 0.12, 0)
         missingFootprints.push(footprint)
         continue
       }
-      const geometry = new THREE.ExtrudeGeometry(shapeOf(feature), { depth: Math.min(500, measurement.metres!), bevelEnabled: false, steps: 1 })
-      geometry.rotateX(-Math.PI / 2); geometry.translate(0, base - 0.1, 0)
+      const properties = feature.overtureProperties ?? {}
+      const minHeight = Number(properties.min_height) > 0 ? Number(properties.min_height) : 0
+      const top = Math.min(500, measurement.metres!)
+      const roofHeight = Number(properties.roof_height) > 0 ? Math.min(Number(properties.roof_height), top * 0.45) : 0
+      const roofShape = properties.roof_shape ?? feature.tags['roof:shape'] ?? feature.tags['building:roof:shape']
+      const modeledRoof = roofHeight > 0 && ['pyramidal', 'hipped'].includes(String(roofShape))
+      const depth = top - minHeight - (modeledRoof ? roofHeight : 0)
+      if (depth <= 0.05) continue
+      const geometry = new THREE.ExtrudeGeometry(shapeOf(feature), { depth, bevelEnabled: false, steps: 1 })
+      // ExtrudeGeometry's first material is the roof and second is the wall.
+      // Source roof metadata is kept with each building; the base palettes
+      // distinguish recorded heights from upstream model estimates.
+      const roofColor = typeof properties.roof_color === 'string' && /^#[0-9a-f]{6}$/i.test(properties.roof_color) ? properties.roof_color : null
+      const color = new THREE.Color(roofColor ?? 0x72756f), colors: number[] = []
+      for (let i = 0; i < geometry.getAttribute('position').count; i++) colors.push(color.r, color.g, color.b)
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+      geometry.rotateX(-Math.PI / 2); geometry.translate(0, base + minHeight - 0.1, 0)
+      geometry.userData.roofShape = roofShape
       buildingGeometry.get(measurement.status)!.push(geometry)
+      if (modeledRoof && (measurement.status === 'source-tag' || measurement.status === 'source-estimate')) {
+        const roof = new THREE.ShapeGeometry(shapeOf(feature))
+        const positions = roof.getAttribute('position')
+        const centerX = (feature.bounds[0] + feature.bounds[2]) / 2, centerZ = (feature.bounds[1] + feature.bounds[3]) / 2
+        const halfX = Math.max(0.01, (feature.bounds[2] - feature.bounds[0]) / 2), halfZ = Math.max(0.01, (feature.bounds[3] - feature.bounds[1]) / 2)
+        for (let i = 0; i < positions.count; i++) {
+          const x = positions.getX(i), z = -positions.getY(i)
+          const falloff = Math.min(1, Math.max(0, Math.max(Math.abs(x - centerX) / halfX, Math.abs(z - centerZ) / halfZ)))
+          positions.setZ(i, roofHeight * (1 - falloff))
+        }
+        positions.needsUpdate = true; roof.computeVertexNormals()
+        const color = new THREE.Color(roofColor ?? 0x72756f), colors: number[] = []
+        for (let i = 0; i < positions.count; i++) colors.push(color.r, color.g, color.b)
+        roof.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+        roof.rotateX(-Math.PI / 2); roof.translate(0, base + top - roofHeight + 0.025, 0)
+        roofGeometry.get(measurement.status)!.push(roof)
+      }
     }
     for (const [status, geometries] of buildingGeometry) {
       if (!geometries.length) continue
-      const merged = mergeGeometries(geometries, false)
+      const merged = mergeBuildingGeometry(geometries)
       if (merged) {
-        let offset = 0
-        for (const geometry of geometries) {
-          for (const part of geometry.groups) merged.addGroup(offset + part.start, part.count, part.materialIndex)
-          offset += geometry.index?.count ?? geometry.getAttribute('position').count
-        }
-        const wall = status === 'estimated-from-levels' ? this.estimatedWallMaterial : this.wallMaterial
+        const wall = status === 'estimated-from-levels' || status === 'source-estimate' ? this.estimatedWallMaterial : status === 'floors-only' ? this.floorsOnlyWallMaterial : this.wallMaterial
         const mesh = new THREE.Mesh(merged, [this.roofMaterial, wall]); mesh.userData.geoLayer = 'settlement'; mesh.userData.geoHeightSource = status; mesh.receiveShadow = true; group.add(mesh)
       }
       for (const geometry of geometries) geometry.dispose()
+    }
+    for (const [status, geometries] of roofGeometry) {
+      if (!geometries.length) continue
+      const merged = mergeGeometries(geometries, false)
+      if (merged) {
+        const mesh = new THREE.Mesh(merged, this.roofMaterial)
+        mesh.userData.geoLayer = 'settlement'; mesh.userData.geoHeightSource = status; mesh.userData.geoRoofShapeSource = true
+        group.add(mesh)
+      }
+      geometries.forEach(geometry => geometry.dispose())
     }
     if (missingFootprints.length) {
       const merged = mergeGeometries(missingFootprints, false)
       for (const geometry of missingFootprints) geometry.dispose()
       if (merged) { const mesh = new THREE.Mesh(merged, this.footprintMaterial); mesh.userData.geoLayer = 'settlement'; mesh.userData.geoHeightSource = 'missing'; group.add(mesh) }
+    }
+    const partGeometry = new Map<BuildingHeightStatus, THREE.BufferGeometry[]>([['source-tag', []], ['source-estimate', []]])
+    for (const part of this.data.buildingParts.filter(item => item.bounds[0] <= x0 + TILE && item.bounds[2] >= x0 && item.bounds[1] <= z0 + TILE && item.bounds[3] >= z0 && Math.floor((item.bounds[0] + item.bounds[2]) / 2 / TILE) === cx && Math.floor((item.bounds[1] + item.bounds[3]) / 2 / TILE) === cz)) {
+      const base = this.terrainHeight((part.bounds[0] + part.bounds[2]) / 2, (part.bounds[1] + part.bounds[3]) / 2)
+      if (base === null || part.height === null || part.height <= part.minHeight) continue
+      const feature: MappedFeature = { id: part.id, kind: 'building', tags: {}, coordinates: part.coordinates, holes: part.holes, bounds: part.bounds }
+      const shape = shapeOf(feature)
+      const geometry = new THREE.ExtrudeGeometry(shape, { depth: Math.min(500, part.height - part.minHeight), bevelEnabled: false, steps: 1 })
+      const color = new THREE.Color(part.roofColor && /^#[0-9a-f]{6}$/i.test(part.roofColor) ? part.roofColor : 0x72756f), colors: number[] = []
+      for (let i = 0; i < geometry.getAttribute('position').count; i++) colors.push(color.r, color.g, color.b)
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+      geometry.rotateX(-Math.PI / 2); geometry.translate(0, base + part.minHeight, 0)
+      partGeometry.get('source-tag')!.push(geometry)
+    }
+    for (const [status, geometries] of partGeometry) {
+      if (!geometries.length) continue
+      const merged = mergeBuildingGeometry(geometries)
+      if (merged) {
+        const mesh = new THREE.Mesh(merged, [this.roofMaterial, this.wallMaterial])
+        mesh.userData.geoLayer = 'settlement'; mesh.userData.geoHeightSource = status; mesh.userData.geoBuildingParts = geometries.length
+        mesh.userData.geoSource = 'Overture building_part'; mesh.receiveShadow = true; group.add(mesh)
+      }
+      geometries.forEach(geometry => geometry.dispose())
     }
     for (const f of features) if (f.kind === 'road' && overlaps(f, x0, z0)) {
       const width = /motorway|trunk/.test(f.tags.highway ?? '') ? 8 : /primary|secondary/.test(f.tags.highway ?? '') ? 5 : 3
@@ -295,7 +540,7 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
   }
   private addVegetation(group: THREE.Group, x0: number, z0: number) {
     const parent = new THREE.Group(); parent.userData.geoLayer = 'vegetation'; group.add(parent)
-    const batches = new Map<SceneryAsset, SceneryPlacement[]>()
+    const placements: ForestPlacement[] = []
     for (let col = 0; col < 16; col++) for (let row = 0; row < 16; row++) {
       const x = x0 + col * 16 + 8 + (hash01(col + x0, row + z0) - 0.5) * 9
       const z = z0 + row * 16 + 8 + (hash01(row + z0, col + x0, 9) - 0.5) * 9
@@ -304,11 +549,37 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       if (height === null) continue
       const delta = Math.abs((this.terrainHeight(x + 4, z) ?? height) - (this.terrainHeight(x - 4, z) ?? height))
       if (delta > 10 || hash01(x, z, 4) < 0.12) continue
-      const asset: SceneryAsset = hash01(x, z, 7) > 0.5 ? 'broadleaf' : 'oak'
-      const batch = batches.get(asset) ?? []
-      batch.push({ x, z, y: height - 0.12, height: 8 + hash01(x, z, 8) * 7, yaw: hash01(x, z, 10) * Math.PI * 2 }); batches.set(asset, batch)
+      placements.push({ x, z, y: height - 0.12, height: 8 + hash01(x, z, 8) * 7, yaw: hash01(x, z, 10) * Math.PI * 2, variant: Math.min(15, Math.floor(hash01(x, z, 11) * 16)) })
     }
-    for (const [asset, placements] of batches) this.assets.addInstances(parent, asset, placements)
+    this.forest.addInstances(parent, placements)
+  }
+  /** Distant forest silhouettes are prepared for the complete data footprint
+   * once. Moving the train never recreates the horizon or reveals a late
+   * replacement forest. Match heights to the displayed 64m DEM triangles. */
+  private buildDistantForest() {
+    const [minX, minZ, maxX, maxZ] = this.data.bundle.dem.bounds
+    const regions = new Map<string, ForestPlacement[]>()
+    const displayedHeight = (x: number, z: number) => {
+      const gx = minX + Math.floor((x - minX) / 64) * 64, gz = minZ + Math.floor((z - minZ) / 64) * 64
+      const a = this.terrainHeight(gx, gz), b = this.terrainHeight(gx + 64, gz)
+      const c = this.terrainHeight(gx, gz + 64), d = this.terrainHeight(gx + 64, gz + 64)
+      if (a === null || b === null || c === null || d === null) return null
+      const u = (x - gx) / 64, v = (z - gz) / 64
+      return u + v <= 1 ? a * (1 - u - v) + b * u + c * v : d * (u + v - 1) + b * (1 - v) + c * (1 - u)
+    }
+    for (let x = Math.ceil(minX / 48) * 48; x < maxX; x += 48) for (let z = Math.ceil(minZ / 48) * 48; z < maxZ; z += 48) {
+      const px = x + (hash01(x, z, 21) - 0.5) * 38, pz = z + (hash01(x, z, 22) - 0.5) * 38
+      if (!this.data.landAt(px, pz, 'forest') || this.data.landAt(px, pz, 'water') || this.data.landAt(px, pz, 'building')) continue
+      const y = displayedHeight(px, pz); if (y === null) continue
+      const key = `${Math.floor(px / 1024)},${Math.floor(pz / 1024)}`
+      const batch = regions.get(key) ?? []
+      batch.push({ x: px, z: pz, y, height: 10 + hash01(x, z, 23) * 6, yaw: hash01(x, z, 24) * Math.PI * 2,
+        variant: Math.min(15, Math.floor(hash01(x, z, 25) * 16)) })
+      regions.set(key, batch)
+    }
+    this.distantForestGroup.name = 'whole-corridor-textured-forest'
+    for (const placements of regions.values()) this.distantForest.addInstances(this.distantForestGroup, placements)
+    this.group.add(this.distantForestGroup)
   }
   /** Rasterized OSM polygons mask the terrain surface, so coarse mountain
    * triangles cannot create fictitious islands or erase shoreline holes. */
@@ -342,77 +613,42 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
       this.waterGroup.add(new THREE.Mesh(geometry, material))
     }
   }
-  private updateBackground(_x: number, _z: number, tiles: { x: number; z: number }[]) {
-    const minX = Math.min(...tiles.map(t => t.x)) * TILE, maxX = (Math.max(...tiles.map(t => t.x)) + 1) * TILE
-    const minZ = Math.min(...tiles.map(t => t.z)) * TILE, maxZ = (Math.max(...tiles.map(t => t.z)) + 1) * TILE
-    const key = `${minX}:${minZ}`
-    if (key === this.backgroundKey) return
-    const centerX = (minX + maxX) / 2, centerZ = (minZ + maxZ) / 2
-    const perimeter: GeoPoint[] = []
-    for (let px = minX; px < maxX; px += 8) perimeter.push({ x: px, z: minZ })
-    for (let pz = minZ; pz < maxZ; pz += 8) perimeter.push({ x: maxX, z: pz })
-    for (let px = maxX; px > minX; px -= 8) perimeter.push({ x: px, z: maxZ })
-    for (let pz = maxZ; pz > minZ; pz -= 8) perimeter.push({ x: minX, z: pz })
-    const positions: number[] = [], colors: number[] = [], normals: number[] = [], uv: number[] = [], indices: number[] = [], valid: boolean[] = []
-    const scales = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16]
-    for (const scale of scales) for (const p of perimeter) {
-      const px = centerX + (p.x - centerX) * scale, pz = centerZ + (p.z - centerZ) * scale
-      const h = this.terrainHeight(px, pz)
-      valid.push(h !== null); positions.push(px, h ?? 0, pz); uv.push(px * 0.08, pz * 0.08)
-      const normal = new THREE.Vector3((this.terrainHeight(px - 4, pz) ?? h ?? 0) - (this.terrainHeight(px + 4, pz) ?? h ?? 0), 8, (this.terrainHeight(px, pz - 4) ?? h ?? 0) - (this.terrainHeight(px, pz + 4) ?? h ?? 0)).normalize()
-      normals.push(normal.x, normal.y, normal.z)
-      const tint = new THREE.Color(this.data.landAt(px, pz, 'forest') ? 0xabb49a : this.data.landAt(px, pz, 'farmland') ? 0xc8c092 : 0xc4c4aa)
-      tint.multiplyScalar(0.97 + hash01(Math.floor(px / 20), Math.floor(pz / 20)) * 0.06); colors.push(tint.r, tint.g, tint.b)
-    }
-    const count = perimeter.length
-    for (let ring = 0; ring < scales.length - 1; ring++) for (let i = 0; i < count; i++) {
-      const a = ring * count + i, b = ring * count + (i + 1) % count, c = a + count, d = b + count
-      if (valid[a] && valid[b] && valid[c]) indices.push(a, b, c)
-      if (valid[b] && valid[c] && valid[d]) indices.push(b, d, c)
-    }
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3)); geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3)); geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geometry.setIndex(indices)
-    if (this.background) { this.group.remove(this.background); this.background.geometry.dispose() }
-    this.background = new THREE.Mesh(geometry, this.groundMaterial); this.background.receiveShadow = true
-    this.group.add(this.background); this.backgroundKey = key
-    this.forestCanopies?.dispose(); this.forestCanopies?.removeFromParent()
-    // Anchor the distant canopy to the displayed DEM mesh, whose coarse
-    // triangle interpolation differs from bilinear DEM on steep hills.
-    const triangleBins = new Map<string, number[]>()
-    for (let i = 0; i < indices.length; i += 3) {
-      const triangle = indices.slice(i, i + 3)
-      const xs = triangle.map(v => positions[v * 3]), zs = triangle.map(v => positions[v * 3 + 2])
-      for (let tx = Math.floor(Math.min(...xs) / 256); tx <= Math.floor(Math.max(...xs) / 256); tx++) for (let tz = Math.floor(Math.min(...zs) / 256); tz <= Math.floor(Math.max(...zs) / 256); tz++) {
-        const key = `${tx},${tz}`, list = triangleBins.get(key) ?? []; list.push(i); triangleBins.set(key, list)
+  private buildStations() {
+    this.stationGroup.name = 'osm-metro-north-platform-source-geometry'
+    this.stationGroup.visible = false
+    this.group.add(this.stationGroup)
+    for (const station of this.data.stations.filter(item => item.inCurrentRoute)) {
+      const stationGround = this.terrainHeight(station.point.x, station.point.z)
+      if (stationGround === null) continue
+      for (const platform of station.platforms) {
+        const ground = platform.coordinates.map(point => this.terrainHeight(point.x, point.z)).filter((value): value is number => value !== null)
+        if (!ground.length) continue
+        const rawHeight = platform.tags.height?.trim()
+        const match = rawHeight?.match(/^\s*(\d+(?:\.\d+)?)\s*(m|meter|meters|metre|metres|ft|feet|')?\s*$/i)
+        const taggedRise = match ? Number(match[1]) * (/^(ft|feet|')$/i.test(match[2] ?? '') ? 0.3048 : 1) : null
+        const y = ground.reduce((sum, value) => sum + value, 0) / ground.length + (taggedRise !== null && taggedRise <= 10 ? taggedRise : 0.35)
+        if (platform.closed) {
+          const shape = shapeOf({ ...platform, kind: 'rail', holes: [] })
+          const geometry = new THREE.ShapeGeometry(shape); geometry.rotateX(-Math.PI / 2); geometry.translate(0, y, 0)
+          const mesh = new THREE.Mesh(geometry, this.platformMaterial)
+          mesh.userData.station = station.name; mesh.userData.sourceId = platform.id; mesh.userData.association = platform.association.method
+          mesh.renderOrder = 15; this.stationGroup.add(mesh)
+          const points = platform.coordinates.map(point => new THREE.Vector3(point.x, y + 0.08, point.z))
+          const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), this.platformOutlineMaterial)
+          outline.userData.station = station.name; outline.userData.sourceId = platform.id; outline.renderOrder = 16
+          this.stationGroup.add(outline)
+        } else {
+          // Open OSM ways remain lines: no closed footprint or width is inferred.
+          const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(platform.coordinates.map(point => new THREE.Vector3(point.x, y, point.z))), this.platformOutlineMaterial)
+          line.userData.station = station.name; line.userData.sourceId = platform.id; line.userData.geometryType = 'open-source-line'
+          line.renderOrder = 16; this.stationGroup.add(line)
+        }
       }
+      const marker = new THREE.Mesh(new THREE.CircleGeometry(3, 16), this.platformOutlineMaterial)
+      marker.rotation.x = -Math.PI / 2; marker.position.set(station.point.x, stationGround + 2, station.point.z)
+      marker.userData.station = station.name; marker.userData.operator = 'Metro-North Railroad'; marker.userData.empireServiceStopsHere = station.empireServiceStopsHere
+      this.stationGroup.add(marker)
     }
-    const displayedHeight = (px: number, pz: number) => {
-      for (const i of triangleBins.get(`${Math.floor(px / 256)},${Math.floor(pz / 256)}`) ?? []) {
-        const a = indices[i] * 3, b = indices[i + 1] * 3, c = indices[i + 2] * 3
-        const ax = positions[a], az = positions[a + 2], bx = positions[b], bz = positions[b + 2], cx = positions[c], cz = positions[c + 2]
-        const denominator = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz)
-        if (Math.abs(denominator) < 1e-8) continue
-        const u = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / denominator, v = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / denominator
-        if (u >= -1e-6 && v >= -1e-6 && u + v <= 1.000001) return u * positions[a + 1] + v * positions[b + 1] + (1 - u - v) * positions[c + 1]
-      }
-      return null
-    }
-    const placements: THREE.Matrix4[] = [], matrix = new THREE.Object3D()
-    const center = { x: Math.floor(_x / 40) * 40, z: Math.floor(_z / 40) * 40 }
-    for (let dx = -2520; dx <= 2520; dx += 40) for (let dz = -2520; dz <= 2520; dz += 40) {
-      const px = center.x + dx + (hash01(dx + center.x, dz + center.z) - 0.5) * 34
-      const pz = center.z + dz + (hash01(dz + center.z, dx + center.x, 7) - 0.5) * 34
-      if (px >= minX && px <= maxX && pz >= minZ && pz <= maxZ) continue
-      if (!this.data.landAt(px, pz, 'forest') || this.data.landAt(px, pz, 'water')) continue
-      const y = displayedHeight(px, pz); if (y === null) continue
-      const size = 4 + hash01(px, pz, 12) * 3
-      matrix.position.set(px, y + size * 0.65, pz); matrix.scale.set(size, size * 0.85, size); matrix.rotation.y = hash01(px, pz) * 6.28; matrix.updateMatrix()
-      placements.push(matrix.matrix.clone())
-    }
-    this.forestCanopies = new THREE.InstancedMesh(this.canopyGeometry, this.canopyMaterial, placements.length)
-    for (let i = 0; i < placements.length; i++) this.forestCanopies.setMatrixAt(i, placements[i])
-    this.forestCanopies.computeBoundingSphere(); this.group.add(this.forestCanopies)
   }
   private disposeChunk(chunk: RealChunk) {
     chunk.group.traverse(object => {
@@ -424,12 +660,14 @@ diffuseColor.rgb *= mix(grass*1.1,rock,smoothstep(0.13,0.5,1.0-abs(n.y)));
   }
   private clearChunks() { for (const chunk of this.chunks.values()) this.disposeChunk(chunk); this.chunks.clear() }
   dispose() {
-    this.disposed = true; this.clearChunks(); this.assets.dispose()
+    this.disposed = true; this.clearChunks(); this.forest.dispose(); this.distantForest.dispose()
+    this.distantForestGroup.traverse(object => { if (object instanceof THREE.InstancedMesh) { object.dispose(); object.geometry.dispose() } })
     this.background?.geometry.dispose(); this.routeLine.geometry.dispose(); (this.routeLine.material as THREE.Material).dispose()
     this.marker.geometry.dispose(); (this.marker.material as THREE.Material).dispose()
     this.waterGroup.traverse(o => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() } })
-    for (const material of [this.outlineMaterial, this.groundMaterial, this.roadMaterial, this.ballastMaterial, this.railMaterial, this.roofMaterial, this.wallMaterial, this.estimatedWallMaterial, this.footprintMaterial, this.tieMaterial]) material.dispose()
-    this.forestCanopies?.dispose(); this.canopyGeometry.dispose(); this.canopyMaterial.dispose(); this.landMask.dispose(); this.engineeringGeometry.dispose(); this.engineeringMaterial.dispose()
+    this.stationGroup.traverse(o => { if (o instanceof THREE.Mesh || o instanceof THREE.Line) o.geometry.dispose() })
+    for (const material of [this.outlineMaterial, this.groundMaterial, this.roadMaterial, this.ballastMaterial, this.railMaterial, this.roofMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial, this.platformMaterial, this.platformOutlineMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.tieMaterial]) material.dispose()
+    this.landMask.dispose(); this.engineeringGeometry.dispose(); this.shelterSupportGeometry.dispose(); this.engineeringMaterial.dispose()
     this.tieGeometry.dispose(); this.group.removeFromParent()
   }
 }

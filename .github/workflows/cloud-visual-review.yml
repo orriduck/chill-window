@@ -15,7 +15,7 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-24.04
-    timeout-minutes: 18
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
         with:
@@ -64,6 +64,9 @@ jobs:
             health.states.push({ name, url: page.url(), title: await page.title(),
               status: await page.getByLabel('真实地理加载状态', { exact: true }).textContent(),
               position: await page.getByLabel('真实列车位置', { exact: true }).textContent(),
+              streaming: await page.getByLabel('地理区块流式加载诊断', { exact: true }).textContent(),
+              buildings: await page.getByLabel('真实建筑数据统计', { exact: true }).textContent(),
+              station: await page.getByLabel('Metro-North 实际车站', { exact: true }).textContent(),
               capturedAt: new Date().toISOString(),
               viewport: page.viewportSize() });
           }
@@ -71,8 +74,8 @@ jobs:
             await page.getByLabel('真实地理加载状态', { exact: true }).waitFor();
             await page.waitForFunction(() => {
               const text = document.querySelector('[aria-label="真实地理加载状态"]')?.textContent ?? '';
-              return !!text && !/正在加载|加载失败/.test(text);
-            }, null, { timeout: 90000 });
+              return text.includes('49/49') && text.includes('场景就绪');
+            }, null, { timeout: 180000 });
             if (await page.locator('[data-webgl="unavailable"]').count()) throw new Error('WebGL unavailable');
             if (await page.locator('vite-error-overlay').count()) throw new Error('Vite error overlay');
             if ((await page.locator('body').innerText()).trim().length < 30) throw new Error('Blank app shell');
@@ -110,6 +113,20 @@ jobs:
               await page.waitForFunction(initial => document.querySelector('[aria-label="真实列车位置"]')?.textContent !== initial, initialPosition, { timeout: 90000 });
               health.movementVerified = true;
               await snapshot('02-cold-spring-ride-moving');
+              const metresAt = async () => Number((await page.getByLabel('真实列车位置', { exact: true }).textContent()).split(' / ')[0]) * 1000;
+              const longRideStart = await metresAt();
+              health.continuity = [];
+              for (let sample = 0; sample < 6; sample++) {
+                await page.waitForTimeout(10000);
+                const diagnostic = await page.getByLabel('地理区块流式加载诊断', { exact: true }).textContent();
+                const missing = Number(diagnostic.match(/视野缺块 (\d+)/)?.[1]);
+                const lateFrames = Number(diagnostic.match(/行驶缺块帧 (\d+)/)?.[1]);
+                health.continuity.push({ position: await metresAt(), missing, lateFrames, diagnostic });
+                if (missing !== 0 || lateFrames !== 0) throw new Error(`Visible scenery was not prepared: ${diagnostic}`);
+              }
+              health.continuousDistanceMetres = await metresAt() - longRideStart;
+              if (health.continuousDistanceMetres < 512) throw new Error('Continuous ride did not cross enough geography tiles');
+              await snapshot('02b-continuous-ride');
               await page.keyboard.press('F5');
               await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
               await snapshot('03-geography-debug');
@@ -117,7 +134,8 @@ jobs:
               await range.evaluate((input) => { input.value = '7393.844'; input.dispatchEvent(new Event('input', { bubbles: true })); });
               await page.getByRole('button', { name: '列车跳到这个位置', exact: true }).click();
               await snapshot('04-garrison-jump-initial');
-              await page.waitForTimeout(8000);
+              await page.waitForFunction(() => document.querySelector('[aria-label="真实列车位置"]')?.textContent?.startsWith('7.39 /'), null, { timeout: 180000 });
+              await ready();
               await snapshot('05-garrison-jump-after-8s');
               await page.keyboard.press('Escape');
               await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'hidden' });
@@ -145,7 +163,7 @@ jobs:
             }
           })();
           NODE
-          timeout 600s node "$RUNNER_TEMP/chill-review.cjs"
+          timeout 1200s node "$RUNNER_TEMP/chill-review.cjs"
       - uses: actions/upload-artifact@v5
         if: always()
         with:

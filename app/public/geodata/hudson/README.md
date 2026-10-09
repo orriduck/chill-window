@@ -35,3 +35,29 @@ Sources and attribution:
 Map data represents mapped objects, not a surveyed engineering model. Railway
 centreline accuracy, missing OSM coverage and the DEM source mosaic are described
 in the manifest. No terrain or shoreline was procedurally fabricated.
+
+## Regional building overlay
+
+`buildings.json` augments the original 6,302 OSM footprints without changing
+`world.json`: OSM geometry and holes remain authoritative, while matching
+Overture attributes and provenance are attached by record ID/IoU. Only
+non-matching Overture components are added. The overlay contains 34,326
+components and 3 building parts for release `2026-09-23.1`; 28,024 Overture
+components cover the expanded regional bbox, including towns beyond the narrow
+rail corridor. The Three.js loader indexes these once into 256m spatial bins
+and builds visible chunks incrementally.
+
+Height states remain explicit: source tags, upstream model estimates,
+floors-only, and missing. Microsoft model heights are estimates, not surveyed
+measurements. Missing heights remain footprints. Building parts use their own
+`height` and `min_height`. Every feature retains geometry provenance, Overture
+GERS IDs/matches, source records, release, and attribute-source metadata.
+
+- [Overture building data guide](https://docs.overturemaps.org/guides/buildings/)
+- [Overture attribution](https://docs.overturemaps.org/attribution/)
+- [Microsoft Global ML Building Footprints](https://github.com/microsoft/GlobalMLBuildingFootprints)
+
+Reproduce the offline conflation with `python app/scripts/prepare-hudson-buildings.py`
+(Shapely required). `--refresh` requests upstream data. The full regional
+snapshot, exact requests, partition paths, timestamps and source-response
+SHA-256 values are recorded in `buildings.json` and `sources/`.

@@ -45,6 +45,10 @@ export class WebGLRenderer {
     }
   }
 
+  warmup(scene: THREE.Scene, camera: THREE.Camera) {
+    return this.renderer.compileAsync(scene, camera)
+  }
+
   resize(width: number, height: number) {
     this.updatePixelRatio(width, height)
     this.renderer.setSize(width, height, false)

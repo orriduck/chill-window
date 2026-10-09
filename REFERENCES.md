@@ -138,6 +138,19 @@
 
 直接案例 [YusufEminoglu/osm_3d_model](https://github.com/YusufEminoglu/osm_3d_model) 也可研究，其README明确包含procedural建筑/树木等细节；与“全部真实数据”的目标需要区分实际OSM几何和生成的细节，不能整体照搬并宣称真实。
 
+### 补充：OSM 真实地景开源项目与代码核查
+
+核查日期 2026-10-09；本次读取作者仓库、官方文档和以下源码，没有运行这些项目或将其代码接入当前场景。
+
+| 一手来源 | 具体机制与适用边界 | 关联代码（待评估） |
+| --- | --- | --- |
+| [Streets GL](https://github.com/StrandedKitty/streets-gl)、[建筑标签解析](https://github.com/StrandedKitty/streets-gl/blob/HEAD/src/lib/tile-processing/vector/qualifiers/factories/osm/helpers/getBuildingParamsFromOSMTags.ts)、[双坡屋顶构造](https://github.com/StrandedKitty/streets-gl/blob/HEAD/src/lib/tile-processing/tile3d/builders/roofs/GabledRoofBuilder.ts) | TypeScript / 自有 WebGL2 渲染器；OSM 矢量瓦片和 Esri 高程分开输入，运行时建立建筑、道路等网格并使用地形 LOD。源码包含屋顶直骨架处理、UV 和墙/屋顶材质解析，适合研究建筑几何。高度缺失时会采用默认一层、每层4m等推断，不能在本项目中把这些默认值作为真实高度直接导入。 | `geography/RealWorld.ts` 建筑几何、未来按块预加载；保留现有 Three.js 渲染器 |
+| [OSM2World 官方 Web 模块](https://osm2world.org/docs/library-web/)、[BuildingDefaults.java](https://github.com/tordanik/OSM2World/blob/HEAD/core/src/main/java/org/osm2world/world/modules/building/BuildingDefaults.java) | 官方 Web 接口直接返回位置、索引、法线、UV 和材质，可适配 Three.js；官方提示客户端转换适合较小数据集。类型默认值明确区分 roof/carport 的无墙结构，但同样含默认楼层、层高和材质，需保留来源属性并限制缺失数据的推断。沿线区域离线转换、模型分块是本项目拟评估的接入方法，尚未验证输出。 | 模型转换管线、`GeoData.ts` 来源属性、`RealWorld.ts` 模型加载 |
+| [Map3D](https://github.com/cartesiancs/map3d) | React Three Fiber / Three.js，使用 OSM 创建建筑和道路并导出 GLB。README 当前把建筑纹理、材质和 heightmap 列为未完成，适合小区域导出原型，不能视为现成完整地景引擎。 | 离线区域 GLB 导出候选 |
+| [Blosm 官方文档](https://github.com/vvoovv/blosm/wiki/Documentation) | Blender 离线导入 OSM 建筑 part、高度、多类屋顶、道路/铁路和约30m地形，建筑可贴合高程。这里研究的是 OSM 导入；Google 3D 城市是另一个数据来源，不能把它与开放 OSM 重建混称。 | 离线转换对比候选 |
+
+本次判断：优先评估 OSM2World 的转换结果，参考 Streets GL 的建筑/屋顶算法与地形细节分配。OSM 地图要素与独立 DEM 能约束布局和地形；转换器生成的默认立面、窗户、树木和缺失高度并不因此成为当地实测数据。
+
 ## 2026-10-09：真实 Hudson 车站数据
 
 | 来源 | 具体借鉴或核查 | 受影响的文件 |
@@ -165,14 +178,14 @@
 | [Playwright 官方 CI 指引](https://playwright.dev/docs/ci)、[GitHub Actions 工作流语法](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) | 使用GitHub云端Ubuntu runner构建真实应用，并由Chromium拍摄车窗、F5俯视、站点里程跳转前后与移动视口。截图、视频、日志和临时脚本均在runner临时目录，作为artifact提供，不把报告/图片写入仓库。软件WebGL不代表用户GPU性能；自动运行健康检查不能代替人工画面检查，也不代表五项目标完成。 | `.github/workflows/cloud-visual-review.yml` |
 | [Poly Haven Tree Small 02](https://polyhaven.com/a/tree_small_02)、[官方文件清单](https://api.polyhaven.com/files/tree_small_02)、[许可](https://polyhaven.com/license)、[作者导出说明](https://blog.polyhaven.com/dev-log-20/) | 实际读到CC0、4.6m高、约5M三角形，1k glTF依赖约95MB几何buffer；网站标签为Burkea africana，不能直接作为哈德逊河本地成熟树种。尚未下载模型或接入，作为被排除的直接替换候选；保留现有枝叶图集作LOD方案研究，具体树高/单株位置未由该素材提供。 | 云端`RealWorld`树木表现评估；不作为运行时新模型 |
 
-<!-- Recovered cloud implementation notes; later data acquisition above supersedes download limitations. -->
 
-### 云端真实建筑接续（2026-10-09 更新）
+## 2026-10-09：真实数据渲染接入与完整初始范围预加载
 
-本次以已提交的 Hudson GIS 快照直接统计，而非从地图截图估算：当前包内 OSM 有 6,302 栋 building footprint；3,567 个包含 `height` 标签；12 个包含 `building:levels`，其中 9 个为可解析的正数；2,726 栋没有可用高度；roof shape 字段 1 条。OSM `height` 是源标签，不代表本项目独立测量。楼层换算采用 3.1m/层，仅用于显示并标为估值；其余无高度建筑只画贴地 footprint，不建假立面。
+| 来源与本次核查 | 采用范围与边界 | 受影响代码 |
+| --- | --- | --- |
+| 上文实际取得的 FRA/USGS/OSM、MTA 站点与 Overture 2026-09-23.1 快照 | 运行时校验叠加层绑定的 world.json SHA-256，接入四个沿线 Metro-North 站及八条站台几何、34,326 个区域建筑组件及三个建筑 part。保留上游高度估计和缺失高度的状态。此段 Empire Service 经过这些 Metro-North 站，不把它们标为 Amtrak 停靠站。 | `geography/GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts`、`ThreeCanvas.tsx` |
+| [OSM way/1307801003](https://www.openstreetmap.org/way/1307801003) 的 amenity=shelter / shelter_type=public_transport 与实际匹配 Overture class=shelter | Peekskill 遮棚按开放结构表达；保留真实 footprint，估算支柱和缺失时的3.6m棚高均标为可视化估值。不能由 building=yes 覆盖更具体的遮棚标签并填入实墙。 | `GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts` |
+| 仓库已有 `trees_summer_near_04*.png` 图集；本次直接查看现有图像，不新增下载或声称其是 Hudson 当地单株照片 | 以带枝叶轮廓、纹理和 alpha 的交叉面实例替换 Kenney 树模型/低模球冠。近景和远景使用距离过渡，远景整段数据范围一次准备，按1024m区域分批以利剔除；落在OSM林地内并避开水体与建筑。单株位置/高度仍是明确的视觉采样，不是树木调查。排除已确认的 Burkea africana / Tree Small 02，不引入该模型。 | 新 `geography/GeoForest.ts`、`RealWorld.ts`、`textures.ts` |
+| [Three.js InstancedBufferAttribute](https://threejs.org/docs/pages/InstancedBufferAttribute.html)、[WebGLRenderer compileAsync](https://threejs.org/docs/pages/WebGLRenderer.html) 与当前已安装 Three.js API | 每株树用实例属性选择图集单元，一块最多两个森林批次；等待纹理、整个初始7×7可视范围及同宽1536m前方缓冲，再编译材质。缓存最多256块，尚未备妥的目标区域不会推进列车；跳转先准备目标块。时段/天气修改不重新创建地理世界。只有云端运动检查才能证明连续运行状态，不把这些代码机制或构建成功视为完整验收。 | `GeoForest.ts`、`RealWorld.ts`、`ThreeCanvas.tsx`、`core/Renderer.ts`、云端截图 workflow |
 
-已按官方客户端 `overturemaps` 1.0.2 对 bbox `[-74.08,41.25,-73.85,41.46]` 分别尝试 `building` 和 `building_part`，锁定 release `2026-09-23.1`；S3 分区数据请求在该运行环境失败，AWS endpoint 主机名无法 DNS 解析。本次没有导入 Overture 数据，运行 UI 会明确显示“未并入 Overture”，没有虚构数量、ID 或高度来源。获取渠道恢复后，应保留官方原始 Parquet/GeoJSON、release、bbox、GERS 与来源记录、请求元数据和 SHA-256，再按稳定源 ID/IoU>0.5 合并。
-
-当前真实世界构建只从 `ThreeCanvas.tsx` 初始化 Hudson `GeoData` / `RealWorld`，不再创建程序 `TerrainLOD`、生成水域/城镇、编辑器或 `TerrainInspector`。真实路线范围内的细节区块由单侧 2×3 扩至全方向 7×7（最多 49 个 256m 地理区块）；按 OSM height 标签、楼层换算估值、无高度 footprint 分色，并可输入/点击 footprint 查询 OSM 源记录。局部地表由 USGS DEM、土地覆盖与 OSM 线/面数据提供；树木按 OSM 林地范围呈现，树种/单株位置、建筑真实立面材料仍没有数据，不能称为测绘实景。
-
-开源转换器沿用既有研究结论但本次没有 vendoring 或运行 OSM2World/Blosm：OSM2World 的 Web 模块会返回可供 Three.js 使用的网格/材质数据，适合后续离线按区块评测；Blosm 的 GPL Blender 插件有独立许可证影响；Three-geo-play 是可检查的 MIT 矢量瓦片实现。此次为保留真实 OSM 标签与逐栋 ID，继续使用本项目 `GeoData`/`RealWorld` 直接渲染；没有把转换器默认屋顶/高度当作观测数据。
+本次没有运行或集成 OSM2World/Blosm，也没有获得当地建筑逐栋立面纹理。正常车窗用中性墙面，调试模式才用源高度/模型估计分色；建筑 roof/wall 合并成每类两组，建筑 part 同样保留材质组，防止构件不绘制及逐栋 draw call 膨胀。此段描述是实现状态，新版视觉检查结果待云端 artifact 核对后另行报告。

@@ -43,6 +43,12 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
   const onInspectionChange = useRef(onTerrainEditingChange)
+  const environment = useRef<((time: TimeOfDayPreset, weather: WeatherPreset) => void) | null>(null)
+  const settings = useRef({ timePreset, weatherPreset })
+  useEffect(() => {
+    settings.current = { timePreset, weatherPreset }
+    environment.current?.(timePreset, weatherPreset)
+  }, [timePreset, weatherPreset])
   useEffect(() => { onInspectionChange.current = onTerrainEditingChange }, [onTerrainEditingChange])
 
   useEffect(() => {
@@ -58,8 +64,11 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     try { renderer = new WebGLRenderer() }
     catch { if (controlRef) controlRef.current = null; container.dataset.webgl = 'unavailable'; scene.dispose(); interiorScene.clear(); return }
     const sky = new SkyDome()
-    const time = new TimeOfDay(timePreset)
-    const weather = new WeatherSystem(); weather.setOverride(weatherPreset === 'auto' ? null : weatherPreset)
+    const time = new TimeOfDay(settings.current.timePreset)
+    const weather = new WeatherSystem(); weather.setOverride(settings.current.weatherPreset === 'auto' ? null : settings.current.weatherPreset)
+    environment.current = (preset, weatherPreset) => {
+      time.setPreset(preset); weather.setOverride(weatherPreset === 'auto' ? null : weatherPreset)
+    }
     const windowFrame = new WindowFrame()
     const perf = new PerfMonitor(renderer.renderer)
     const debug = new DebugMode()
@@ -72,19 +81,27 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     scene.scene.fog = new THREE.Fog(0xbfe3f2, 1100, 6000)
     let world: RealWorld | null = null
     let data: GeoData | null = null
-    let disposed = false, paused = false, elapsed = 0
+    let disposed = false, paused = false, elapsed = 0, requestedSpeed = 0, worldReady = false
+    let pendingJump: number | null = null
     let motionSampleTime = performance.now(), motionSampleZ = camera.z, measuredSpeed = 0, previousTime = motionSampleTime
     const abort = new AbortController()
     const motionSpeed = () => paused || debug.isTopDown || !world ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH
     if (controlRef) controlRef.current = {
-      setSpeed: speed => camera.setTargetSpeed(speed), setPaused: value => { paused = value }, getZ: () => camera.z, getGrade: () => camera.grade,
+      setSpeed: speed => { requestedSpeed = speed; if (worldReady) camera.setTargetSpeed(speed) }, setPaused: value => { paused = value }, getZ: () => camera.z, getGrade: () => camera.grade,
       getRouteContext: () => ({ currentLabel: camera.z < 11420 ? 'Hudson Highlands · 真实路线' : 'Empire Service · Hudson Valley', nextLabel: 'Empire Service · 南行' }),
       getMotion: () => ({ speedKmh: motionSpeed(), speedRatio: motionSpeed() / CRUISE_SPEED_KMH, acceleration: paused || debug.isTopDown || !world ? 0 : camera.acceleration }),
-      setWindowHud: readout => windowFrame.setHudReadout({ ...readout, journey: 'Hudson Highlands · 南行', routeLabel: 'Empire Service · 南行', segmentLabel: 'Hudson Highlands · 真实路线', stationNames: ['样板起点', '样板终点'], currentSegment: 0, progress: data ? camera.z / data.length : 0 }),
+      setWindowHud: readout => {
+        const stations = data?.stations.filter(station => station.inCurrentRoute).sort((a, b) => a.sMetres - b.sMetres) ?? []
+        const nearest = stations.find(station => station.sMetres >= camera.z) ?? stations.at(-1)
+        windowFrame.setHudReadout({ ...readout, journey: 'Hudson Highlands · 南行', routeLabel: 'Empire Service · 南行',
+          segmentLabel: nearest ? `${nearest.name} · Metro-North 经行站` : 'Hudson Highlands · 真实路线',
+          stationNames: stations.map(station => station.name), currentSegment: Math.max(0, stations.findIndex(station => station === nearest) - 1),
+          progress: data ? camera.z / data.length : 0 })
+      },
       getWindowHudAnchor: () => windowFrame.getHudControlAnchor(camera.getCamera()), getWindowHudControlHitAreas: () => windowFrame.getHudControlHitAreas(camera.getCamera()),
       showStation: () => {}, planStation: () => {}, prepareStation: () => {},
-      // The bundled corridor has no station/stop dataset, so do not invent
-      // intermediate station platforms or braking points for this prototype.
+      // Source-backed Metro-North platforms are rendered by RealWorld. The
+      // Empire Service train passes these stations without a scheduled stop.
       approachStation: () => {},
       departStation: () => camera.departStation(CRUISE_SPEED), resetView: () => camera.resetView(), hideStation: () => {},
     }
@@ -92,10 +109,15 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     canvas.style.width = '100%'; canvas.style.height = '100%'; canvas.style.display = 'block'; canvas.style.cursor = 'grab'; canvas.style.touchAction = 'none'; container.appendChild(canvas)
     void loadHudsonData(abort.signal).then(route => {
       if (disposed) return
-      data = route; world = new RealWorld(route); exteriorGroup.add(world.group)
       const query = new URLSearchParams(window.location.search)
-      camera.setZ(THREE.MathUtils.clamp(Number(query.get('routeMetres') ?? route.checkpoints[0].s), 0, route.length))
+      const startS = THREE.MathUtils.clamp(Number(query.get('routeMetres') ?? route.checkpoints[0].s), 0, route.length)
+      data = route; world = new RealWorld(route, startS); exteriorGroup.add(world.group)
+      camera.setZ(startS)
       camera.setRailProfile({ height: s => route.railHeight(s), grade: s => route.railGrade(s) }); inspector.setData(route)
+      void world.ready
+        .then(() => renderer.warmup(scene.scene, camera.getCamera()))
+        .then(() => { if (!disposed && world) { world.presentable = true; worldReady = true; camera.setTargetSpeed(requestedSpeed) } })
+        .catch(error => { if (!disposed) inspector.fail(`场景预热失败：${error.message}`) })
     }).catch(error => { if (!disposed && error.name !== 'AbortError') inspector.fail(error.message) })
 
     let pointer: number | null = null, lastX = 0, lastY = 0
@@ -114,13 +136,22 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       const command = inspector.consume()
       if (command.editing !== undefined) debug.setTerrainEditing(command.editing)
       if (command.recenter) inspector.recenter(camera.z)
-      if (command.jump !== undefined && data) { camera.setZ(THREE.MathUtils.clamp(command.jump, 0, data.length)); inspector.recenter(camera.z); motionSampleZ = camera.z; motionSampleTime = now; measuredSpeed = 0 }
+      if (command.jump !== undefined && data) {
+        pendingJump = THREE.MathUtils.clamp(command.jump, 0, data.length)
+        world?.prepareAt(pendingJump); inspector.recenter(pendingJump)
+      }
+      if (pendingJump !== null && world?.canAdvance(pendingJump)) {
+        camera.setZ(pendingJump); world.prepareAt(null); pendingJump = null
+        motionSampleZ = camera.z; motionSampleTime = now; measuredSpeed = 0
+      }
       if (command.time) time.setPreset(command.time)
       if (command.weather) weather.setOverride(command.weather === 'rain' ? WeatherType.RAIN : WeatherType.CLEAR)
       const inspection = debug.isTopDown, simulationDt = paused || inspection || !world ? 0 : dt
       if (!paused && !inspection && world) elapsed += motionDt
       if (data && world && camera.targetSpeed > 0 && data.length - camera.z <= TrainCamera.STATION_STOP_DISTANCE) camera.beginStationApproach(data.length)
-      camera.update(motionDt, !paused && !inspection && !!world)
+      const nextS = camera.z + Math.max(camera.currentSpeed, camera.targetSpeed) * motionDt
+      const coverageReady = worldReady && !!world?.canAdvance(nextS)
+      camera.update(motionDt, !paused && !inspection && pendingJump === null && coverageReady)
       if (data && camera.z >= data.length) { camera.setZ(data.length); camera.setTargetSpeed(0); camera.currentSpeed = 0 }
       if (now - motionSampleTime >= 1000) { measuredSpeed = Math.abs(camera.z - motionSampleZ) / ((now - motionSampleTime) / 1000); motionSampleZ = camera.z; motionSampleTime = now }
       debug.updateMotion(camera.z, paused || inspection ? 0 : camera.currentSpeed, measuredSpeed)
@@ -147,10 +178,11 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     window.addEventListener('resize', resize)
     return () => {
       disposed = true; abort.abort(); cancelAnimationFrame(rafRef.current); window.removeEventListener('resize', resize)
+      environment.current = null
       canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', endDrag); canvas.removeEventListener('pointercancel', endDrag); canvas.removeEventListener('dblclick', doubleClick)
       if (controlRef) controlRef.current = null
       world?.dispose(); inspector.dispose(); debug.dispose(); perf.dispose(); weather.dispose(); sky.dispose(); windowFrame.dispose(); renderer.dispose(); scene.dispose(); interiorScene.clear(); canvas.remove()
     }
-  }, [controlRef, timePreset, weatherPreset])
+  }, [controlRef])
   return <div ref={containerRef} className={className} style={{ position: 'absolute', inset: 0 }} />
 }
