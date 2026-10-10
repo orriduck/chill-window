@@ -3,6 +3,10 @@ name: Prepare reviewed tree assets
 on:
   push:
     branches: ['codex/tree-asset-preparation']
+    paths:
+      - 'app/public/models/trees/**'
+      - 'app/scripts/prepare-close-tree.py'
+      - '.github/workflows/prepare-tree-assets.yml'
   workflow_dispatch:
 
 permissions:
