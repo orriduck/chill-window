@@ -1,0 +1,84 @@
+name: Prepare source-height Hudson building corridor
+
+on:
+  push:
+    branches: ['codex/tree-asset-preparation']
+    paths:
+      - 'app/scripts/experiments/osm2world-corridor/**'
+      - '.github/workflows/prepare-osm-corridor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install geographic conversion dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gdal gdal-bin unzip
+      - name: Fetch and verify the fixed converter and real sources
+        run: |
+          curl --fail --location --retry 2 'https://osm2world.org/download/files/0.4.0/OSM2World-0.4.0-bin.zip' --output "$RUNNER_TEMP/osm2world.zip"
+          /usr/bin/python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          paths = {
+              Path(os.environ['RUNNER_TEMP']) / 'osm2world.zip': 'c05b37920d29c26710a06e30c170ca62e5e8ea653cccbbb3243dfc7e5d20b899',
+              Path('app/public/geodata/hudson/world.json'): 'c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec',
+              Path('app/public/geodata/hudson/buildings.json'): '0d5bd68c040b42f99138fbdb768167ef22e8c48b5442fe0bf7d889f7347bd54f',
+          }
+          for path, expected in paths.items():
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == expected, str(path)
+          assert (Path(os.environ['RUNNER_TEMP']) / 'osm2world.zip').stat().st_size == 452089567
+          PY
+          unzip -q "$RUNNER_TEMP/osm2world.zip" -d "$RUNNER_TEMP/osm2world"
+          chmod +x "$RUNNER_TEMP/osm2world/osm2world.sh"
+      - name: Convert every occupied 256m block and retain source identities
+        run: |
+          /usr/bin/python3 -m py_compile app/scripts/experiments/osm2world-corridor/prepare.py app/scripts/experiments/osm2world-corridor/prepare-controls.py
+          /usr/bin/python3 app/scripts/experiments/osm2world-corridor/prepare.py --osm2world "$RUNNER_TEMP/osm2world/osm2world.sh" --tiles all --workers 4 --output "$RUNNER_TEMP/hudson-buildings"
+          /usr/bin/python3 app/scripts/experiments/osm2world-corridor/prepare-controls.py --osm2world "$RUNNER_TEMP/osm2world/osm2world.sh" --output "$RUNNER_TEMP/hudson-buildings/controls"
+      - name: Audit actual batch output and converter logs
+        run: |
+          /usr/bin/python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'hudson-buildings'
+          report = json.loads((root / 'reports/corridor-batch-plan.json').read_text())
+          selection, actual = report['selection'], report['aggregateValidation']
+          assert selection['componentsIntersectingCorridor'] == 6825, selection
+          assert actual['tileCount'] == actual['completedTileCount'] == 415, actual
+          assert actual['convertedSourceRecordCount'] == 5853, actual
+          assert actual['triangleCount'] == 104537, actual
+          assert actual['finalTileGLBBytes'] == 25160588, actual
+          assert actual['sharedTextureCount'] == 16 and actual['sharedTextureBytes'] == 4984364, actual
+          assert actual['sourceHeightComparedWithOutputYMax']['within10cm'] == 5853, actual
+          validation = json.loads((root / 'reports/sample-validation.json').read_text())
+          assert all(validation['checks'].values()), validation
+          errors = []
+          for log in root.rglob('converter.log'):
+              for line in log.read_text().splitlines():
+                  if re.search(r'exception|(?:^|\s)error(?:\s|:)|failed to|could not triangulate', line, re.I):
+                      errors.append({'log': str(log.relative_to(root)), 'line': line})
+          (root / 'reports/converter-log-audit.json').write_text(json.dumps({'errors': errors}, indent=2) + '\n')
+          assert not errors, errors[:10]
+          print(json.dumps(actual, indent=2))
+          PY
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: hudson-source-buildings-${{ github.sha }}
+          path: ${{ runner.temp }}/hudson-buildings/
+          retention-days: 7
+          if-no-files-found: error
