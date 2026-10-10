@@ -146,6 +146,7 @@ export class GeoInspector {
     this.convertedCase = this.button('定位转换建筑', () => {
       if (!this.world?.convertedBuildings.stats.ready) return
       const point = this.world.convertedBuildings.focusPoint
+      if (this.data) { this.progress.value = String(this.data.nearestRoute(point.x, point.z).s); this.refreshPreview() }
       const damping = this.controls.enableDamping; this.controls.enableDamping = false; this.controls.update()
       this.controls.target.copy(point); this.camera.position.set(point.x + 60, point.y + 45, point.z + 65)
       this.controls.update(); this.controls.enableDamping = damping

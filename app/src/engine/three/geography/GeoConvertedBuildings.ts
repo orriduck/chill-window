@@ -70,6 +70,7 @@ export class GeoConvertedBuildings {
       if (recordIndex === 0) this.focusPoint.set(x, ground + record.height / 2, z)
       const transform = new THREE.Matrix4().makeScale(projection.scale, 1, -projection.scale)
       transform.setPosition(projection.origin.x, ground, projection.origin.z)
+      const appearance = buildingAppearance(feature)
       let alignmentError = 0, maxHeight = -Infinity, minHeight = Infinity
       sourceNode.traverse(object => {
         if (!(object instanceof THREE.Mesh)) return
@@ -82,6 +83,30 @@ export class GeoConvertedBuildings {
         for (let i = 0; i < index.count; i += 3) { const b = index.getX(i + 1); index.setX(i + 1, index.getX(i + 2)); index.setX(i + 2, b) }
         index.needsUpdate = true
         const positions = geometry.getAttribute('position')
+        const color = new THREE.Color(object.material.name === 'RoofingTiles010' ? appearance.roofColor : appearance.facadeColor)
+        const colors = new Float32Array(positions.count * 3)
+        for (let i = 0; i < positions.count; i++) { colors[i * 3] = color.r; colors[i * 3 + 1] = color.g; colors[i * 3 + 2] = color.b }
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+        if (object.material instanceof THREE.MeshStandardMaterial && !object.material.userData.sourcePaletteInstalled) {
+          // Default red roof/beige wall textures are not local colour data.
+          // Preserve source colours (or the existing neutral palette), and
+          // use the generic PBR set only as restrained surface detail.
+          object.material.vertexColors = true
+          object.material.roughness = 0.95
+          object.material.normalScale.setScalar(0.3)
+          object.material.onBeforeCompile = shader => {
+            shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+#ifdef USE_MAP
+vec4 geoSurfaceSample = texture2D(map, vMapUv);
+float geoSurfaceLuma = dot(geoSurfaceSample.rgb, vec3(0.2126, 0.7152, 0.0722));
+diffuseColor.rgb *= mix(0.82, 1.08, sqrt(clamp(geoSurfaceLuma, 0.0, 1.0)));
+diffuseColor.a *= geoSurfaceSample.a;
+#endif`)
+          }
+          object.material.customProgramCacheKey = () => 'converted-building-source-palette-surface-v1'
+          object.material.userData.sourcePaletteInstalled = true
+          object.material.needsUpdate = true
+        }
         for (let i = 0; i < positions.count; i++) {
           const y = positions.getY(i) - ground
           minHeight = Math.min(minHeight, y); maxHeight = Math.max(maxHeight, y)
