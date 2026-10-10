@@ -1,0 +1,142 @@
+{
+  "retrieved": "2026-10-10",
+  "license": "CC0",
+  "packages": [
+    {
+      "name": "town",
+      "bytes": 3854691,
+      "sha256": "1a7530c09f4d2fa2cdee259876f089334f8b1f27fa86a0c4f54ef86cdd8676ef",
+      "page": "https://kenney.nl/assets/fantasy-town-kit",
+      "download": "https://kenney.nl/media/pages/assets/fantasy-town-kit/efe948d309-1754222374/kenney_fantasy-town-kit_2.0.zip"
+    },
+    {
+      "name": "nature",
+      "bytes": 10537521,
+      "sha256": "fa7974a0d342bfe63c38664ba9f8ec1a4aab8ea25f099bdc56870e33588c4d9d",
+      "page": "https://kenney.nl/assets/nature-kit",
+      "download": "https://kenney.nl/media/pages/assets/nature-kit/37ac38a37b-1677698939/kenney_nature-kit.zip"
+    }
+  ],
+  "files": [
+    {
+      "path": "town/wall.glb",
+      "bytes": 4792,
+      "sha256": "cab1dff37610e2a214237cc62ec0b1506e8fd76bb66c29f6c585b4b643b569c4",
+      "triangles": 32
+    },
+    {
+      "path": "town/wall-wood.glb",
+      "bytes": 4808,
+      "sha256": "8699614fdbc99f565942709c0977c964e2c12f3b3c60098a6e2c397c973f08db",
+      "triangles": 32
+    },
+    {
+      "path": "town/wall-window-small.glb",
+      "bytes": 9376,
+      "sha256": "44516aac3d06ee8d2694cfd57d0c6e1e27ca2d0bc45b738ea1f0d1821da10110",
+      "triangles": 102
+    },
+    {
+      "path": "town/wall-window-shutters.glb",
+      "bytes": 23892,
+      "sha256": "58a641a03fc4a5a225663969cc257fcf4f2fc63c199b4aca16b612142ff9eed0",
+      "triangles": 286
+    },
+    {
+      "path": "town/wall-door.glb",
+      "bytes": 29276,
+      "sha256": "79b2d40db110ca96a6e77d4261da665fdf8c68f4c20c2afef5bce1c28ad72857",
+      "triangles": 376
+    },
+    {
+      "path": "town/wall-detail-cross.glb",
+      "bytes": 8464,
+      "sha256": "7af8fba9e7022c500289bee84fcbe02a1fdad0c2afc0276155a82c1021d6456d",
+      "triangles": 80
+    },
+    {
+      "path": "town/wall-wood-detail-diagonal.glb",
+      "bytes": 6684,
+      "sha256": "3b1ef50674432944f3f9561e511c0867571393c58e3c73d475d383c5bfc469fc",
+      "triangles": 56
+    },
+    {
+      "path": "town/roof-gable.glb",
+      "bytes": 7632,
+      "sha256": "4bb6bdbcadbb8ebeb69d720e29f6c2e57c99d98966baa41fd86914d3c13d6039",
+      "triangles": 72
+    },
+    {
+      "path": "town/roof-high-gable.glb",
+      "bytes": 7456,
+      "sha256": "21c54b2645ba33846f43410e6cef4d4f9239bc172bfb12f3227a6ec232977e2d",
+      "triangles": 72
+    },
+    {
+      "path": "town/chimney.glb",
+      "bytes": 4656,
+      "sha256": "a15cdbd13860092f6d793e5b785043eb90a49cdaa725bb71df9fd154ca68dac6",
+      "triangles": 32
+    },
+    {
+      "path": "town/Textures/colormap.png",
+      "bytes": 11143,
+      "sha256": "4aac939dc33195e35caf8c382ee3cb170054da763577f22d3c22692ec6afccdf"
+    },
+    {
+      "path": "nature/tree_oak.glb",
+      "bytes": 14644,
+      "sha256": "d7fd8773674928c50c11b66d12c636d49bdcc15a8b1c7fbb98e6f63a3439a3f3",
+      "triangles": 196
+    },
+    {
+      "path": "nature/tree_detailed.glb",
+      "bytes": 31412,
+      "sha256": "c041daf2f0fb1d49e4325227cbcd58667adbe51e9b55e8c1f0a94b74cc521b3b",
+      "triangles": 402
+    },
+    {
+      "path": "nature/tree_default.glb",
+      "bytes": 9428,
+      "sha256": "562d29638c902de3c7bee465d3a53bb77117efbc392ae04ed894faf6b5dc691d",
+      "triangles": 114
+    },
+    {
+      "path": "nature/plant_bushDetailed.glb",
+      "bytes": 10172,
+      "sha256": "2e0487020d68ccf664435db9d829c78ae00e6d2785ee3ec10b9f89cc70a10406",
+      "triangles": 104
+    },
+    {
+      "path": "nature/plant_bushSmall.glb",
+      "bytes": 3212,
+      "sha256": "a9620a7d1fb165ae68d323676f80dbb2a9e3aafb21110d18d18d90b07026b91d",
+      "triangles": 16
+    },
+    {
+      "path": "nature/grass_large.glb",
+      "bytes": 18504,
+      "sha256": "af49a595624abca7249824eeefb944d4baf974abeeb5b16110d175da3563d6cd",
+      "triangles": 224
+    },
+    {
+      "path": "nature/grass_leafs.glb",
+      "bytes": 4608,
+      "sha256": "8bc4c0b17c2e64c34e1acbf7c4a2fd8c04cfcd7155328e61767887b2ced112c7",
+      "triangles": 36
+    },
+    {
+      "path": "nature/rock_largeA.glb",
+      "bytes": 7552,
+      "sha256": "6dd15390fd96501dcd1454765a17ba61dbbd8d47705dfe5149c8dd92b353ce25",
+      "triangles": 80
+    },
+    {
+      "path": "nature/rock_smallA.glb",
+      "bytes": 3044,
+      "sha256": "df9fff9d711e61370e8df0caa2514c89b8f8a8dc6c6fafaf4eb2ec79c5ae07c1",
+      "triangles": 16
+    }
+  ],
+  "interpretation": "Original CC0 meshes preserved byte-for-byte. App assembles three artist-authored houses, normalizes trees to 12\u201318m, recolors foliage/trunks and distributes vegetation inside measured land masks; this is not a real-building or per-tree survey."
+}

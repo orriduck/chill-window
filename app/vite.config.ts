@@ -1,13 +1,29 @@
 import path from "path"
+import { cp, mkdir } from "node:fs/promises"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 import { inspectAttr } from 'kimi-plugin-inspect-react'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base: './',
+  // Historical originals remain in public for audit, but only today's runtime
+  // data and fantasy assets are copied into a release. No legacy asset packs.
+  publicDir: command === 'build' ? false : 'public',
   plugins: [
+    {
+      name: 'hudson-runtime-assets',
+      async writeBundle() {
+        for (const file of ['favicon-32.png', 'apple-touch-icon.png', 'icons', 'models/fantasy', 'textures/fantasy',
+          'geodata/hudson/world.json', 'geodata/hudson/elevation.f32', 'geodata/hudson/stations.json',
+          'geodata/hudson/buildings.json.gz', 'geodata/hudson/landcover.json', 'geodata/hudson/landcover.u8']) {
+          const destination = path.resolve(__dirname, 'dist', file)
+          await mkdir(path.dirname(destination), { recursive: true })
+          await cp(path.resolve(__dirname, 'public', file), destination, { recursive: true })
+        }
+      },
+    },
     inspectAttr(),
     react(),
     VitePWA({
@@ -49,14 +65,9 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff2,glb}', 'geodata/hudson/world.json', 'geodata/hudson/elevation.f32',
-          'models/osm2world/hudson/buildings.pack.bin', 'models/osm2world/hudson/buildings.pack.index.json', 'models/osm2world/hudson/catalog.json'],
-        // Preserve original models for source audits, but cache their lossless
-        // transport once. Do not exclude tree GLBs or the 16 shared textures.
-        globIgnores: ['models/osm2world/hudson/tile-*/buildings.glb'],
-        // Authored source-tree comparisons are local 23–24MB GLBs and must
-        // remain available alongside the prepared scene after installation.
-        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}', 'models/fantasy/**/*.{glb,json,txt}', 'textures/fantasy/*.{json,txt}',
+          'geodata/hudson/*.{json,f32,u8,gz}'],
+        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         navigateFallback: '/index.html',
       },
     }),
@@ -69,4 +80,4 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-});
+}));

@@ -1,0 +1,22 @@
+{
+  "retrieved": "2026-10-10",
+  "license": "CC0",
+  "author": "drummyfish",
+  "page": "https://opengameart.org/content/4-hand-painted-ground-textures",
+  "published": "2018-05-05",
+  "interpretation": "Original PNGs retained; shader uses painted luminance as brush variation and authors a muted green/earth/rock palette.",
+  "files": [
+    {
+      "filename": "grass_34.png",
+      "url": "https://opengameart.org/sites/default/files/grass_34.png",
+      "bytes": 561283,
+      "sha256": "8ad5d6826e118af89fd6d262098fef3f6020e25d0db3bac065652571f660e473"
+    },
+    {
+      "filename": "dirt_9.png",
+      "url": "https://opengameart.org/sites/default/files/dirt_9.png",
+      "bytes": 397611,
+      "sha256": "356c83de281a5c51c710f50ea1321757bc60399b9695cd327b614d05e89f6bae"
+    }
+  ]
+}

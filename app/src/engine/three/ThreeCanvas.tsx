@@ -10,8 +10,6 @@ import { WeatherSystem, WeatherType } from './weather/WeatherSystem'
 import { WindowFrame, type WindowHudReadout, type WindowHudControlAnchor, type WindowHudControlHitArea } from './interior/WindowFrame'
 import { PerfMonitor } from './core/PerfMonitor'
 import { GeoData, loadHudsonData } from './geography/GeoData'
-import { GeoNativeTerrain, terrainSourceMode } from './geography/GeoNativeTerrain'
-import { groundSurfaceMode } from './geography/GeoForestFloor'
 import { RealWorld } from './geography/RealWorld'
 import { GeoInspector } from './geography/GeoInspector'
 import { DebugMode } from './core/DebugMode'
@@ -103,11 +101,11 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     debug.attachCarriageInspector((part, visible) => windowFrame.setDebugPartVisible(part, visible))
     const inspector = new GeoInspector(renderer.getDomElement(), true)
     exteriorGroup.add(sky.mesh, weather.group); interiorScene.add(windowFrame.group)
-    scene.scene.fog = new THREE.Fog(0xbfe3f2, 1100, 6000)
+    scene.scene.fog = new THREE.Fog(0x9caeb4, 350, 2600)
     let world: RealWorld | null = null
     let data: GeoData | null = null
     let disposed = false, paused = false, elapsed = 0, requestedSpeed = 0, worldReady = false
-    let pendingDeparture = false, terrainRaysPending = true
+    let pendingDeparture = false
     let pendingJump: number | null = null
     let gpuChunkInFlight = false
     let motionSampleTime = performance.now(), motionSampleZ = camera.z, measuredSpeed = 0, previousTime = motionSampleTime
@@ -143,11 +141,8 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       if (disposed) return
       const query = new URLSearchParams(window.location.search)
       const startS = THREE.MathUtils.clamp(Number(query.get('routeMetres') ?? route.checkpoints[0].s), 0, route.length)
-      const mode = terrainSourceMode(query.get('terrainSource'))
-      const nativeTerrain = mode === 'putnam2019' ? await GeoNativeTerrain.load(abort.signal) : null
-      if (disposed) return
       reportPreparation('preparing')
-      data = route; world = new RealWorld(route, startS, mode, nativeTerrain, groundSurfaceMode(query.get('groundSurface'))); exteriorGroup.add(world.group)
+      data = route; world = new RealWorld(route, startS); exteriorGroup.add(world.group)
       camera.setZ(startS)
       camera.setRailProfile({ height: s => route.railHeight(s), grade: s => route.railGrade(s) }); inspector.setData(route)
       void world.ready
@@ -184,14 +179,13 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     const doubleClick = () => { if (!debug.isTopDown) camera.resetView() }
     canvas.addEventListener('pointerdown', down); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag); canvas.addEventListener('dblclick', doubleClick)
     const rect = container.getBoundingClientRect(); camera.updateAspect(rect.width, rect.height); inspector.resize(rect.width, rect.height); renderer.resize(rect.width, rect.height)
-    const ambient = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambient)
+    const ambient = new THREE.HemisphereLight(0xbad1dc, 0x475b3b, 0.85); scene.add(ambient)
     const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.normalBias = 0.08; sun.shadow.bias = -0.0002; sun.shadow.camera.left = -50; sun.shadow.camera.right = 50; sun.shadow.camera.top = 50; sun.shadow.camera.bottom = -50; sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 200; scene.add(sun); scene.add(sun.target)
 
     const loop = () => {
       rafRef.current = requestAnimationFrame(loop)
       const now = performance.now(), motionDt = Math.min((now - previousTime) / 1000, 1), dt = Math.min(motionDt, MAX_DT); previousTime = now
       const command = inspector.consume()
-      if (command.terrainRays || command.jump !== undefined) terrainRaysPending = true
       if (command.editing !== undefined) debug.setTerrainEditing(command.editing)
       if (command.recenter) inspector.recenter(camera.z)
       if (command.jump !== undefined && data) {
@@ -221,10 +215,10 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       time.update(simulationDt); const state = time.state
       weather.update(simulationDt, viewCamera, 'mountain'); weather.setShelter(tunnel); weather.applyToEnvironment(state)
       sky.update(viewPosition); sky.setSkyColors(state.horizonColor, state.zenithColor); sky.setSun(state.sunDirection, state.sunColor, state.sunSize, state.sunIntensity); sky.setStarOpacity(state.starOpacity)
-      ambient.color.copy(state.ambientColor); ambient.intensity = state.ambientIntensity * (1 - tunnel * 0.8)
-      sun.color.copy(state.dirColor); sun.intensity = state.dirIntensity * (1 - tunnel * 0.92); sun.position.copy(state.dirPosition).add(viewPosition); sun.target.position.copy(viewPosition)
-      const fog = scene.scene.fog as THREE.Fog; fog.color.copy(state.fogColor); fog.near = THREE.MathUtils.lerp(1100, 8, tunnel); fog.far = THREE.MathUtils.lerp(6000, 130, tunnel)
-      if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers, inspector.camera.position)
+      ambient.color.copy(state.ambientColor).lerp(new THREE.Color(0xb4cbd9), 0.38); ambient.intensity = state.ambientIntensity * 0.95 * (1 - tunnel * 0.8)
+      sun.color.copy(state.dirColor).lerp(new THREE.Color(0xffdfac), 0.28); sun.intensity = state.dirIntensity * 1.05 * (1 - tunnel * 0.92); sun.position.copy(state.dirPosition).add(viewPosition); sun.target.position.copy(viewPosition)
+      const fog = scene.scene.fog as THREE.Fog; fog.color.copy(state.fogColor); fog.near = THREE.MathUtils.lerp(state.fogNear * 2, 8, tunnel); fog.far = THREE.MathUtils.lerp(state.fogFar * 3, 130, tunnel)
+      if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers)
       if (worldReady && world && !gpuChunkInFlight) {
         const prepared = world.takeGpuChunks()
         if (prepared.length) {
@@ -244,9 +238,6 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       if (inspection) { fog.near = 5000; fog.far = 15000; scene.scene.background = new THREE.Color(0xcbd7c5) }
       const renderStart = performance.now()
       renderer.render(scene.scene, viewCamera, inspection ? undefined : interiorScene)
-      if (terrainRaysPending && paused && worldReady && world && !inspection && renderer.preparation.phase === 'idle' && world.gpuCoverageAt(camera.z).readyTiles === 49 && world.streamingStats.pendingGpu === 0) {
-        inspector.capturePassengerRays(camera.getCamera(), world, camera.z); terrainRaysPending = false
-      }
       if (inspection) { fog.near = savedFogNear; fog.far = savedFogFar; scene.scene.background = null }
       perf.update()
       inspector.setPerformance(perf.currentFps, perf.currentFrameTime, performance.now() - renderStart, renderer.renderer.info)

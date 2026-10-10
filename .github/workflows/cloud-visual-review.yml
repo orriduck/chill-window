@@ -2,7 +2,7 @@ name: Cloud visual review
 
 on:
   push:
-    branches: ['codex/**']
+    branches: ['codex/**', '!codex/hudson-game-style']
   workflow_dispatch:
 
 permissions:
