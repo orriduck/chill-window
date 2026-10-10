@@ -1,0 +1,160 @@
+{
+  "run": 38058734557,
+  "commit": "c767c723c76cd2be0c1288c851ef77525ac58355",
+  "url": "https://github.com/orriduck/chill-window/actions/runs/38058734557",
+  "verifiedAt": "2026-10-10",
+  "normalDiagnosticJsonSha256": "559d497046054246c60c4b4a37e0e7d1ef770d68ed42c6fc010f38b9670f603f",
+  "sourceReferenceFile": "normal-diagnostic-reference.json",
+  "sourceReferenceSha256": "00c597c1ec020fa0cb320618a35e6baa877c0d74bd4f497032da41898633f882",
+  "finiteFlagsUsableOnThisActualCompiler": false,
+  "passes": {
+    "constant": {
+      "png": {
+        "file": "oak135-constant.png",
+        "bytes": 43693,
+        "sha256": "32db17bec7b0999fa772e057263dea3acb969a97029039eeacc0b27918ba0f3b"
+      },
+      "pngDecodedRgbaSha256": "d35f16a682a82347917d9a085943d7758c0d2eb5d3d76d78240ee90e4b516182",
+      "pngAlphaSha256": "42fdffdd5204cdb0ce5771aeca39da0bc8177006ea81df479bb2e764dd2c7e95",
+      "floatAbove1_02": 8,
+      "pngAbove1_02": 8,
+      "pngAbove1_02Opaque": 6,
+      "rgbaFloat32Sha256": "74814c36fd626a36b4e094c94ea2ec156d582082fbe9366e37ff605b30a1d895",
+      "known193_128": {
+        "pixelFromTopLeft": [
+          193,
+          128
+        ],
+        "rawPremultipliedFloat32": {
+          "rgba": [
+            0.125,
+            0.25,
+            0.125,
+            1.0
+          ],
+          "littleEndianFloat32Hex": "0000003e0000803e0000003e0000803f",
+          "allFinite": true
+        },
+        "pngStraightRgba8": [
+          32,
+          64,
+          32,
+          255
+        ],
+        "unassociatedRawRgb": [
+          0.125,
+          0.25,
+          0.125
+        ],
+        "rawToStraightQuantizedRgb8": [
+          32,
+          64,
+          32
+        ],
+        "pngMinusPredictedRgbBytes": [
+          0,
+          0,
+          0
+        ],
+        "decodedFloatNormalLength": 1.1726039399558574,
+        "decodedPngNormalLength": 1.1705143340550657
+      }
+    },
+    "albedo": {
+      "png": {
+        "file": "oak135-albedo.png",
+        "bytes": 193114,
+        "sha256": "55b81463cd1d908b2c75c5337852d326968e9c5283023cd658ec19235fb241a6"
+      },
+      "pngDecodedRgbaSha256": "7418b52fded844bf5629648292453409a34e57716b2caae70d58c5d1d469c8b7",
+      "pngAlphaSha256": "42fdffdd5204cdb0ce5771aeca39da0bc8177006ea81df479bb2e764dd2c7e95",
+      "floatAbove1_02": null,
+      "pngAbove1_02": null,
+      "pngAbove1_02Opaque": null,
+      "rgbaFloat32Sha256": "04798c828f0f702d8ffcace5097a13ea10a04420bf35f811c9fc93b754cf60dc",
+      "known193_128": {
+        "pixelFromTopLeft": [
+          193,
+          128
+        ],
+        "rawPremultipliedFloat32": {
+          "rgba": [
+            0.024735737591981888,
+            0.03681406006217003,
+            0.013999373652040958,
+            1.0
+          ],
+          "littleEndianFloat32Hex": "9aa2ca3c57ca163da15d653c0000803f",
+          "allFinite": true
+        },
+        "pngStraightRgba8": [
+          44,
+          54,
+          31,
+          255
+        ],
+        "unassociatedRawRgb": [
+          0.024735737591981888,
+          0.03681406006217003,
+          0.013999373652040958
+        ]
+      }
+    },
+    "normal": {
+      "png": {
+        "file": "oak135-normal.png",
+        "bytes": 230152,
+        "sha256": "a6466dc2ba47ca7abc12a2254450ee114abc71be2ef71feca402351777f21fc1"
+      },
+      "pngDecodedRgbaSha256": "2f14b91453eff0c9c31fc4fc33ce6aa99baebec4b387d58b27e8ec4f7b11e0e0",
+      "pngAlphaSha256": "42fdffdd5204cdb0ce5771aeca39da0bc8177006ea81df479bb2e764dd2c7e95",
+      "floatAbove1_02": 46,
+      "pngAbove1_02": 46,
+      "pngAbove1_02Opaque": 31,
+      "rgbaFloat32Sha256": "466746eaab7d7381282fc6e63f624ac681d1128d58db858fac8de3a0de937af0",
+      "known193_128": {
+        "pixelFromTopLeft": [
+          193,
+          128
+        ],
+        "rawPremultipliedFloat32": {
+          "rgba": [
+            0.06152105703949928,
+            0.017625518143177032,
+            0.13222631812095642,
+            1.0
+          ],
+          "littleEndianFloat32Hex": "81fd7b3d6463903c5666073e0000803f",
+          "allFinite": true
+        },
+        "pngStraightRgba8": [
+          16,
+          4,
+          34,
+          255
+        ],
+        "unassociatedRawRgb": [
+          0.06152105703949928,
+          0.017625518143177032,
+          0.13222631812095642
+        ],
+        "rawToStraightQuantizedRgb8": [
+          16,
+          4,
+          34
+        ],
+        "pngMinusPredictedRgbBytes": [
+          0,
+          0,
+          0
+        ],
+        "decodedFloatNormalLength": 1.4969387499149915,
+        "decodedPngNormalLength": 1.4969249526029988
+      }
+    }
+  },
+  "diagnosticOnly": true,
+  "runtimeImported": false,
+  "visualAcceptance": false,
+  "mechanismConfirmed": false
+}

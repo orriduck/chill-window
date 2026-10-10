@@ -1,0 +1,81 @@
+name: Diagnose fixed Oak leaf coverage and depth controls
+
+on:
+  push:
+    branches: ['codex/tree-clip-control']
+    paths:
+      - 'app/scripts/experiments/ez-tree-static/diagnose_tree_surface_normals.py'
+      - 'app/scripts/experiments/ez-tree-static/diagnose_tree_clip_control.py'
+      - 'app/scripts/experiments/ez-tree-static/normal-diagnostic-reference.json'
+      - 'app/scripts/experiments/ez-tree-static/clip-control-reference.json'
+      - 'app/scripts/experiments/ez-tree-static/CLIP-CONTROL-README.md'
+      - '.github/workflows/tree-clip-control.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tree-clip-control-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    # Manual dispatch is subject to the same exact branch guard as push.
+    if: github.ref_name == 'codex/tree-clip-control'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Rebuild pinned original sources in cloud only
+        run: bash app/scripts/experiments/ez-tree-static/rebuild-assets.sh
+      - name: Verify original raw geometry and GLB embedded image bytes
+        run: python3 app/scripts/experiments/ez-tree-static/verify-report.py
+      - name: Install the identical Blender 4.0.2 engine
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends blender=4.0.2+dfsg-1ubuntu8 blender-data=4.0.2+dfsg-1ubuntu8 libegl1 libegl-mesa0 libgl1-mesa-dri libglx-mesa0
+          blender --version | head -1
+      - name: Capture 12 fixed Oak leaf coverage and depth controls
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          EGL_PLATFORM: surfaceless
+        run: |
+          blender -b --python-exit-code 1 --python app/scripts/experiments/ez-tree-static/diagnose_tree_clip_control.py -- --source-root app/scripts/experiments/ez-tree-static --out "$RUNNER_TEMP/tree-clip-control"
+      - name: Preserve source notices and review context
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, shutil
+          from pathlib import Path
+          root = Path('app/scripts/experiments/ez-tree-static')
+          out = Path(os.environ['RUNNER_TEMP']) / 'tree-clip-control'
+          out.mkdir(parents=True, exist_ok=True)
+          expected = json.loads((root / 'cloud-manifest.json').read_text())['textures']
+          for src, name, digest in [
+              (root / '.work/upstream/LICENSE', 'EZ-TREE-LICENSE.txt', expected['ezTreeLicenseSha256']),
+              (root / '.work/upstream/src/app/public/textures/LICENSE.md', 'SOURCE-TEXTURE-LICENSE.md', expected['textureNoticeSha256']),
+          ]:
+              if src.exists():
+                  assert hashlib.sha256(src.read_bytes()).hexdigest() == digest, str(src)
+                  shutil.copyfile(src, out / name)
+          for name in ('THIRD_PARTY_NOTICES.md', 'CLIP-CONTROL-README.md', 'normal-diagnostic-reference.json', 'clip-control-reference.json'):
+              shutil.copyfile(root / name, out / name)
+          PY
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: tree-clip-control-${{ github.sha }}
+          # Explicit allowlist: temporary EXR/raw geometry/GLB are never uploaded.
+          path: |
+            ${{ runner.temp }}/tree-clip-control/*.json
+            ${{ runner.temp }}/tree-clip-control/*.png
+            ${{ runner.temp }}/tree-clip-control/*.md
+            ${{ runner.temp }}/tree-clip-control/*.txt
+          if-no-files-found: warn
+          retention-days: 7

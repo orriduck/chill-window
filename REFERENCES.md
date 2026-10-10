@@ -276,3 +276,15 @@ run37997465057 实际行驶710m、六次missing/late均0；已查看截图确认
 当前修正关联`RealWorld.ts`、`core/Renderer.ts`、`ThreeCanvas.tsx`：CPU/GPU均优先当前视野，其次列车位置/跳转/下一步覆盖，再处理缓冲；GPU每批最多12块，同一离屏提交与fence，保留原对象/父变换，不在准备过程中驱逐该批。CPU每帧按8ms预算推进，单块仍可能超过预算，不把该预算说成硬上限。移动门控与准备范围覆盖起终点及中间原路线顶点的包围区块，避免只验证预测终点却漏掉弯道中途；该保护并非已经证明上述1次缺块的确切原因。新帧确认、远景可用性备用显示和这些队列改动均待下一次云端运行；本地构建/定向lint和26项既有数据/几何/相机检查通过，既有检查不直接验收新异步GPU队列。
 
 云端已处理两种静态三维树候选，root取回`GeoCloseTrees.ts`、准备脚本与来源metadata完整源码；GLB转交尚待完成，模型尚未接入本次发布。成熟Scots pine候选与8.6m橡树街树样本不能替代所有落叶林，当前图片中的交叉贴片仍清晰可辨，树木视觉目标继续未完成。
+
+## 2026-10-10：Oak135 透明覆盖与深度控制诊断
+
+实际 [run38058734557](https://github.com/orriduck/chill-window/actions/runs/38058734557) 的 full decoded normal/albedo RGBA 与旧失败图完全相同，原normal和geometry-only均有46个超1.02向量；常量 `(0.5,1,0.5)` 在 `(193,128)` 实测为 `(0.125,0.25,0.125,1)`，说明损失在与source normal无关的控制中也出现。有限性shader控制在实际compiler上失败，不能据此宣称NaN。新 `clip-control-reference.json` 绑定实际prior JSON与PNG/decodedRGBA/FLOAT32 SHA、probe。
+
+| 主要来源（Blender v4.0.2，2026-10-10） | 借鉴点与边界 | 受影响代码 |
+| --- | --- | --- |
+| [EEVEE materials lines502–613](https://github.com/blender/blender/blob/v4.0.2/source/blender/draw/engines/eevee/eevee_materials.cc#L502-L613) | CLIP/HASHED的opaque depth prepass与depth-equality着色，促成只变near/far的紧depth控制，以及HASHED二值mask负控制。不是实际46pixel机制证明。 | 新 `diagnose_tree_clip_control.py`、`tree-clip-control.yml` |
+| [surface_frag lines80–119](https://github.com/blender/blender/blob/v4.0.2/source/blender/draw/engines/eevee/shaders/surface_frag.glsl#L80-L119) | 非BLEND分支的alpha和radiance分开处理；重叠透明片可能保留alpha而丢RGB是待证假说。BLEND保留原mask/culling/backface策略，不强制关闭transparent back，不把alpha一致当可见面正确。 | 新 `diagnose_tree_clip_control.py`、`CLIP-CONTROL-README.md` |
+| [EEVEE shader dispatch lines1154–1205](https://github.com/blender/blender/blob/v4.0.2/source/blender/draw/engines/eevee/eevee_shaders.cc#L1154-L1205) | 分离CLIP/default、CLIP/tightdepth、HASHED/default和BLEND/default，均配constant/albedo/normal；production gate保持1.02，runtime/visual/mechanism三标记均false。 | 新recipe、README、`docs/superpowers/plans/2026-10-10-tree-clip-control.md` |
+
+本次本地只准备及轻量解析检查，不运行Blender/GPU/browser或重建下载源资产。新控制尚未云端执行，collection成功也不代表修复验收。先规格与质量复审，再commit/push。
