@@ -50,14 +50,34 @@ function installCaptureFrameControl() {
   };
 }
 const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+// Serialized into the browser as one synchronous callback. Recheck the latest
+// actual DOM proof and freeze in the same task, so an intervening RAF cannot
+// start another forward-upload batch after the gate but before capture.
+function strictReadyAndMaybeFreeze({ freeze = false, name, metres } = {}) {
+  const status = document.querySelector('[aria-label="真实地理加载状态"]');
+  const coverage = document.querySelector('[aria-label="地形覆盖诊断"]');
+  const stream = document.querySelector('[aria-label="地理区块流式加载诊断"]');
+  const ready = status?.textContent.includes('49/49') && status.textContent.includes('场景就绪') && coverage?.dataset.readyTiles === '49'
+    && stream?.dataset.gpuPhase === 'idle' && Number(stream.dataset.gpuCompleted) > 0 && stream.dataset.presentable === 'true'
+    && stream.textContent.includes('后续待上传 0') && stream.textContent.includes('视野缺块 0');
+  if (!ready) return false;
+  if (!freeze) return true;
+  const position = document.querySelector('[aria-label="真实列车位置"]');
+  const source = document.querySelector('[aria-label="局部地形来源诊断"]');
+  const rays = document.querySelector('[aria-label="实际乘客地形视线"]');
+  const motion = document.querySelector('[aria-label="地理运动门控"]');
+  const journey = document.querySelector('[data-journey-phase]');
+  let report;
+  try { report = JSON.parse(rays?.dataset.report ?? 'null'); } catch { return false; }
+  if (document.fonts.status !== 'loaded' || !position || !journey
+    || !Number.isFinite(Number(position.dataset.routeMetres)) || Math.abs(Number(position.dataset.routeMetres) - metres) > 0.01
+    || Number(journey.dataset.focusElapsedSeconds) !== 0 || Number(journey.dataset.segmentElapsedSeconds) !== 0
+    || !motion?.textContent.includes('暂停 true') || !motion.textContent.includes('俯视 false')
+    || source?.dataset.sourceMode !== name || report?.sourceMode !== name) return false;
+  return { ...window.__cwCaptureFrameControl.freeze(), sceneFrame: status.dataset.sceneFrame, fontsStatus: document.fonts.status };
+}
 async function ready() {
-  await page.waitForFunction(() => {
-    const status = document.querySelector('[aria-label="真实地理加载状态"]')?.textContent ?? '';
-    const coverage = document.querySelector('[aria-label="地形覆盖诊断"]')?.dataset.readyTiles;
-    const stream = document.querySelector('[aria-label="地理区块流式加载诊断"]');
-    return status.includes('49/49') && status.includes('场景就绪') && coverage === '49'
-      && stream?.dataset.gpuPhase === 'idle' && Number(stream.dataset.gpuCompleted) > 0 && stream.dataset.presentable === 'true' && stream.textContent.includes('后续待上传 0');
-  }, null, { timeout: 180000 });
+  await page.waitForFunction(strictReadyAndMaybeFreeze, {}, { timeout: 180000, polling: 100 });
   await frames();
   if (await page.locator('[data-webgl="unavailable"], vite-error-overlay').count()) throw new Error('WebGL or app unavailable');
 }
@@ -70,13 +90,10 @@ async function snapshot(name, metres) {
     await page.evaluate(async () => {
       await document.fonts.ready;
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      window.__cwCaptureFrameControl.freeze();
     });
-    state.freezeBefore = await page.evaluate(() => ({
-      ...window.__cwCaptureFrameControl.status(),
-      sceneFrame: document.querySelector('[aria-label="真实地理加载状态"]')?.dataset.sceneFrame,
-      fontsStatus: document.fonts.status,
-    }));
+    const frozen = await page.waitForFunction(strictReadyAndMaybeFreeze, { freeze: true, name, metres }, { timeout: 180000, polling: 100 });
+    state.freezeBefore = await frozen.jsonValue();
+    await frozen.dispose();
     Object.assign(state, {
       url: page.url(), viewport: page.viewportSize(),
       position: await read('真实列车位置'), coverage: await read('地形覆盖诊断'), status: await read('真实地理加载状态'),

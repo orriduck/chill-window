@@ -94,3 +94,34 @@ edge endpoints (exact Float32 equality after interpolating rounded coarse nodes)
 `[-37.68497689713365,6424.679559790691]`; derived native height is
 `3.9899762350734718m`, unchanged rail profile `5.733752879618809m`.
 This is coordinate/geometry verification, not browser or visual validation.
+
+
+## First cloud capture failure and atomic freeze correction
+
+[Actual Actions 38067177606](https://github.com/orriduck/chill-window/actions/runs/38067177606)
+at `7b045f7026a985b9406776c0c80ebe28331c6da6` failed with **1 of 3 PNGs**.
+`current.png` passed the strict paused 2790m / clocks-zero / 49-tile / idle GPU
+checks. The parent visually inspected this actual image and observed the gray
+bank. `raw20m` had valid source and actual-camera rays, remained paused at 2790m
+with focus/segment zero and 49 uploaded current tiles, but after the earlier
+ready check and fonts/two-RAF wait a real new forward batch had started:
+GPU sequence 2, phase `fence`, completed 1, pending upload 1. The unchanged
+strict snapshot assertion rejected it before PNG. No runtime errors were
+recorded. Native mode was not reached; the run does not accept either terrain
+candidate or establish a complete three-state visual comparison.
+
+The capture-only correction waits for fonts and two actual RAFs, then polls the
+latest read-only DOM proof every 100ms with the existing 180-second bound. In
+one synchronous browser callback, it checks current 49 coverage, presentable,
+completed GPU preparation, idle, pending 0, missing 0, exact position, paused
+passenger mode, zero clocks, correct source and actual ray report. Only if all
+are true does that same callback freeze RAF. A new pending/fence batch causes
+continued waiting for actual completion, never forced readiness or a relaxed
+gate. Subsequent snapshot assertions, frame stability, successful resume,
+three-state count and actual camera equality remain unchanged. This fixes the
+check-to-freeze race; another real cloud run and pixel review are still pending.
+
+Capture script Node syntax and diff checks passed. A temporary VM check rejected
+pending/fence/incomplete coverage/clock/source cases without freezing, froze
+only strict current proof, and verified a simulated ready→new-fence→real-idle
+sequence. No local browser, GPU or new product build was used for this change.
