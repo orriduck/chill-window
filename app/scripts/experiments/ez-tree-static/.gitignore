@@ -1,0 +1,6 @@
+.work/
+raw/
+glb/
+previews/
+report.json
+__pycache__/
