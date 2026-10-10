@@ -1,0 +1,185 @@
+{
+  "outputs": [
+    {
+      "filename": "pine_tree_01_a_LOD2-native.glb",
+      "bytes": 24328860,
+      "sha256": "5b3b8c30cf28937e5e5193602e76e48878a24f81b58377dbbf3d2587d60a3ee8",
+      "triangles": 416451,
+      "leafGeometrySha256": "0ae502cc8ceb0ff51013367cfe9b983aaece6e0b9a073bd8850a7bf64f0aedd6",
+      "images": [
+        {
+          "name": "pine_tree_01_bark_diff_1k",
+          "bytes": 418464,
+          "sha256": "00e3ac6173c0f8d1a0d53e2deb6b8569f295ca24ff90ea2ef29c5e6b6e161ba2",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_bark_nor_gl_1k",
+          "bytes": 816028,
+          "sha256": "6c48d3daaac75140b1650ea50b9cd6aa7574224d2d8dfa8460e6cf0c914a27ed",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_bark_rough_1k",
+          "bytes": 373393,
+          "sha256": "6123c41856b47cfda67c95fce5d82525ed29f1408d231a6632ed83f57739eb5d",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_trunk_a_diff_1k",
+          "bytes": 499567,
+          "sha256": "6aa9e7089c43aba9f87e5d39a8cae96178101d45dba4e9d79677fe076c04eabd",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_trunk_a_nor_gl_1k",
+          "bytes": 944395,
+          "sha256": "6336bbfc14526758e19361998c4da92656851e3d308e6a357073631fe224b90e",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_trunk_a_rough_1k",
+          "bytes": 431464,
+          "sha256": "3aaa57beeb59121c6482d624a0617509de0a4f33a29e5c981c1cb9f2ebd35201",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_twig_diff_alpha_1k",
+          "bytes": 1083366,
+          "sha256": "939ac9bd95e1808a47036c0377c679f1067b820c1fdffec91ec595a9e8a0129d",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_twig_nor_gl_1k",
+          "bytes": 737795,
+          "sha256": "4ee2fea9a01c5422672aa6a71e1226de6adc592001e2660a1c7a713e148c0608",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_twig_rough_1k",
+          "bytes": 326687,
+          "sha256": "6ca4f9332e72887218f50f1b98506c25be88ad41cd6edf128c3d62eaa632f0cb",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        }
+      ]
+    },
+    {
+      "filename": "pine_tree_01_a_LOD2-branch50.glb",
+      "bytes": 23313556,
+      "sha256": "6d6dbf39b0f2d0099df6cb12bea32e0d4f43de19a76bbce9b0188eeb2d5bf6db",
+      "triangles": 381180,
+      "leafGeometrySha256": "0ae502cc8ceb0ff51013367cfe9b983aaece6e0b9a073bd8850a7bf64f0aedd6",
+      "images": [
+        {
+          "name": "pine_tree_01_bark_diff_1k",
+          "bytes": 418464,
+          "sha256": "00e3ac6173c0f8d1a0d53e2deb6b8569f295ca24ff90ea2ef29c5e6b6e161ba2",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_bark_nor_gl_1k",
+          "bytes": 816028,
+          "sha256": "6c48d3daaac75140b1650ea50b9cd6aa7574224d2d8dfa8460e6cf0c914a27ed",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_bark_rough_1k",
+          "bytes": 373393,
+          "sha256": "6123c41856b47cfda67c95fce5d82525ed29f1408d231a6632ed83f57739eb5d",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_trunk_a_diff_1k",
+          "bytes": 499567,
+          "sha256": "6aa9e7089c43aba9f87e5d39a8cae96178101d45dba4e9d79677fe076c04eabd",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_trunk_a_nor_gl_1k",
+          "bytes": 944395,
+          "sha256": "6336bbfc14526758e19361998c4da92656851e3d308e6a357073631fe224b90e",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_trunk_a_rough_1k",
+          "bytes": 431464,
+          "sha256": "3aaa57beeb59121c6482d624a0617509de0a4f33a29e5c981c1cb9f2ebd35201",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_twig_diff_alpha_1k",
+          "bytes": 1083366,
+          "sha256": "939ac9bd95e1808a47036c0377c679f1067b820c1fdffec91ec595a9e8a0129d",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_twig_nor_gl_1k",
+          "bytes": 737795,
+          "sha256": "4ee2fea9a01c5422672aa6a71e1226de6adc592001e2660a1c7a713e148c0608",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        },
+        {
+          "name": "pine_tree_01_twig_rough_1k",
+          "bytes": 326687,
+          "sha256": "6ca4f9332e72887218f50f1b98506c25be88ad41cd6edf128c3d62eaa632f0cb",
+          "dimensions": [
+            1024,
+            1024
+          ]
+        }
+      ]
+    }
+  ],
+  "visualInspection": "pending; geometry equality is not browser visual acceptance"
+}
