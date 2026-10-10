@@ -38,6 +38,10 @@ jobs:
       - name: Download only two bounded official TIFFs and diagnose native pixels
         run: |
           /usr/bin/python3 app/scripts/experiments/hudson-native-dem/diagnose.py --source-kind putnam2019 --runtime "$RUNNER_TEMP/putnam-dem/outputs/runtime.json" --out "$RUNNER_TEMP/putnam-dem/outputs" --scratch "$RUNNER_TEMP/putnam-dem/scratch"
+      - name: Export bounded derived 2m grid from verified native scratch
+        id: runtime_grid_export
+        run: |
+          /usr/bin/python3 app/scripts/experiments/hudson-native-dem/export-putnam-grid.py --runtime "$RUNNER_TEMP/putnam-dem/outputs/runtime.json" --world app/public/geodata/hudson/world.json --diagnostic "$RUNNER_TEMP/putnam-dem/outputs" --scratch "$RUNNER_TEMP/putnam-dem/scratch" --out "$RUNNER_TEMP/putnam-dem/runtime-grid"
       - uses: actions/upload-artifact@v5
         if: always()
         with:
@@ -48,5 +52,15 @@ jobs:
             ${{ runner.temp }}/putnam-dem/outputs/*.json
             ${{ runner.temp }}/putnam-dem/outputs/*.xml
             ${{ runner.temp }}/putnam-dem/outputs/*.md
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v5
+        if: always() && steps.runtime_grid_export.outcome != 'skipped'
+        with:
+          name: putnam-runtime-grid-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/putnam-dem/runtime-grid/manifest.json
+            ${{ runner.temp }}/putnam-dem/runtime-grid/elevation.f32
+            ${{ runner.temp }}/putnam-dem/runtime-grid/valid.u8
           if-no-files-found: error
           retention-days: 7

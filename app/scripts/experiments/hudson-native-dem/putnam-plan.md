@@ -34,3 +34,34 @@ Local preparation permits only small metadata, Python AST/Node syntax and
 source sampling checks. No local TIFF/HEAD, GDAL, LAS, Blender, browser or GPU.
 Old 2022 source expectations and default workflow remain unchanged. Preparation
 is uncommitted for specification and quality review before any cloud run.
+
+## Bounded source-derived export (next preparation, 2026-10-10)
+
+The cloud diagnostic at `e3ed000e4a6ed2511ba4d1e8b08a0c7d148db553`
+completed with 3865/3865 native samples and all five 241-point profiles valid.
+Its original diagnostic formats and completeness gates remain unchanged.
+`export-putnam-grid.py` adds a separate cloud-only artifact after that diagnostic:
+
+1. Reuse saved `putnam-native-window.npy`, `putnam-native-valid.npy`, metadata
+   and runtime snapshot. Verify both complete TIFF SHA256/byte identities, the
+   exact world SHA256/origin and loaded decoded window/mask bytes against the
+   successful snapshot. No additional source fetch, warp or vertical adjustment.
+2. Export the inclusive world XZ bounds `[-258,6170,188,6670]` at 2m spacing:
+   224 columns × 251 rows, south-to-north, row-major. Each vertex follows exact
+   `GeoData.unproject` from `[-73.96,41.36]`, then pyproj EPSG:4326 → EPSG:6347
+   and existing `source.bilinear` with four valid native pixel neighbours.
+   UTM coordinates are never treated as world XZ.
+3. Write little-endian `elevation.f32`, explicit `valid.u8` and a manifest to
+   `RUNNER_TEMP/putnam-dem/runtime-grid`, uploaded only as
+   `putnam-runtime-grid-${github.sha}`. The original PNG/CSV/JSON/XML/Markdown
+   diagnostic upload remains separate with seven-day retention. Total export
+   stays below 1MB. Invalid vertices retain mask 0 and canonical NaN; preserve
+   actual outputs then fail if any vertex is invalid.
+4. The manifest labels this as derived/resampled 2m data from raw 1m 2019 DEM,
+   NAVD88/Geoid12B with no adjustment, and records source/window/output hashes,
+   bytes, dimensions, row order and validity counts. Runtime import and visual
+   acceptance remain false. Cloud export has not yet run; runtime A/B requires
+   a later implementation with debug controls and browser visual inspection.
+
+Only lightweight AST, coordinate math and workflow checks are permitted locally
+for this export preparation; no local TIFF, GDAL, downloads or browser work.
