@@ -187,6 +187,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     const comparison = first && second ? [
       { ...first, asset: 'scots-pine' as const }, { ...second, asset: 'oak-street-tree' as const },
       { ...first, asset: 'phototextured-pine-native' as const }, { ...first, asset: 'phototextured-pine-branch50' as const },
+      { ...first, asset: 'silver-birch' as const },
     ] : []
     this.treeComparison = new GeoCloseTrees(comparison)
     this.treeComparison.setAssetFilter(['scots-pine', 'oak-street-tree'])

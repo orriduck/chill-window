@@ -127,7 +127,7 @@ export class GeoInspector {
     this.treeCase = this.button('定位树模型对照', () => {
       if (!this.world || this.world.treeComparison.stats.preparedTrees < 2) return
       const mode = this.treeModel.value
-      this.world.treeComparison.setAssetFilter(mode === 'native' ? ['phototextured-pine-native'] : mode === 'branch50' ? ['phototextured-pine-branch50'] : mode === 'old-pine' ? ['scots-pine'] : ['scots-pine', 'oak-street-tree'])
+      this.world.treeComparison.setAssetFilter(mode === 'native' ? ['phototextured-pine-native'] : mode === 'branch50' ? ['phototextured-pine-branch50'] : mode === 'old-pine' ? ['scots-pine'] : mode === 'birch' ? ['silver-birch'] : ['scots-pine', 'oak-street-tree'])
       const point = mode === 'originals' ? this.world.treeComparisonPoint : this.world.treeComparisonTreePoint
       if (this.data) { this.progress.value = String(this.data.nearestRoute(point.x, point.z).s); this.refreshPreview() }
       this.layers.treeSamples = true
@@ -146,12 +146,12 @@ export class GeoInspector {
     this.treeCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
     this.treeModel.setAttribute('aria-label', '树模型材质对照版本')
     this.treeModel.style.cssText = this.source.style.cssText + 'width:100%;margin-top:6px;'
-    for (const [value, text] of [['originals', '现有松树 / 橡树来源尺度'], ['old-pine', '现有松树 · 同机位'], ['native', '真实纹理松树 · 作者原生 LOD2'], ['branch50', '真实纹理松树 · 保留叶片，减少枝干']] as const) {
+    for (const [value, text] of [['originals', '现有松树 / 橡树来源尺度'], ['old-pine', '现有松树 · 同机位'], ['native', '真实纹理松树 · 作者原生 LOD2'], ['branch50', '真实纹理松树 · 保留叶片，减少枝干'], ['birch', '成熟桦树 · 14m作者尺度，外观候选']] as const) {
       const option = document.createElement('option'); option.value = value; option.textContent = text; this.treeModel.append(option)
     }
     this.treeModel.onchange = () => this.treeCase.click()
     const treeNotice = document.createElement('p')
-    treeNotice.textContent = '来源模型均保留作者尺度：现有松树18m、橡树约8.6m；Poly Haven松树约20.4m，原生416,451 / 减枝干381,180三角形，叶片与照片纹理相同。新松树只用于此对照，尚未铺满森林；地理分类不识别逐株树种。所有版本在出发前预加载和GPU准备，切换只改变显隐。'
+    treeNotice.textContent = '来源模型均保留作者尺度：现有松树18m、橡树约8.6m；Poly Haven松树约20.4m，原生416,451 / 减枝干381,180三角形，叶片与照片纹理相同。桦树14m、52,476三角形、64px贴图，不能据此标为摄影纹理。新模型只用于此对照，尚未铺满森林；地理分类不识别逐株树种。所有版本在出发前预加载和GPU准备，切换只改变显隐。'
     treeNotice.style.cssText = notes.style.cssText
     this.convertedStats.setAttribute('aria-label', '转换建筑准备诊断'); this.convertedStats.style.cssText = this.streamingStats.style.cssText
     const convertedLabel = document.createElement('label'), convertedInput = document.createElement('input')

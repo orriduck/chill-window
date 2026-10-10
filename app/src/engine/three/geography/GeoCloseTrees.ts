@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { ForestPlacement } from './GeoForest'
 
 const ASSETS = {
@@ -7,6 +8,7 @@ const ASSETS = {
   'oak-street-tree': { url: '/models/trees/oak-street-tree-lod.glb', radiusMetres: 4.0, bytes: 708996, sha256: 'd65f2515da582174c0321cb9a349f119496ded36633454e29f3666ac3c0fdc02' },
   'phototextured-pine-native': { url: '/models/trees/polyhaven-pine-native.glb', radiusMetres: 4.2, bytes: 24328860, sha256: '5b3b8c30cf28937e5e5193602e76e48878a24f81b58377dbbf3d2587d60a3ee8' },
   'phototextured-pine-branch50': { url: '/models/trees/polyhaven-pine-branch50.glb', radiusMetres: 4.2, bytes: 23313556, sha256: '6d6dbf39b0f2d0099df6cb12bea32e0d4f43de19a76bbce9b0188eeb2d5bf6db' },
+  'silver-birch': { url: '/models/trees/mature-silver-birch.glb', radiusMetres: 5, bytes: 4902236, sha256: 'd1832a237f9e5d3728c7c6dc6e8e8243ac2984e51abe102cdf12bb996ca3dcc7' },
 } as const
 const DEFAULT_CLOSE_RANGE_METRES = 115
 const CELL_METRES = 40
@@ -99,12 +101,12 @@ export class GeoCloseTrees {
       const sha256 = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')
       if (buffer.byteLength !== specification.bytes || sha256 !== specification.sha256) throw new Error(`Tree asset ${asset}: source checksum mismatch`)
       const gltf = await loader.parseAsync(buffer, '')
+      const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>()
       gltf.scene.updateMatrixWorld(true)
       this.stats.processedAssetBytes += buffer.byteLength
       gltf.scene.traverse(object => {
         if (!(object instanceof THREE.Mesh)) return
         const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld)
-        this.geometries.add(geometry)
         this.stats.sourceMeshes++
         const indices = geometry.index?.count ?? geometry.getAttribute('position').count
         this.stats.sourceTriangles += Math.floor(indices / 3)
@@ -126,8 +128,16 @@ export class GeoCloseTrees {
         for (const value of Object.values(object.material)) {
           if (value instanceof THREE.Texture) this.textures.add(value)
         }
-        prototypes.push({ asset, geometry, material: object.material })
+        const parts = byMaterial.get(object.material) ?? []
+        parts.push(geometry); byMaterial.set(object.material, parts)
       })
+      for (const [material, parts] of byMaterial) {
+        const geometry = parts.length === 1 ? parts[0] : mergeGeometries(parts, false)
+        if (!geometry) throw new Error(`Tree asset ${asset}: incompatible material geometry`)
+        if (parts.length > 1) parts.forEach(part => part.dispose())
+        this.geometries.add(geometry)
+        prototypes.push({ asset, geometry, material })
+      }
       if (!prototypes.some(prototype => prototype.asset === asset)) throw new Error(`Tree asset ${asset} has no meshes`)
     }))
 

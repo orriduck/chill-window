@@ -1,0 +1,126 @@
+{
+  "sourceQuery": "https://tnmaccess.nationalmap.gov/api/v1/products?datasets=Lidar+Point+Cloud+%28LPC%29&bbox=-73.95%2C41.27%2C-73.92%2C41.30&max=30&outputFormat=JSON",
+  "tiles": [
+    {
+      "title": "USGS Lidar Point Cloud NY_SouthEast4County_A22 u_5880057050_2022",
+      "catalogueId": "66f3a453d34e791ae5dfa5a0",
+      "publicationDate": "2024-09-23",
+      "url": "https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/NY_SouthEast4County_A22/NY_SE4County_1_A22/LAZ/USGS_LPC_NY_SouthEast4County_A22_u_5880057050_2022.laz",
+      "bytes": 10808037,
+      "sha256": "47b0fedc079e8c41fe65256058deb1d9cbc45b4bb417cb02d35f5c844f4e78cc",
+      "pointCount": 1740009,
+      "version": "1.4",
+      "pointFormat": 6,
+      "sourceCRSWKT": "COMPOUNDCRS[\"NAD83(2011) / UTM zone 18N + NAVD88 height - Geoid18 (metres)\",PROJCRS[\"NAD83(2011) / UTM zone 18N\",BASEGEOGCRS[\"NAD83(2011)\",DATUM[\"NAD83 (National Spatial Reference System 2011)\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",6318]],CONVERSION[\"UTM zone 18N\",METHOD[\"Transverse Mercator\",ID[\"EPSG\",9807]],PARAMETER[\"Latitude of natural origin\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8801]],PARAMETER[\"Longitude of natural origin\",-75,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"Scale factor at natural origin\",0.9996,SCALEUNIT[\"unity\",1],ID[\"EPSG\",8805]],PARAMETER[\"False easting\",500000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"easting\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],ID[\"EPSG\",6347]],VERTCRS[\"NAVD88 height\",VDATUM[\"North American Vertical Datum 1988\"],CS[vertical,1],AXIS[\"up\",up,LENGTHUNIT[\"metre\",1]],GEOIDMODEL[\"GEOID18\"],ID[\"EPSG\",5703]]]",
+      "sourceAxes": [
+        {
+          "name": "Easting",
+          "unit": "metre",
+          "unitConversionFactor": 1.0
+        },
+        {
+          "name": "Northing",
+          "unit": "metre",
+          "unitConversionFactor": 1.0
+        },
+        {
+          "name": "Up",
+          "unit": "metre",
+          "unitConversionFactor": 1.0
+        }
+      ],
+      "zScale": 0.001,
+      "sourceZUnits": "Use the vertical source CRS/metadata; no guessed conversion",
+      "footprints": [
+        {
+          "osmId": "w280176097",
+          "name": "Mount Saint Francis Church",
+          "sourceOSMHeightTag": "19.2024",
+          "sourceOSMBounds": [
+            -73.933505,
+            41.282522,
+            -73.9320473,
+            41.2835997
+          ],
+          "buildingClass6Points": 0,
+          "sourceZRange": null,
+          "nearbyGroundClass2Points": 63454,
+          "nearbyGroundSourceZQuantiles": [
+            3.231,
+            14.151,
+            18.725
+          ],
+          "unclassifiedInsideFootprintPoints": 26925,
+          "unclassifiedSourceZQuantiles": [
+            21.592,
+            31.309,
+            35.606,
+            36.798
+          ]
+        },
+        {
+          "osmId": "w280500163",
+          "name": null,
+          "sourceOSMHeightTag": "6.096",
+          "sourceOSMBounds": [
+            -73.9314366,
+            41.2830896,
+            -73.931147,
+            41.2833561
+          ],
+          "buildingClass6Points": 0,
+          "sourceZRange": null,
+          "nearbyGroundClass2Points": 3864,
+          "nearbyGroundSourceZQuantiles": [
+            20.371,
+            23.607,
+            27.378
+          ],
+          "unclassifiedInsideFootprintPoints": 1996,
+          "unclassifiedSourceZQuantiles": [
+            31.181,
+            37.594,
+            39.29900000000001,
+            39.92830000000001
+          ]
+        },
+        {
+          "osmId": "w591713455",
+          "name": null,
+          "sourceOSMHeightTag": "4.8768",
+          "sourceOSMBounds": [
+            -73.9313746,
+            41.2837179,
+            -73.9311539,
+            41.2838133
+          ],
+          "buildingClass6Points": 0,
+          "sourceZRange": null,
+          "nearbyGroundClass2Points": 3315,
+          "nearbyGroundSourceZQuantiles": [
+            12.1904,
+            15.027000000000001,
+            18.1126
+          ],
+          "unclassifiedInsideFootprintPoints": 943,
+          "unclassifiedSourceZQuantiles": [
+            21.366200000000003,
+            25.639,
+            28.784200000000002,
+            29.3749
+          ]
+        }
+      ],
+      "classificationCounts": {
+        "1": 901127,
+        "2": 832743,
+        "7": 2007,
+        "17": 1759,
+        "18": 110,
+        "20": 2263
+      }
+    }
+  ],
+  "runtimeIntegration": "none",
+  "roofMesh": "not reconstructed; these are source observations only"
+}
