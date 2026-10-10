@@ -63,7 +63,7 @@ def maps(runtime, native, imagery, out):
     shade[~valid] = np.nan
     fig, axes = plt.subplots(1, 3, figsize=(18, 8), layout='constrained')
     axes[0].pcolormesh(xx, zz, shade, cmap='gray', shading='nearest', rasterized=True)
-    levels = np.arange(np.floor(np.nanmin(ground) / 5) * 5, np.ceil(np.nanmax(ground) / 5) * 5 + 1, 5)
+    levels = np.arange(np.floor(np.nanmin(ground) / 5) * 5, np.ceil(np.nanmax(ground) / 5) * 5 + 1, 5) if valid.any() else []
     if len(levels) > 1:
         contour = axes[0].contour(xx, zz, ground, levels=levels, colors='#436636', linewidths=.6)
         axes[0].clabel(contour, fontsize=6, fmt='%gm')
@@ -128,4 +128,28 @@ def profiles(runtime, out):
     axes[-1].set_xlabel('Lateral offset (m)')
     fig.suptitle('Unadjusted source/scene comparisons; prepared 20m vertical realization unverified', fontsize=11)
     fig.savefig(out / 'cross-sections.png', dpi=150)
+    plt.close(fig)
+
+
+def validity_map(runtime, native, out):
+    """Actual cropped mask and decoded tile boundaries, independent of index promises."""
+    pixels, valid, gt, c0, r0, _, meta = native
+    rows, cols = np.indices(pixels.shape)
+    ux, uy = gt[0] + (cols+c0+.5)*gt[1], gt[3] + (rows+r0+.5)*gt[5]
+    transform = Transformer.from_crs(meta['decodedCrsWkt'], 'EPSG:3857', always_xy=True)
+    xx, zz = projection(runtime)(*transform.transform(ux, uy))
+    fig, ax = plt.subplots(figsize=(10, 10), layout='constrained')
+    ax.pcolormesh(xx, zz, valid.astype(int), cmap='RdYlGn', vmin=0, vmax=1, shading='nearest', rasterized=True)
+    for tile in meta['tiles']:
+        x0, y0, x1, y1 = tile['extent']
+        x, z = projection(runtime)(*transform.transform([x0,x1,x1,x0,x0], [y0,y0,y1,y1,y0]))
+        ax.plot(x, z, lw=1.5, ls='--', label=tile['filename'] + ' decoded bounds')
+    samples = runtime['samples']
+    missing = [p for p in samples if p['native1m'] is None]
+    if missing:
+        ax.scatter([p['x'] for p in missing], [p['z'] for p in missing], c='magenta', s=6, label='Invalid bilinear native samples')
+    overlay(ax, runtime)
+    ax.set_title('Actual Putnam native validity mask and tile seam\nGreen=valid pixel, red=masked; magenta=invalid four-pixel bilinear sample')
+    ax.legend(fontsize=6, loc='upper left')
+    fig.savefig(out / 'native-validity-seam.png', dpi=150)
     plt.close(fig)

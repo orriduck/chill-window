@@ -79,3 +79,23 @@ are retained unresampled in runner scratch and hashed before sampling, not
 uploaded. Large TIFF/LAZ/EXR and scratch files are excluded. Successful collection
 does not validate the gameplay picture: `runtimeImported` and `visualAcceptance`
 remain false. No browser/rendering inspection is performed by this recipe.
+
+## Bounded Putnam 2019 alternative
+
+See [putnam-plan.md](putnam-plan.md) and [source references](REFERENCES.md).
+On exactly `codex/putnam-dem-diagnostic`, the separate workflow adds
+`--source-kind putnam2019` to the same diagnostic command. With no selector,
+the old USGS 2022 source remains the default. Only the two official Putnam
+TIFFs are fetched into cloud scratch; full bodies are hashed and excluded
+from artifacts. Their actual grids/masks, aligned seam and native bilinear
+coverage are measured before comparing the same unchanged runtime samples.
+
+A complete diagnostic requires all 3865 native samples and all five exact
+241-point profiles. `summary.json` records `requiredProfileCoverage`,
+`allFiveProfilesComplete` and `diagnosticCompleteness`; incomplete coverage
+preserves small outputs then exits nonzero. `native-validity-seam.png` shows
+actual pixel validity, decoded tile bounds and invalid bilinear samples.
+Geoid12B/Geoid18 and the prepared ~20m unverified realization remain explicit;
+no vertical adjustment is applied. `runtimeImported`, `visualAcceptance` and
+`fixAccepted` remain false. Preparation syntax checks are not raster or visual
+acceptance; cloud maps/profiles still require direct inspection.

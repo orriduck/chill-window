@@ -1,0 +1,52 @@
+name: Putnam 2019 native DEM diagnostic
+
+on:
+  push:
+    branches: ['codex/putnam-dem-diagnostic']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chill-putnam-dem-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/codex/putnam-dem-diagnostic'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install diagnostic dependencies (no app build or browser)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gdal python3-numpy python3-pyproj python3-pil python3-matplotlib
+          npm --prefix app ci
+      - name: Sample unchanged runtime methods and exact indexed near mesh
+        run: |
+          mkdir -p "$RUNNER_TEMP/putnam-dem/outputs" "$RUNNER_TEMP/putnam-dem/scratch"
+          node app/scripts/experiments/hudson-native-dem/sample-runtime.mjs --out "$RUNNER_TEMP/putnam-dem/outputs/runtime.json"
+      - name: Download only two bounded official TIFFs and diagnose native pixels
+        run: |
+          /usr/bin/python3 app/scripts/experiments/hudson-native-dem/diagnose.py --source-kind putnam2019 --runtime "$RUNNER_TEMP/putnam-dem/outputs/runtime.json" --out "$RUNNER_TEMP/putnam-dem/outputs" --scratch "$RUNNER_TEMP/putnam-dem/scratch"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: putnam-dem-diagnostic-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/putnam-dem/outputs/*.png
+            ${{ runner.temp }}/putnam-dem/outputs/*.csv
+            ${{ runner.temp }}/putnam-dem/outputs/*.json
+            ${{ runner.temp }}/putnam-dem/outputs/*.xml
+            ${{ runner.temp }}/putnam-dem/outputs/*.md
+          if-no-files-found: error
+          retention-days: 7

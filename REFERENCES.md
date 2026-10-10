@@ -475,3 +475,11 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 [Actions run 38056889707](https://github.com/orriduck/chill-window/actions/runs/38056889707)，候选commit `2306b53be8011eecb4f87f6a11fde37aaebee09b`，2026-10-10实际失败。下载artifact的`health.json`及唯一`2790m-01-default-background-on.png`（本轮直接查看原PNG，路径`/tmp/chill-terrain-overlap-2306b53/`）：第一张巨大平滑坡仍遮住近中景，不能称修复有效。背景关闭的第二条健康状态为2790m、49/49、暂停默认视角、GPU idle且无应用/请求错误；但page.screenshot在字体加载完成后90秒超时，第二张PNG不存在，无法据此比较土坡来源。
 
 `capture-terrain-overlap.cjs`限定截图阶段的RAF冻结候选：导航前包装原生RAF，保留一次性/取消语义；原49/49门控另外要求真实GPU idle/待上传0，字体完成和两个真实帧后冻结新与待执行应用回调，让SwiftShader提交帧完成合成，截图finally恢复。源几何/影像/相机/shader与准备状态均不修改。每次捕获写实际PNG成功/失败标志、字节、冻结前后sceneFrame/回调计数，要求没有场景推进；仍七处28张图，不把状态读数算作已取得图片。只有脚本语法、队列小型验证与差异检查，浏览器结果仍待下一轮云端运行。
+
+## 2026-10-10：Putnam 2019 原生 DEM 限定诊断准备
+
+旧2022云端[38059823765](https://github.com/orriduck/chill-window/actions/runs/38059823765)只有263/3865个原生有效样点，2590/2690/2790m剖面均0/241；不能作为2790m土坡判断依据。地形截图[38058262302](https://github.com/orriduck/chill-window/actions/runs/38058262302)超时后仅21/28张PNG，2790m背景关闭仍有土坡，也未构成修复验收。
+
+2026-10-10实际读取小型官方来源：[NY FEMA Central XML](https://gisdata.ny.gov/elevation/DEM/FEMA_2019_DEM/UTM18N_BLOCK01_DEM.xml)、[DEM索引层2](https://elevation.its.ny.gov/arcgis/rest/services/Dem_Indexes/FeatureServer/2)、[2019 ImageServer元数据](https://elevation.its.ny.gov/arcgis/rest/services/FEMA_2019_1_meter/ImageServer?f=pjson)。XML声明2019-04-23–25、1m Float32、NAD83(2011)/UTM18N、NAVD88/Geoid12B；Niagara首句与Westcheser/Putnam extent矛盾原样保留。索引返回两块Putnam原始DEM：[18TWL865855](https://gisdata.ny.gov/elevation/DEM/FEMA_2019_DEM/Putnam/18TWL865855.tif)、[18TWL865840](https://gisdata.ny.gov/elevation/DEM/FEMA_2019_DEM/Putnam/18TWL865840.tif)，各约9.4MB；本地未请求TIFF或HEAD。TILE_DATE不是采集日期，索引覆盖不是有效像素证据。
+
+受影响的独立配方为`app/scripts/experiments/hudson-native-dem/state_source.py`、`putnam-plan.md`、`diagnose.py`来源选择器、`plots.py`mask/接缝图及`.github/workflows/putnam-dem-diagnostic.yml`。仅云端解码两块原始网格、校验坐标系/单位/接缝、复用81机位与3865样点；五条±120m剖面及全体原生样点完整才通过诊断完整性。保存小型PNG/CSV/JSON/XML/MD，原始TIFF留scratch。旧2022默认不变，无运行时资产变更或垂直校正；新来源的实际栅格覆盖及图像核验尚待云端运行，不能称土坡已修复。

@@ -11,7 +11,11 @@ import traceback
 import numpy as np
 
 from source import acquire, bilinear, now, write_json, digest
-from plots import maps, profiles
+from plots import maps, profiles, validity_map
+
+
+class IncompleteCoverageError(RuntimeError):
+    """Source collection completed, but native evidence is incomplete."""
 
 
 def statistics(values):
@@ -31,7 +35,13 @@ def main(args):
     out, scratch = Path(args.out), Path(args.scratch)
     out.mkdir(parents=True, exist_ok=True); scratch.mkdir(parents=True, exist_ok=True)
     runtime = json.loads(Path(args.runtime).read_text())
-    native = acquire(runtime, out, scratch)
+    if args.source_kind == 'putnam2019':
+        from state_source import acquire as acquire_state
+        if [p['s'] for p in runtime['poses']] != list(range(2590, 2991, 5)) or len(runtime['samples']) != 3865 or runtime['crossSections'] != [2590, 2690, 2790, 2890, 2990]:
+            raise RuntimeError('Bounded Putnam sampler shape changed')
+        native = acquire_state(runtime, out, scratch)
+    else:
+        native = acquire(runtime, out, scratch)
     for p in runtime['samples']:
         p['native1m'] = bilinear(p['longitude'], p['latitude'], native)
     series = ['native1m', 'raw20m', 'railBed', 'nearMesh']
@@ -72,6 +82,8 @@ def main(args):
     imagery = Path(args.imagery)
     imagery_record = maps(runtime, native, imagery, out)
     profiles(runtime, out)
+    if args.source_kind == 'putnam2019':
+        validity_map(runtime, native, out)
     write_json(out / 'naip-registration.json', imagery_record)
     at_eye = [p for p in runtime['samples'] if p['offset'] == 0]
     summary = {'createdAt': now(), 'sourceCommit': runtime['sourceCommit'], 'runtimeImported': False, 'visualAcceptance': False,
@@ -84,10 +96,31 @@ def main(args):
                'slopeConvention': 'signed lateral rise/metre towards positive right; central difference ±1m for every requested offset and every pose, for all four surfaces',
                'verticalDatumComparison': 'No vertical adjustment. Native XML declares NAVD88; vendor Geoid18. Existing prepared 20m datum realization not independently verified; scene rail profile is a visualization estimate, not survey.',
                'limits': ['Source maps require cloud artifact pixel inspection', 'No browser/gameplay visual inspection', 'Eye overlap only at actual route XZ; it does not test forward rays or prove absence of a slope in the window', 'No native TIFF imported into app', 'Network aggregate transfer bytes not measured']}
+    if args.source_kind == 'putnam2019':
+        coverage = []
+        for s in [2590, 2690, 2790, 2890, 2990]:
+            rows = [p for p in runtime['samples'] if p['s'] == s]
+            valid_count = sum(p['native1m'] is not None and math.isfinite(p['native1m']) for p in rows)
+            exact_offsets = [p['offset'] for p in rows] == list(range(-120, 121))
+            coverage.append({'s': s, 'required': 241, 'total': len(rows), 'nativeValid': valid_count,
+                             'exactOffsets': exact_offsets, 'complete': exact_offsets and valid_count == 241})
+        native_count = sum(p['native1m'] is not None and math.isfinite(p['native1m']) for p in runtime['samples'])
+        complete = native_count == 3865 and all(p['complete'] for p in coverage)
+        summary.update({'sourceKind': args.source_kind, 'fixAccepted': False,
+                        'sourceHashes': runtime['sourceHashes'], 'nativeMetadata': 'native-metadata.json',
+                        'requiredProfileCoverage': coverage,
+                        'nativeSampleCoverage': {'required': 3865, 'valid': native_count, 'complete': native_count == 3865},
+                        'allFiveProfilesComplete': all(p['complete'] for p in coverage),
+                        'diagnosticCompleteness': complete,
+                        'verticalDatumComparison': 'No vertical adjustment. Putnam XML declares NAVD88/Geoid12B, acquisition 2019-04-23–25. Old 2022 vendor source declares Geoid18. Existing prepared ~20m vertical realization is not independently verified; rail profile is a visualization estimate, not survey.',
+                        'limits': summary['limits'] + ['2019 source is not contemporary ground truth; all differences are unadjusted comparisons',
+                                                      'Indexed polygon coverage and PARTIAL=null do not establish native mask coverage']})
     write_json(out / 'summary.json', summary)
     # Keep native values in runtime samples for audit, with exact triangles from Node.
     write_json(out / 'runtime.json', runtime)
     (out / 'README.md').write_text(f'# Native DEM diagnostic collection\n\nCommit `{runtime["sourceCommit"]}`; collected {summary["createdAt"]}.\n\nCollection succeeded; runtimeImported=false; visualAcceptance=false.\nNative source, datum/date differences, range/fallback and unmeasured traffic are in sources.json/native-metadata.json.\nMap/profile PNGs require direct visual inspection. No application rendering or native terrain import occurred.\n')
+    if args.source_kind == 'putnam2019':
+        (out / 'README.md').write_text(f'# Putnam 2019 native DEM diagnostics\n\nCommit `{runtime["sourceCommit"]}`; collected {summary["createdAt"]}.\n\nNative valid {native_count}/3865; diagnosticCompleteness={str(complete).lower()}.\nSee requiredProfileCoverage in summary.json. All statistics use only common-valid samples.\nNo vertical adjustment; NAVD88/Geoid12B versus old Geoid18 and unverified prepared ~20m realization.\nMap, mask/seam and profile PNGs require direct pixel inspection.\nRuntimeImported=false; visualAcceptance=false; fixAccepted=false.\n')
     files = []
     for file in sorted(out.iterdir()):
         if file.is_file() and file.name != 'artifact-manifest.json':
@@ -95,16 +128,22 @@ def main(args):
                 raise RuntimeError('Forbidden output extension: ' + file.name)
             files.append({'path': file.name, 'bytes': file.stat().st_size, 'sha256': digest(file.read_bytes())})
     write_json(out / 'artifact-manifest.json', {'files': files, 'sourceTIFFUploaded': False, 'runtimeImported': False, 'visualAcceptance': False})
+    if args.source_kind == 'putnam2019' and not complete:
+        raise IncompleteCoverageError('Putnam diagnosticCompleteness=false: native coverage does not satisfy all 3865 samples and five 241-point profiles; artifacts preserved')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--runtime', required=True); parser.add_argument('--out', required=True); parser.add_argument('--scratch', required=True)
     parser.add_argument('--imagery', default='app/public/geodata/hudson/imagery/corridor')
+    parser.add_argument('--source-kind', choices=['usgs2022', 'putnam2019'], default='usgs2022')
     args = parser.parse_args()
     try:
         main(args)
     except Exception as error:
         Path(args.out).mkdir(parents=True, exist_ok=True)
-        write_json(Path(args.out) / 'failure.json', {'createdAt': now(), 'cloudCollectionSucceeded': False, 'runtimeImported': False, 'visualAcceptance': False, 'error': str(error), 'traceback': traceback.format_exc()})
+        failure = {'createdAt': now(), 'cloudCollectionSucceeded': isinstance(error, IncompleteCoverageError), 'runtimeImported': False, 'visualAcceptance': False, 'error': str(error), 'traceback': traceback.format_exc()}
+        if args.source_kind == 'putnam2019':
+            failure.update({'sourceKind': args.source_kind, 'diagnosticCompleteness': False, 'fixAccepted': False})
+        write_json(Path(args.out) / 'failure.json', failure)
         raise
