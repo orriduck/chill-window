@@ -1,0 +1,57 @@
+name: Putnam 2790m terrain visual review
+
+on:
+  push:
+    branches: ['codex/putnam-terrain-review']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chill-putnam-terrain-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    if: github.ref == 'refs/heads/codex/putnam-terrain-review'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Build app
+        working-directory: app
+        run: |
+          npm ci
+          npm run build
+      - name: Prepare cloud Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/chill-playwright" --no-package-lock --no-audit --no-fund playwright@1.64.0
+          "$RUNNER_TEMP/chill-playwright/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Capture exactly three strict-ready paused 2790m comparisons
+        env:
+          CW_CAPTURE_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/chill-putnam-terrain"
+          npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-putnam-terrain/server.log" 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          export PW_MODULE_PATH="$RUNNER_TEMP/chill-playwright/node_modules/playwright"
+          export CW_CAPTURE_DIR="$RUNNER_TEMP/chill-putnam-terrain"
+          timeout 600s node app/scripts/capture-putnam-terrain.cjs
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: putnam-terrain-${{ github.sha }}
+          path: ${{ runner.temp }}/chill-putnam-terrain/
+          if-no-files-found: error
+          retention-days: 7

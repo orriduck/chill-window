@@ -14,6 +14,7 @@ import { GeoDetailCoverage } from './GeoDetailCoverage'
 import { createBackgroundTerrainMaterial } from './GeoBackgroundTerrain'
 import { createBuildingFadeController, installBuildingDistanceFade, prepareDistantBuildings, setBuildingCenterAttribute, type DistantBuildingSet } from './GeoDistantBuildings'
 import { hash01 } from '../core/procedural'
+import { GeoNativeTerrain, putnamTile, putnamWeight, type TerrainSourceMode } from './GeoNativeTerrain'
 import { groundGrassTex, groundRockTex, geographicTexturesReady } from '../textures'
 
 const TILE = 256
@@ -150,8 +151,11 @@ export class RealWorld {
   }
 
   readonly data: GeoData
-  constructor(data: GeoData, initialS = data.checkpoints[0]?.s ?? 0) {
-    this.data = data
+  readonly terrainSource: TerrainSourceMode
+  readonly nativeTerrain: GeoNativeTerrain | null
+  constructor(data: GeoData, initialS = data.checkpoints[0]?.s ?? 0, terrainSource: TerrainSourceMode = 'current', nativeTerrain: GeoNativeTerrain | null = null) {
+    if (terrainSource === 'putnam2019' && !nativeTerrain) throw new Error('Putnam terrain requested without verified grid')
+    this.data = data; this.terrainSource = terrainSource; this.nativeTerrain = nativeTerrain
     this.ready = new Promise((resolve, reject) => { this.resolveReady = resolve; this.rejectReady = reject })
     this.landMask = this.buildLandMask()
     this.landSourceMap = this.buildLandSourceMap()
@@ -301,6 +305,23 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
   /** Rail-bed correction is a narrow engineering visualization, not a new
    * geographical landform. Bridges/tunnels keep their ground DEM below/above. */
   terrainHeight(x: number, z: number) {
+    const current = this.currentTerrainHeight(x, z)
+    const weight = this.terrainSource === 'current' ? 0 : putnamWeight(x, z)
+    if (weight === 0 || current === null) return current
+    const candidate = this.terrainSource === 'putnam2019' ? this.nativeTerrain!.sample(x, z) : this.data.heightAt(x, z)
+    // Outside/invalid samples are explicitly current terrain, never native data.
+    return candidate === null ? current : THREE.MathUtils.lerp(current, candidate, weight)
+  }
+  terrainSampleSource(x: number, z: number) {
+    const weight = this.terrainSource === 'current' ? 0 : putnamWeight(x, z)
+    if (!weight || (this.terrainSource === 'putnam2019' && this.nativeTerrain!.sample(x, z) === null)) return 'current'
+    return weight < 1 ? `transition-current-${this.terrainSource}` : this.terrainSource
+  }
+  get refinedTileCount() { return [...this.chunks.values()].filter(c => c.group.visible && c.ground.userData.terrainStep === 2).length }
+  /** Only uploaded, visible detail meshes. Shader-masked water triangles are
+   * skipped by the diagnostic, and background is not evidence for native hits. */
+  get passengerGroundMeshes() { return this.group.visible ? [...this.chunks.values()].filter(c => c.group.visible && c.gpuReady && c.ground.visible).map(c => c.ground) : [] }
+  private currentTerrainHeight(x: number, z: number) {
     const raw = this.data.heightAt(x, z)
     if (raw === null) return null
     const near = this.data.railProximity(x, z)
@@ -434,10 +455,23 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     const positions: number[] = [], colors: number[] = [], normals: number[] = [], uv: number[] = [], indices: number[] = [], valid: boolean[] = []
     for (let row = 0; row <= rows; row++) for (let col = 0; col <= cols; col++) {
       const x = minX + col * step, z = minZ + row * step
-      const h = this.terrainHeight(x, z)
+      const sample = step === 64 ? (x: number, z: number) => this.currentTerrainHeight(x, z) : (x: number, z: number) => this.terrainHeight(x, z)
+      let h = sample(x, z)
+      // At a 2m-to-8m boundary, every intermediate vertex lies on the
+      // neighboring coarse segment; no overlapping second terrain mesh.
+      if (step === 2) {
+        const cx = Math.floor(minX / TILE), cz = Math.floor(minZ / TILE)
+        const outerX = (col === 0 && !putnamTile(cx - 1, cz)) || (col === cols && !putnamTile(cx + 1, cz))
+        const outerZ = (row === 0 && !putnamTile(cx, cz - 1)) || (row === rows && !putnamTile(cx, cz + 1))
+        if (outerX || outerZ) {
+          const v = outerX ? z : x, lo = Math.floor(v / 8) * 8
+          const a = outerX ? sample(x, lo) : sample(lo, z), b = outerX ? sample(x, lo + 8) : sample(lo + 8, z)
+          h = a === null || b === null ? null : THREE.MathUtils.lerp(Math.fround(a), Math.fround(b), (v - lo) / 8)
+        }
+      }
       valid.push(h !== null); positions.push(x, h ?? 0, z); uv.push(x * 0.08, z * 0.08)
-      const hx0 = this.terrainHeight(x - 4, z) ?? h ?? 0, hx1 = this.terrainHeight(x + 4, z) ?? h ?? 0
-      const hz0 = this.terrainHeight(x, z - 4) ?? h ?? 0, hz1 = this.terrainHeight(x, z + 4) ?? h ?? 0
+      const hx0 = sample(x - 4, z) ?? h ?? 0, hx1 = sample(x + 4, z) ?? h ?? 0
+      const hz0 = sample(x, z - 4) ?? h ?? 0, hz1 = sample(x, z + 4) ?? h ?? 0
       const normal = new THREE.Vector3(hx0 - hx1, 8, hz0 - hz1).normalize(); normals.push(normal.x, normal.y, normal.z)
       const { forest, farm } = this.sampleLand(x, z)
       const tint = new THREE.Color(forest ? 0xabb49a : farm ? 0xc8c092 : 0xc4c4aa)
@@ -456,11 +490,14 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geometry.setIndex(indices)
+    if (step === 2) geometry.computeVertexNormals()
     return geometry
   }
   private createChunk(cx: number, cz: number): RealChunk {
     const group = new THREE.Group(), x0 = cx * TILE, z0 = cz * TILE
-    const ground = new THREE.Mesh(this.terrainGeometry(x0, z0, TILE, TILE, 8), this.groundMaterial)
+    const step = this.terrainSource === 'putnam2019' && putnamTile(cx, cz) ? 2 : 8
+    const ground = new THREE.Mesh(this.terrainGeometry(x0, z0, TILE, TILE, step), this.groundMaterial)
+    ground.userData.terrainStep = step
     ground.position.y = 0.18
     ground.receiveShadow = true; group.add(ground)
     const outline: THREE.Vector3[] = []

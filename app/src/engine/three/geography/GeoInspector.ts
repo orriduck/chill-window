@@ -4,9 +4,10 @@ import { buildingHeight, buildingStructureKind, platformRise, type GeoData, type
 import { buildingAppearance } from './GeoBuilding'
 import type { RealWorld } from './RealWorld'
 import { LAND_COVER } from './GeoLandCover'
+import { terrainSourceMode } from './GeoNativeTerrain'
 import type { CloseTreeAssetId } from './GeoCloseTrees'
 
-export interface GeoCommand { editing?: boolean; jump?: number; recenter?: boolean; time?: 'day' | 'night'; weather?: 'clear' | 'rain' }
+export interface GeoCommand { editing?: boolean; jump?: number; recenter?: boolean; time?: 'day' | 'night'; weather?: 'clear' | 'rain'; terrainRays?: boolean }
 /** Geographic inspection uses the ride's actual data and has no synthetic
  * scene selector. The progress control changes the train only on Apply. */
 export class GeoInspector {
@@ -34,6 +35,8 @@ export class GeoInspector {
   private readout = document.createElement('output')
   private buildingStats = document.createElement('output')
   private terrainReadout = document.createElement('output')
+  private terrainSourceReadout = document.createElement('output')
+  private terrainRaysReadout = document.createElement('output')
   private streamingStats = document.createElement('output')
   private stationReadout = document.createElement('output')
   private performanceReadout = document.createElement('output')
@@ -242,7 +245,22 @@ export class GeoInspector {
     convertedNotice.textContent = '铁路两侧1200m范围内5853栋有源高度建筑，OSM2World离线转换并按各区块原点对齐当前DEM。3563栋来自高度标签，2290栋仍为上游估高；4个开放屋顶不补落地墙。勾选对比PBR通用材质，取消显示同批源足迹体块。模型和共享图片在出发前加载一次。墙面、窗面、屋顶厚度与无标签外观为转换器的表现假设，不是当地照片。'
     convertedNotice.style.cssText = notes.style.cssText
     diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.forestDistance, this.forestDirection, this.forestCase, this.forestStats, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.terrainReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
-    this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
+    const terrainSource = document.createElement('select')
+    terrainSource.setAttribute('aria-label', '地形来源对比（重新加载准备）'); terrainSource.style.cssText = this.checkpoint.style.cssText
+    for (const [value, text] of [['current', '当前20m · 原轨床'], ['raw20m', '原20m · 局部移除宽轨床'], ['putnam2019', 'Putnam 2019 · 派生2m局部地形']]) {
+      const option = document.createElement('option'); option.value = value; option.textContent = text; terrainSource.append(option)
+    }
+    terrainSource.value = new URLSearchParams(location.search).get('terrainSource') ?? 'current'
+    terrainSource.onchange = () => {
+      const url = new URL(location.href); url.searchParams.set('terrainSource', terrainSourceMode(terrainSource.value))
+      url.searchParams.set('routeMetres', this.position.dataset.routeMetres ?? '2790'); url.searchParams.delete('debugTerrain'); location.assign(url)
+    }
+    this.terrainSourceReadout.setAttribute('aria-label', '局部地形来源诊断'); this.terrainSourceReadout.style.cssText = this.streamingStats.style.cssText
+    this.terrainRaysReadout.setAttribute('aria-label', '实际乘客地形视线'); this.terrainRaysReadout.style.cssText = this.streamingStats.style.cssText + 'white-space:pre-wrap;overflow-wrap:anywhere;'
+    this.terrainRaysReadout.textContent = '等待暂停、场景就绪及返回乘客视角；实际相机三条视线只采集一次。'
+    const putnamJump = this.button('跳到 Putnam 2790m 对比', () => { this.pending.jump = 2790; this.pending.terrainRays = true })
+    const refreshRays = this.button('返回乘客后刷新三条地形视线', () => { this.pending.terrainRays = true })
+    this.panel.append(title, description, terrainSource, putnamJump, this.terrainSourceReadout, refreshRays, this.terrainRaysReadout, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
     this.applyVisibility()
@@ -342,9 +360,12 @@ export class GeoInspector {
     this.landCoverReadout.textContent = cover
       ? `USGS Annual NLCD ${cover.snapshot.year} · 原数据30m / WMS分类采样约30m\n当前${this.editing ? '俯视中心' : '列车位置'}：${code === null ? '无覆盖' : `${code} ${LAND_COVER.get(code)?.label ?? ''}`}\n41/42/43林地补充OSM；绿色林地、粉红/红色开发区、蓝色水域。分类与逐株位置不同；原OSM水域/土地几何优先。`
       : '未接入 NLCD 土地覆盖数据。'
+    Object.assign(this.terrainSourceReadout.dataset, { sourceMode: world.terrainSource, manifestSha: world.nativeTerrain?.manifestSha ?? '', refinedTiles: String(world.refinedTileCount),
+      sourceDates: world.nativeTerrain ? '2019-04-23/2019-04-25' : '', gridStep: world.nativeTerrain ? '2' : '20', transitionMetres: '32', visualAccepted: 'false' })
+    this.terrainSourceReadout.textContent = `来源 ${world.terrainSource} · 当前可见2m区块 ${world.refinedTileCount}\n${world.nativeTerrain ? 'NY Putnam · 2019-04-23–25 · NAVD88 / Geoid12B · 原1m派生2m（非原1m）' : world.terrainSource === 'raw20m' ? '当前 USGS 20m 来源；仅局部移除 ±18m 轨床' : '当前 USGS 20m 来源及现有轨床'}\n相机 / 轨面保持当前基线 · 外围32m混合为场景过渡，非实测地面。${world.nativeTerrain ? `\n已加载 SHA ${world.nativeTerrain.manifestSha}` : ''}\n默认 current；云端视觉验收待确认。`
     const terrain = world.terrainCoverageStats
     Object.assign(this.terrainReadout.dataset, { readyTiles: String(terrain.readyTiles), minTile: terrain.minTile.join(','), backgroundVisible: String(terrain.backgroundVisible), groundVisible: String(this.layers.ground) })
-    this.terrainReadout.textContent = `背景64m / 细节8m · 当前GPU覆盖 ${terrain.readyTiles}/49\n远处地形 ${terrain.backgroundVisible ? '显示' : '关闭'} · 已上传细节区块内不绘制背景；未上传区块保留背景。`
+    this.terrainReadout.textContent = `背景64m / 细节8m${world.terrainSource === 'putnam2019' ? ' + 局部2m' : ''} · 当前GPU覆盖 ${terrain.readyTiles}/49\n远处地形 ${terrain.backgroundVisible ? '显示' : '关闭'} · 已上传细节区块内不绘制背景；未上传区块保留背景。`
     const stream = world.streamingStats
     this.status.dataset.sceneFrame = String(stream.sceneFrame)
     this.status.textContent = this.error ? `真实场景加载失败 · ${this.error}` : `${stream.visible}/49 可视区块 · 缓存 ${stream.cached} · DEM 20m${!stream.ready ? ' · 正在加载周边场景' : stream.pending ? ' · 预建中' : ' · 场景就绪'}`
@@ -365,6 +386,26 @@ export class GeoInspector {
     if (!this.data) return
     const pose = this.data.pose(Number(this.progress.value))
     this.readout.textContent = `${(pose.s / 1000).toFixed(2)} km · ${pose.latitude.toFixed(5)}, ${pose.longitude.toFixed(5)}`
+  }
+  capturePassengerRays(camera: THREE.PerspectiveCamera, world: RealWorld, routeMetres: number) {
+    camera.updateMatrixWorld(true); world.group.updateWorldMatrix(true, true)
+    const inverse = world.group.matrixWorld.clone().invert(), ray = new THREE.Raycaster()
+    const rays = [-0.5, 0, 0.5].map(x => {
+      ray.setFromCamera(new THREE.Vector2(x, 0), camera)
+      const origin = ray.ray.origin.clone().applyMatrix4(inverse), direction = ray.ray.direction.clone().transformDirection(inverse)
+      const hits = ray.intersectObjects(world.passengerGroundMeshes, false)
+      const hit = hits.find(hit => { const p = hit.point.clone().applyMatrix4(inverse); return !world.data.landAt(p.x, p.z, 'water') })
+      const p = hit?.point.clone().applyMatrix4(inverse)
+      return { ndc: [x, 0], gisOrigin: origin.toArray(), gisDirection: direction.toArray(), hit: hit && p ? {
+        distanceMetres: hit.distance, gisPosition: p.toArray(), groundPlacementOffsetMetres: 0.18,
+        meshStepMetres: hit.object.userData.terrainStep, sampleSource: world.terrainSampleSource(p.x, p.z),
+      } : null }
+    })
+    const report = { routeMetres, sourceMode: world.terrainSource, capturedAtMs: performance.now(), cameraPosition: camera.position.toArray(), cameraQuaternion: camera.quaternion.toArray(),
+      scope: 'Actual passenger camera / visible uploaded detail triangle hits; not raw 1m source rays. Water features excluded via GeoData; rasterized shader boundary may differ.', rays }
+    this.terrainRaysReadout.dataset.report = JSON.stringify(report)
+    this.terrainRaysReadout.dataset.sourceMode = world.terrainSource
+    this.terrainRaysReadout.textContent = `实际乘客三条视线 · ${routeMetres.toFixed(2)}m · ${world.terrainSource}\n` + rays.map(r => `${r.ndc[0]}: ${r.hit ? `${r.hit.distanceMetres.toFixed(2)}m · ${r.hit.sampleSource} · GIS ${r.hit.gisPosition.map(v => v.toFixed(2)).join(', ')}` : '无地面命中'}`).join('\n')
   }
   setGpuPreparation(stats: { sequence: number; phase: string; groups: number; groupIndex: number; startedAt: number; elapsedMs: number; completed: number }) {
     const elapsed = stats.phase === 'idle' ? stats.elapsedMs : performance.now() - stats.startedAt

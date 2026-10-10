@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-10-10T15:54:17.604520+00:00",
+  "sourceCommit": "a8ab3d51d8af87e8baf73f8c9ebaa37f0e4fa05b",
+  "runtimeImported": false,
+  "visualAcceptance": false,
+  "fixAccepted": false,
+  "sourceKind": "putnam2019",
+  "sourceAcquisitionDates": [
+    "2019-04-23",
+    "2019-04-25"
+  ],
+  "horizontalSourceCRS": "EPSG:6347",
+  "verticalDatum": "NAVD88 / Geoid12B",
+  "verticalUnits": "metres",
+  "verticalAdjustmentApplied": false,
+  "sourceTiles": [
+    {
+      "file": "18TWL865855.tif",
+      "url": "https://gisdata.ny.gov/elevation/DEM/FEMA_2019_DEM/Putnam/18TWL865855.tif",
+      "bytes": 9442572,
+      "sha256": "fd4d7ac886f449f0d63acc44807fd33449fc8ee3f3397d0439fb53049a874bac"
+    },
+    {
+      "file": "18TWL865840.tif",
+      "url": "https://gisdata.ny.gov/elevation/DEM/FEMA_2019_DEM/Putnam/18TWL865840.tif",
+      "bytes": 9442570,
+      "sha256": "77735ad9350eddaf04f5977b499efdc78b310cc355f6e37073cc286e7e0fb51d"
+    }
+  ],
+  "worldSha256": "c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec",
+  "runtimeSnapshotSha256": "2d1cd177bd40b4ce4951b54ebae3374a2ee24000a4dc10c362cd16a28930606a",
+  "nativeMetadataSha256": "d57978b606d9383d4b3eecd4ab192720d5e43b7056ba2d89b0d774fe3d33ad00",
+  "sourceRecordsSha256": "b8e3a28b462d7f59dd5e4fcd74e951c4fc574231a70a90abee82089fb8655bee",
+  "nativeWindow": {
+    "window": [
+      149,
+      1102,
+      456,
+      510
+    ],
+    "geotransform": [
+      586500.0,
+      1.0,
+      0.0,
+      4587000.0,
+      0.0,
+      -1.0
+    ],
+    "firstPixelCentre": [
+      586649.5,
+      4585897.5
+    ],
+    "pixelSha256": "8f5d342c8c85aca4dbcb3f73e7984ba174bfe7552c5f0bb94b7b1074b2f1819a",
+    "pixelBytes": 930240,
+    "validitySha256": "662888a696821e13d5ab77f50c82c3e44664c567e176733c05987d07efbac937",
+    "validityBytes": 232560,
+    "validPixelCount": 232560,
+    "nodataPixelCount": 0,
+    "npyFileSha256": "534f5c9806c9cb163e4337648d0f3fef654a9ecce2cae012792409a1fc09c5b4",
+    "validNpyFileSha256": "a96b7e65966370a4c5cea0223b833e2f4fcf543c43772f772cf9cc0614223915"
+  },
+  "origin": [
+    -73.96,
+    41.36
+  ],
+  "bounds": [
+    -258,
+    6170,
+    188,
+    6670
+  ],
+  "boundsOrder": [
+    "minX",
+    "minZ",
+    "maxX",
+    "maxZ"
+  ],
+  "stepMetres": 2,
+  "width": 224,
+  "height": 251,
+  "vertexCount": 56224,
+  "rowOrder": "south-to-north (increasing world Z), west-to-east (increasing world X); row-major",
+  "elevationEncoding": "little-endian Float32 metres; invalid = canonical quiet NaN 0x7fc00000",
+  "validityEncoding": "uint8; 1 = all four native bilinear neighbours valid, 0 = invalid",
+  "validCount": 56224,
+  "nodataCount": 0,
+  "allValid": true,
+  "sampling": "Derived resampled 2m runtime grid, not raw 1m native data. Each world XZ vertex uses exact GeoData.unproject then EPSG:4326 to EPSG:6347 and source.bilinear at native pixel centres; four valid neighbours required.",
+  "outputs": {
+    "elevation.f32": {
+      "bytes": 224896,
+      "sha256": "2bd344e5e552a1003eb14940cdf287e80277d3054bd58ec4d53be5136eb7f923"
+    },
+    "valid.u8": {
+      "bytes": 56224,
+      "sha256": "c5459bafad65454f39bfb3ac2e5a3ab13f1cfd897457d58402a753b0e7a247c3"
+    }
+  },
+  "limits": [
+    "2019 source is not contemporary ground truth",
+    "No runtime import or browser visual acceptance"
+  ]
+}

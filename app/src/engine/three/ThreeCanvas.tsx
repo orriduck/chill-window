@@ -10,6 +10,7 @@ import { WeatherSystem, WeatherType } from './weather/WeatherSystem'
 import { WindowFrame, type WindowHudReadout, type WindowHudControlAnchor, type WindowHudControlHitArea } from './interior/WindowFrame'
 import { PerfMonitor } from './core/PerfMonitor'
 import { GeoData, loadHudsonData } from './geography/GeoData'
+import { GeoNativeTerrain, terrainSourceMode } from './geography/GeoNativeTerrain'
 import { RealWorld } from './geography/RealWorld'
 import { GeoInspector } from './geography/GeoInspector'
 import { DebugMode } from './core/DebugMode'
@@ -105,7 +106,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     let world: RealWorld | null = null
     let data: GeoData | null = null
     let disposed = false, paused = false, elapsed = 0, requestedSpeed = 0, worldReady = false
-    let pendingDeparture = false
+    let pendingDeparture = false, terrainRaysPending = true
     let pendingJump: number | null = null
     let gpuChunkInFlight = false
     let motionSampleTime = performance.now(), motionSampleZ = camera.z, measuredSpeed = 0, previousTime = motionSampleTime
@@ -137,12 +138,15 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     }
     const canvas = renderer.getDomElement()
     canvas.style.width = '100%'; canvas.style.height = '100%'; canvas.style.display = 'block'; canvas.style.cursor = 'grab'; canvas.style.touchAction = 'none'; container.appendChild(canvas)
-    void loadHudsonData(abort.signal).then(route => {
+    void loadHudsonData(abort.signal).then(async route => {
       if (disposed) return
       const query = new URLSearchParams(window.location.search)
       const startS = THREE.MathUtils.clamp(Number(query.get('routeMetres') ?? route.checkpoints[0].s), 0, route.length)
+      const mode = terrainSourceMode(query.get('terrainSource'))
+      const nativeTerrain = mode === 'putnam2019' ? await GeoNativeTerrain.load(abort.signal) : null
+      if (disposed) return
       reportPreparation('preparing')
-      data = route; world = new RealWorld(route, startS); exteriorGroup.add(world.group)
+      data = route; world = new RealWorld(route, startS, mode, nativeTerrain); exteriorGroup.add(world.group)
       camera.setZ(startS)
       camera.setRailProfile({ height: s => route.railHeight(s), grade: s => route.railGrade(s) }); inspector.setData(route)
       void world.ready
@@ -186,6 +190,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       rafRef.current = requestAnimationFrame(loop)
       const now = performance.now(), motionDt = Math.min((now - previousTime) / 1000, 1), dt = Math.min(motionDt, MAX_DT); previousTime = now
       const command = inspector.consume()
+      if (command.terrainRays || command.jump !== undefined) terrainRaysPending = true
       if (command.editing !== undefined) debug.setTerrainEditing(command.editing)
       if (command.recenter) inspector.recenter(camera.z)
       if (command.jump !== undefined && data) {
@@ -238,6 +243,9 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       if (inspection) { fog.near = 5000; fog.far = 15000; scene.scene.background = new THREE.Color(0xcbd7c5) }
       const renderStart = performance.now()
       renderer.render(scene.scene, viewCamera, inspection ? undefined : interiorScene)
+      if (terrainRaysPending && paused && worldReady && world && !inspection && renderer.preparation.phase === 'idle' && world.gpuCoverageAt(camera.z).readyTiles === 49 && world.streamingStats.pendingGpu === 0) {
+        inspector.capturePassengerRays(camera.getCamera(), world, camera.z); terrainRaysPending = false
+      }
       if (inspection) { fog.near = savedFogNear; fog.far = savedFogFar; scene.scene.background = null }
       perf.update()
       inspector.setPerformance(perf.currentFps, perf.currentFrameTime, performance.now() - renderStart, renderer.renderer.info)
