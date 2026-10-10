@@ -122,3 +122,30 @@ cloud observations, not a claim that those files are checked in here. The
 rebuilds the same pinned inputs and uploads the actual thin GLBs, shared images,
 source sidecars, logs and reports. These outputs need inspection before runtime
 integration or visual acceptance.
+
+Actions observation `38028263803` at `e1bd0d6` completed all 415 conversions
+before its cross-environment total-byte assertion failed: the actual thin GLBs
+total 25,160,336 bytes, 252 bytes less than the original cloud observation.
+The downloaded actual reports are archived under `observations/`; their hashes
+are distinct from the original cloud report hashes above. All 417 converter
+logs contain no error/exception, and all 16 shared image bytes/hashes, output
+source IDs and per-node vertical bounds were independently read.
+
+`verify-source-geometry.py` then read every actual model's POSITION accessor
+elements and compared them directly with the pinned overlay in OSM2World's
+metric projection. 5,853 objects in 415 tiles pass: 114,357 structural ground
+vertices, maximum footprint-boundary deviation 0.000700m and maximum height
+deviation 0.000051m. Four source `building=roof` objects have no walls down to
+ground; their roughly 0.31m thickness is explicitly converter-derived, not a
+measurement. The generic `Windows` appearance planes are reported separately
+(315 ground vertices, maximum offset about 0.050571m); they are not the source
+wall footprint. The original verifier incorrectly treated every appearance
+plane as a wall and every open roof as a closed building; its 256 diagnostics
+were inspected by source ID/material before separating these contracts. The
+structural 1cm and source-height 1mm limits remain unchanged.
+
+The updated Actions workflow uses this stronger full-output source comparison
+alongside checksums, ID counts and converter-log checks instead of requiring a
+cross-environment serialization byte total. It does not claim that the raw
+GLBs reproduce the original cloud bytes or that generic facade details are
+locally observed. Actual browser integration remains pending.

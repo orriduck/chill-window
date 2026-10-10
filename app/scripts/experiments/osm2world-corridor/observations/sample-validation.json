@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "checks": {
+    "worldShaMatchesRequested": true,
+    "allTilesHaveManifest": true,
+    "allModelNodeIdsMapToSourceRecords": true,
+    "heightOnlyConverted": true,
+    "sheltersExcludedFromSolidModels": true,
+    "sharedTextureFilesHashVerified": true,
+    "sourceOutputFilesVerified": true
+  },
+  "sampleTiles": [
+    {
+      "tileKey": "7,7",
+      "convertedBuildingCount": 45,
+      "converterOutputSha256": "8ee342f9cb8d0bdd23be2be2815f7746a48cf42b9c1e795e0919a6f7c92a0efd",
+      "converterOutputBytes": 3558424,
+      "outputSha256": "82c6534b18944f2184af4508eb46a0df48e31caea56638ecf93df5db3879a791",
+      "outputBytes": 159136,
+      "triangles": 568,
+      "meshCount": 91,
+      "materials": [
+        "RoofingTiles010",
+        "Plaster002",
+        "Windows"
+      ],
+      "boundsXYZMetres": {
+        "min": [
+          -132.28,
+          0.0,
+          -129.677
+        ],
+        "max": [
+          132.28,
+          7.0306,
+          129.675
+        ]
+      },
+      "sourceIds": [
+        "osm/way/1198043872",
+        "osm/way/321547516",
+        "osm/way/321547517",
+        "osm/way/321547518",
+        "osm/way/321547519",
+        "osm/way/321547520",
+        "osm/way/321547522",
+        "osm/way/321547523",
+        "osm/way/321547557",
+        "osm/way/321551575",
+        "osm/way/321551576",
+        "osm/way/321551577",
+        "osm/way/321551579",
+        "osm/way/321551581",
+        "osm/way/321551582",
+        "osm/way/321551583",
+        "osm/way/321551584",
+        "osm/way/321551585",
+        "osm/way/321551586",
+        "osm/way/321551587",
+        "osm/way/321551588",
+        "osm/way/321551589",
+        "osm/way/321551590",
+        "osm/way/321551591",
+        "osm/way/321551592",
+        "osm/way/321551593",
+        "osm/way/321551594",
+        "osm/way/321551595",
+        "osm/way/321551596",
+        "osm/way/321551598",
+        "osm/way/321551599",
+        "osm/way/321551601",
+        "osm/way/321551602",
+        "osm/way/321551603",
+        "osm/way/321551605",
+        "osm/way/321551606",
+        "osm/way/321551607",
+        "osm/way/321551619",
+        "osm/way/321551628",
+        "osm/way/321551629",
+        "osm/way/321551634",
+        "osm/way/321551636",
+        "osm/way/321551638",
+        "overture/a4632c82-8c4f-4204-9a5a-560ec9f58d3c",
+        "overture/bb96455f-5ec1-40cf-a0b6-eba0e1ba21fe"
+      ]
+    },
+    {
+      "tileKey": "15,67",
+      "convertedBuildingCount": 12,
+      "converterOutputSha256": "d891cc9b97a1ae7cd76f30f9e69c15cdcbc9243eebc227f8751359834c02ad05",
+      "converterOutputBytes": 3235612,
+      "outputSha256": "37f854796ea1f38f65fd355540a7f7ba9294d6fe70e3a4b3c84d301ea8faa3d3",
+      "outputBytes": 82204,
+      "triangles": 445,
+      "meshCount": 24,
+      "materials": [
+        "Plaster002",
+        "RoofingTiles010"
+      ],
+      "boundsXYZMetres": {
+        "min": [
+          -114.79,
+          0.0,
+          -139.401
+        ],
+        "max": [
+          114.79,
+          8.8392,
+          139.398
+        ]
+      },
+      "sourceIds": [
+        "osm/way/1307741541",
+        "osm/way/1307801027",
+        "osm/way/1307801049",
+        "osm/way/1416011955",
+        "osm/way/280500162",
+        "osm/way/280500163",
+        "osm/way/280500165",
+        "osm/way/280508007",
+        "osm/way/280508008",
+        "osm/way/285221615",
+        "osm/way/285355819",
+        "osm/way/591713455"
+      ]
+    },
+    {
+      "tileKey": "19,68",
+      "convertedBuildingCount": 4,
+      "converterOutputSha256": "df82b7f1d9cab9b9346cc1e176bd5aeabe393491a6eb82199a2769ce063d3677",
+      "converterOutputBytes": 3160220,
+      "outputSha256": "cad061a22e8522c754379c88367dd2645c3eb1fceed3b6d7d689323cbd70c6b8",
+      "outputBytes": 20700,
+      "triangles": 89,
+      "meshCount": 8,
+      "materials": [
+        "RoofingTiles010",
+        "Plaster002"
+      ],
+      "boundsXYZMetres": {
+        "min": [
+          -89.384,
+          0.0,
+          -121.05
+        ],
+        "max": [
+          89.384,
+          5.7912,
+          121.048
+        ]
+      },
+      "sourceIds": [
+        "osm/way/1416012556",
+        "osm/way/1416012747",
+        "osm/way/660276256",
+        "osm/way/729160977"
+      ]
+    }
+  ]
+}
