@@ -1,5 +1,20 @@
 # EZ-Tree Ash/Oak static asset comparison
 
+The GitHub Actions preparation job runs `rebuild-assets.sh` and
+`verify-report.py` to export and independently check all six static GLBs.
+These recovered scripts do not include a Blender preview renderer. Browser
+visual acceptance is a separate step in Chill Window.
+
+The source-scale reference height is 20m for LOD0. Lower detail levels retain
+the author's enlarged remaining leaf cards, so their actual outer crown
+height can differ (Ash LOD1 is 20.3969m in the first Actions output). The report
+records actual extents; none of these dimensions are a Hudson measurement.
+
+The GLB writer uses the standard `metallicRoughnessTexture` field for the
+unchanged grayscale Bark001 roughness image. The verifier reconstructs the
+original cloud JSON and checks its exact original hash, preserving the full
+geometry and embedded-image content despite that material-key correction.
+
 This is a pinned, offline export experiment using Dan Greenheck's EZ-Tree. It
 contains static GLB renderings of the author's built-in Ash Large and Oak Large
 presets at LOD0/1/2, with the LOD meshes generated from one shared skeleton per

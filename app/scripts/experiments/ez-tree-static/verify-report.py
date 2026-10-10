@@ -34,7 +34,13 @@ for expected in manifest['models']:
         assert max(index_values) < positions['count'] and indices['count'] % 3 == 0
         triangles.append(indices['count'] // 3)
     assert triangles == [expected['triangles']['branches'], expected['triangles']['leaves']], path
-    assert abs(max(ys) - min(ys) - 20) < 0.01, (path, min(ys), max(ys))
+    source_scale = document['nodes'][0]['extras']
+    assert abs(source_scale['sourceHeightUnits'] * source_scale['scaleTo20m'] - 20) < 1e-8
+    if source_scale['sourceLOD'] == 0:
+        assert abs(max(ys) - min(ys) - 20) < 0.01, (path, min(ys), max(ys))
+    # Upstream LOD1/2 enlarge fewer retained leaf cards to preserve coverage.
+    # Keep that authored geometry and record its actual extent, rather than
+    # shrinking each crown to force every LOD into the LOD0 reference height.
     assert document['materials'][1]['alphaMode'] == 'MASK' and document['materials'][1]['doubleSided']
     assert 'metallicRoughnessTexture' in document['materials'][0]['pbrMetallicRoughness']
     images = []
