@@ -83,3 +83,44 @@ the existing one-second wall-clock hold and exact route/clock equality checks.
 Unfrozen callback progress, trusted native Pause/Resume, strict current49/GPU-ready
 frozen PNG, held-pack/source-count and independent SW/offline gates remain intact.
 Only script syntax and diff scope are checked locally; a new cloud run is required.
+
+
+Follow-up after actual 8fece7e / [Actions 38066116720](https://github.com/orriduck/chill-window/actions/runs/38066116720)
+failed, checked 2026-10-10: downloaded actual health evidence passed the held-pack
+route/zero-clock checks, synchronous initial current49/GPU-ready proof, all
+5,853 buildings / 415 verified and parsed slices / 16 shared textures, one pack
+request / zero standalone GLBs, actual movement, and trusted native Pause/Resume.
+The unfrozen pause hold observed real callback progress and unchanged route and
+both clocks. A real prepared paused PNG was produced (165,605 bytes); callbacks
+held at 385 during its strict GPU-ready freeze and resumed unfrozen afterward.
+Root visually inspected that actual PNG: white building masses and grey ground
+remain, so appearance is not accepted. Global page errors were empty. The run
+then timed out at the old 60-second controller wait after reload, with stage
+`service-worker-install`; actual SW cache membership and independent offline
+hash checks were not reached. This remains a partial failed run.
+
+The old QA condition only checked existence of `registration.active`, which may
+still have state `activating`; this is a confirmed script lifecycle gap, not a
+confirmed cause of that run's timeout. [Playwright's activation guidance](https://playwright.dev/docs/service-workers#accessing-service-workers-and-waiting-for-activation)
+and the [Service Workers registration specification](https://www.w3.org/TR/service-workers/#service-worker-registration-active)
+were checked 2026-10-10. The app registers on page load; the actual generated
+worker already uses skipWaiting, clientsClaim and precaching. The reload also
+mounts the existing 3D scene, so a long SwiftShader frame delaying the old default
+RAF polling is another hypothesis, not an observed cause.
+
+Only cloud QA changes: install an early read-only lifecycle observer, recording
+controllerchange, discovered registration/update/state transitions, scope and
+worker script URLs/states, page origin/MIME and SW script response status/MIME.
+Keep snapshots on the initial page, real activation, any normal reload, control
+and failure; failure diagnostics enumerate existing cache keys/counts without
+fetching or adding assets. Record SW-owned request failures and contextual
+console/page errors while retaining the global page-error gate. Wait for actual
+`activated` state first, and require an actual activated controller bound to the
+active script URL. Reload normally only if still uncontrolled after activation.
+Activation, optional reload and controller confirmation share the existing
+240-second deadline, with 200ms polling independent of scene RAF. Never register,
+claim, force control or seed caches in QA. First-context Pause/PNG and exact
+independent pack/index/catalog SHA plus membership 16 textures / 9 trees / zero
+standalone GLBs remain unchanged. Local validation is syntax, focused JavaScript
+semantics and diff scope only; no local browser/GPU run, new cloud runtime pass,
+SW/offline pass or appearance acceptance is claimed.

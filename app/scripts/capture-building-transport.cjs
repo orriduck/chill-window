@@ -17,7 +17,7 @@ const health = { commit: process.env.CW_CAPTURE_SHA, rendering: 'Chromium / Swif
   viewport: { width: 640, height: 360 },
   scope: 'Held building pack, actual clocks/train readiness, native pause click, source counts and separate SW-enabled building cache',
   passed: false, stage: 'starting', visualReviewRequired: true, states: [], errors: [], requests: [] };
-let browser, context, releasePack;
+let browser, context, releasePack, installed;
 const save = () => fs.writeFile(path.join(output, 'building-transport-health.json'), JSON.stringify(health, null, 2));
 const fail = (condition, message) => { if (!condition) throw new Error(message); };
 function installPreparationEvidenceObserver() {
@@ -25,6 +25,85 @@ function installPreparationEvidenceObserver() {
   window.addEventListener('chill:preparation', event => {
     window.__buildingPreparationEvents.push(event.detail);
   });
+}
+// Observe only the app's real registration; never register, claim, or seed caches.
+// Installed before application modules and reinstated by addInitScript on reload.
+function installServiceWorkerLifecycleObserver() {
+  const events = [], registrations = new Set(), watchedWorkers = new WeakSet();
+  const workerState = worker => worker ? { scriptURL: worker.scriptURL, state: worker.state } : null;
+  const registrationState = registration => ({ scope: registration.scope,
+    installing: workerState(registration.installing), waiting: workerState(registration.waiting), active: workerState(registration.active) });
+  const snapshot = () => ({ capturedAt: new Date().toISOString(), url: location.href, origin: location.origin, mime: document.contentType,
+    controller: workerState(navigator.serviceWorker?.controller), registrations: [...registrations].map(registrationState) });
+  const record = (type, detail = {}) => {
+    if (events.length < 200) events.push({ type, ...detail, ...snapshot() });
+    else window.__buildingServiceWorkerLifecycle.droppedEvents++;
+  };
+  window.__buildingServiceWorkerLifecycle = { events, droppedEvents: 0, snapshot };
+  if (!('serviceWorker' in navigator)) { record('unsupported'); return; }
+  const watchWorker = worker => {
+    if (!worker || watchedWorkers.has(worker)) return;
+    watchedWorkers.add(worker);
+    worker.addEventListener('statechange', () => record('statechange', { worker: workerState(worker) }));
+  };
+  const watchRegistration = registration => {
+    if (!registrations.has(registration)) {
+      registrations.add(registration);
+      registration.addEventListener('updatefound', () => {
+        watchWorker(registration.installing); record('updatefound');
+      });
+      record('registration-observed');
+    }
+    for (const worker of [registration.installing, registration.waiting, registration.active]) watchWorker(worker);
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    watchWorker(navigator.serviceWorker.controller); record('controllerchange');
+  });
+  let refreshing = false, previous = '';
+  const refresh = async () => {
+    if (refreshing) return;
+    refreshing = true;
+    try {
+      for (const registration of await navigator.serviceWorker.getRegistrations()) watchRegistration(registration);
+      watchWorker(navigator.serviceWorker.controller);
+      const signature = JSON.stringify({ controller: workerState(navigator.serviceWorker.controller), registrations: [...registrations].map(registrationState) });
+      if (signature !== previous) { previous = signature; record('observed-state'); }
+    } catch (error) { record('observer-error', { error: error.message }); }
+    finally { refreshing = false; }
+  };
+  record('document-initial'); void refresh(); setInterval(refresh, 200);
+}
+async function serviceWorkerLifecycleSnapshot(page, name, includeCaches = false) {
+  const lifecycle = health.serviceWorkerLifecycle;
+  try {
+    const sample = await page.evaluate(async includeCaches => {
+      const workerState = worker => worker ? { scriptURL: worker.scriptURL, state: worker.state } : null;
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      const observer = window.__buildingServiceWorkerLifecycle;
+      const result = { capturedAt: new Date().toISOString(), url: location.href, origin: location.origin, mime: document.contentType,
+        controller: workerState(navigator.serviceWorker.controller),
+        registrations: registrations.map(registration => ({ scope: registration.scope,
+          installing: workerState(registration.installing), waiting: workerState(registration.waiting), active: workerState(registration.active) })),
+        events: observer?.events ?? [], droppedEvents: observer?.droppedEvents ?? 0 };
+      if (includeCaches) {
+        // Enumerate existing caches/keys only: no requests, put/add or repair.
+        result.caches = [];
+        for (const cacheName of await caches.keys()) {
+          const keys = await (await caches.open(cacheName)).keys();
+          const paths = keys.map(request => new URL(request.url).pathname);
+          const root = '/models/osm2world/hudson/';
+          result.caches.push({ name: cacheName, entries: keys.length,
+            pack: paths.includes(root + 'buildings.pack.bin'), index: paths.includes(root + 'buildings.pack.index.json'), catalog: paths.includes(root + 'catalog.json'),
+            standaloneModels: paths.filter(key => /^\/models\/osm2world\/hudson\/tile-[^/]+\/buildings\.glb$/.test(key)).length,
+            sharedTextures: new Set(paths.filter(key => key.startsWith(root + 'textures/'))).size,
+            treeGLBs: new Set(paths.filter(key => key.startsWith('/models/trees/') && key.endsWith('.glb'))).size });
+        }
+      }
+      return result;
+    }, includeCaches);
+    lifecycle.snapshots.push({ name, ...sample });
+  } catch (error) { lifecycle.snapshots.push({ name, diagnosticError: error.message }); }
+  await save();
 }
 function sampleUntilFullPreparationGate(heldRouteMetres) {
   const stream = document.querySelector('[aria-label="地理区块流式加载诊断"]');
@@ -250,12 +329,63 @@ async function ready(page) {
     // Independent context: no request interception and SW genuinely enabled.
     context = await browser.newContext({ serviceWorkers: 'allow', viewport: health.viewport });
     health.stage = 'service-worker-install'; await save();
-    const installed = await context.newPage();
-    installed.on('pageerror', error => health.errors.push(error.message));
+    const lifecycle = health.serviceWorkerLifecycle = { budgetMs: 240000, pollingMs: 200,
+      snapshots: [], workers: [], scriptResponses: [], requestFailures: [], pageErrors: [], console: [] };
+    await context.addInitScript(installServiceWorkerLifecycleObserver);
+    context.on('serviceworker', worker => lifecycle.workers.push({ observedAt: new Date().toISOString(), scriptURL: worker.url() }));
+    context.on('response', response => {
+      if (/\/(sw\.js|workbox-[^/]+\.js)(?:[?#]|$)/.test(response.url())) lifecycle.scriptResponses.push({
+        observedAt: new Date().toISOString(), url: response.url(), status: response.status(), mime: response.headers()['content-type'] });
+    });
+    context.on('requestfailed', request => {
+      const worker = request.serviceWorker();
+      if (worker || /\/(sw\.js|workbox-[^/]+\.js)(?:[?#]|$)/.test(request.url())) lifecycle.requestFailures.push({
+        observedAt: new Date().toISOString(), url: request.url(), workerScriptURL: worker?.url(), failure: request.failure() });
+    });
+    context.on('console', message => {
+      if (message.type() === 'error' || /service.?worker|workbox|precache|registration/i.test(message.text())) {
+        if (lifecycle.console.length < 100) lifecycle.console.push({ observedAt: new Date().toISOString(), type: message.type(), text: message.text(), location: message.location() });
+      }
+    });
+    installed = await context.newPage();
+    installed.on('pageerror', error => {
+      health.errors.push(error.message);
+      lifecycle.pageErrors.push({ observedAt: new Date().toISOString(), url: installed.url(), message: error.message });
+    });
     await installed.goto(base, { waitUntil: 'load' });
-    await installed.waitForFunction(async () => !!(await navigator.serviceWorker.getRegistration())?.active, null, { timeout: 240000 });
-    await installed.reload({ waitUntil: 'load' });
-    await installed.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 60000 });
+    await serviceWorkerLifecycleSnapshot(installed, 'initial-page', true);
+    // A registration.active object can still be activating. Share the existing
+    // 240-second budget across real activation, optional navigation and control.
+    const activationDeadline = Date.now() + lifecycle.budgetMs;
+    const remaining = () => {
+      const timeout = activationDeadline - Date.now();
+      fail(timeout > 0, 'Service worker activation/control exceeded its 240-second budget');
+      return timeout;
+    };
+    try {
+      health.stage = 'service-worker-activation'; await save();
+      await installed.waitForFunction(async () => (await navigator.serviceWorker.getRegistration())?.active?.state === 'activated',
+        null, { timeout: remaining(), polling: lifecycle.pollingMs });
+      await serviceWorkerLifecycleSnapshot(installed, 'activated-first-page');
+      health.stage = 'service-worker-control'; await save();
+      // clientsClaim normally controls this first page. A normal navigation is
+      // allowed only after actual activation, if that page is still uncontrolled.
+      if (!await installed.evaluate(() => !!navigator.serviceWorker.controller)) {
+        health.stage = 'service-worker-control-reload';
+        await serviceWorkerLifecycleSnapshot(installed, 'before-control-reload', true);
+        await installed.reload({ waitUntil: 'load', timeout: remaining() });
+        await serviceWorkerLifecycleSnapshot(installed, 'after-control-reload', true);
+      }
+      await installed.waitForFunction(async () => {
+        const active = (await navigator.serviceWorker.getRegistration())?.active;
+        const controller = navigator.serviceWorker.controller;
+        return active?.state === 'activated' && controller?.state === 'activated' && controller.scriptURL === active.scriptURL;
+      }, null, { timeout: remaining(), polling: lifecycle.pollingMs });
+      await serviceWorkerLifecycleSnapshot(installed, 'activated-and-controlled');
+    } catch (error) {
+      await serviceWorkerLifecycleSnapshot(installed, 'activation-control-failed', true);
+      throw error;
+    }
     health.serviceWorker = await installed.evaluate(async () => {
       const keys = [];
       for (const name of await caches.keys()) for (const request of await (await caches.open(name)).keys()) keys.push(new URL(request.url).pathname);
@@ -276,6 +406,12 @@ async function ready(page) {
     'Offline transport differs from independent pinned bytes/SHA');
     fail(health.errors.length === 0, 'Application errors observed');
     health.passed = true; health.stage = 'complete'; await save();
-  } catch (error) { health.passed = false; health.failure = error.stack; await save(); process.exitCode = 1; }
+  } catch (error) {
+    health.passed = false; health.failure = error.stack;
+    if (installed && health.serviceWorkerLifecycle && health.serviceWorkerLifecycle.snapshots.at(-1)?.name !== 'activation-control-failed') {
+      await serviceWorkerLifecycleSnapshot(installed, 'service-worker-context-failed', true);
+    }
+    await save(); process.exitCode = 1;
+  }
   finally { releasePack?.(); await context?.close(); await browser?.close(); }
 })();
