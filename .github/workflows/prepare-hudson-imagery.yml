@@ -1,0 +1,44 @@
+name: Prepare real Hudson corridor imagery
+on:
+  push:
+    branches: ['codex/tree-asset-preparation']
+    paths: ['app/scripts/experiments/hudson-naip-corridor/**', '.github/workflows/prepare-hudson-imagery.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install cloud geospatial raster tools
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin python3-gdal python3-pil python3-numpy
+      - name: Verify pinned route before source acquisition
+        run: echo 'c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec  app/public/geodata/hudson/world.json' | sha256sum -c -
+      - name: Download and verify only six actual NOAA source tiles
+        run: |
+          mkdir -p app/scripts/experiments/hudson-naip-corridor/source
+          bash app/scripts/experiments/hudson-naip-corridor/download-six.sh
+      - name: Rebuild actual route cutline and source RGB blocks
+        run: |
+          /usr/bin/python3 app/scripts/experiments/hudson-naip-corridor/prepare_hudson_naip_corridor.py \
+            --route app/public/geodata/hudson/world.json \
+            --sources app/scripts/experiments/hudson-naip-corridor/source \
+            --tile-index app/scripts/experiments/hudson-naip-corridor/source/tileindex_NY_NAIP_2022.zip \
+            --out app/scripts/experiments/hudson-naip-corridor/release
+      - name: Pack lossless decoded RGB and actual coverage masks
+        run: |
+          /usr/bin/python3 app/scripts/experiments/hudson-naip-corridor/prepare_scene_atlases.py \
+            --manifest app/scripts/experiments/hudson-naip-corridor/release/manifest.json \
+            --blocks app/scripts/experiments/hudson-naip-corridor/release/blocks \
+            --out app/scripts/experiments/hudson-naip-corridor/release/atlases
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: real-hudson-imagery-${{ github.sha }}
+          path: |
+            app/scripts/experiments/hudson-naip-corridor/release/atlases/**
+            app/scripts/experiments/hudson-naip-corridor/release/manifest.json
+          if-no-files-found: warn
+          retention-days: 7

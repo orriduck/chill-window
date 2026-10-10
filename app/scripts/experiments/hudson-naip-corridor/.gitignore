@@ -1,0 +1,6 @@
+source/
+release/
+work/
+__pycache__/
+*.orig
+*.rej
