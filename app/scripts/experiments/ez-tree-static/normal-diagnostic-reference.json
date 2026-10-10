@@ -1,0 +1,1090 @@
+{
+  "run": 38056124740,
+  "commit": "0b1b69d5e25a1d53563807110b1652ba784602d0",
+  "artifactId": 11671421868,
+  "artifactBytes": 7165317,
+  "manifestSha256": "2ed399bb59e20133487c3103d48eb9ff43e075026c0aa7b0d29966ed4db00738",
+  "all16PairedAlphaMasksIdentical": true,
+  "allFrames": {
+    "nonzeroAlphaPixelCount": 1107566,
+    "above1_02Count": 86,
+    "above1_02OpaqueCount": 51,
+    "above1_02Opaque3x3InteriorCount": 22,
+    "idealStraightRgba8UnitVectorBound": 1.0067923561081134
+  },
+  "oak135": {
+    "species": "oak",
+    "yaw": 135,
+    "nonzeroAlphaCount": 66754,
+    "countAbove1_02": 46,
+    "opaqueAbove1_02": 31,
+    "interiorAbove1_02": 12,
+    "countAboveIdeal8BitQuantizationBound": 48,
+    "normalLengthDistribution": {
+      "min": 0.013006371726883875,
+      "median": 0.9473246896741804,
+      "p99": 1.0032089995653546,
+      "max": 1.4969249526029988
+    },
+    "opaqueMax": 1.4969249526029988,
+    "failures": [
+      {
+        "pixel": [
+          193,
+          119
+        ],
+        "rgba": [
+          69,
+          2,
+          83,
+          101
+        ],
+        "albedoRgba": [
+          91,
+          111,
+          71,
+          101
+        ],
+        "length": 1.1407047067445786,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          192,
+          120
+        ],
+        "rgba": [
+          85,
+          4,
+          112,
+          255
+        ],
+        "albedoRgba": [
+          95,
+          120,
+          64,
+          255
+        ],
+        "length": 1.0315663726024604,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          120
+        ],
+        "rgba": [
+          33,
+          1,
+          41,
+          175
+        ],
+        "albedoRgba": [
+          60,
+          75,
+          43,
+          175
+        ],
+        "length": 1.4120860200797172,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          192,
+          121
+        ],
+        "rgba": [
+          74,
+          4,
+          102,
+          255
+        ],
+        "albedoRgba": [
+          78,
+          100,
+          50,
+          255
+        ],
+        "length": 1.0743881425327957,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          121
+        ],
+        "rgba": [
+          24,
+          1,
+          31,
+          228
+        ],
+        "albedoRgba": [
+          48,
+          62,
+          31,
+          228
+        ],
+        "length": 1.488683442819795,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          121
+        ],
+        "rgba": [
+          36,
+          2,
+          45,
+          85
+        ],
+        "albedoRgba": [
+          66,
+          90,
+          41,
+          85
+        ],
+        "length": 1.379338947588198,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          192,
+          122
+        ],
+        "rgba": [
+          71,
+          5,
+          104,
+          255
+        ],
+        "albedoRgba": [
+          87,
+          107,
+          64,
+          255
+        ],
+        "length": 1.0739872781309292,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          122
+        ],
+        "rgba": [
+          23,
+          1,
+          31,
+          255
+        ],
+        "albedoRgba": [
+          49,
+          63,
+          32,
+          255
+        ],
+        "length": 1.4929747056603597,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          122
+        ],
+        "rgba": [
+          34,
+          2,
+          43,
+          191
+        ],
+        "albedoRgba": [
+          65,
+          89,
+          37,
+          191
+        ],
+        "length": 1.39494887108495,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          195,
+          122
+        ],
+        "rgba": [
+          31,
+          2,
+          40,
+          16
+        ],
+        "albedoRgba": [
+          60,
+          83,
+          37,
+          16
+        ],
+        "length": 1.418692154032136,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          192,
+          123
+        ],
+        "rgba": [
+          67,
+          7,
+          105,
+          255
+        ],
+        "albedoRgba": [
+          85,
+          105,
+          61,
+          255
+        ],
+        "length": 1.072152846500503,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          123
+        ],
+        "rgba": [
+          21,
+          2,
+          31,
+          239
+        ],
+        "albedoRgba": [
+          47,
+          60,
+          31,
+          239
+        ],
+        "length": 1.4964728490960026,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          123
+        ],
+        "rgba": [
+          35,
+          2,
+          46,
+          112
+        ],
+        "albedoRgba": [
+          61,
+          83,
+          41,
+          112
+        ],
+        "length": 1.3797848485810034,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          192,
+          124
+        ],
+        "rgba": [
+          64,
+          8,
+          106,
+          255
+        ],
+        "albedoRgba": [
+          82,
+          104,
+          54,
+          255
+        ],
+        "length": 1.0746743827015992,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          124
+        ],
+        "rgba": [
+          21,
+          2,
+          32,
+          255
+        ],
+        "albedoRgba": [
+          43,
+          55,
+          28,
+          255
+        ],
+        "length": 1.4925214055743572,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          124
+        ],
+        "rgba": [
+          44,
+          4,
+          62,
+          218
+        ],
+        "albedoRgba": [
+          62,
+          83,
+          40,
+          218
+        ],
+        "length": 1.2771255209685193,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          195,
+          124
+        ],
+        "rgba": [
+          79,
+          5,
+          104,
+          228
+        ],
+        "albedoRgba": [
+          84,
+          114,
+          56,
+          228
+        ],
+        "length": 1.049655295755577,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          192,
+          125
+        ],
+        "rgba": [
+          60,
+          10,
+          108,
+          255
+        ],
+        "albedoRgba": [
+          79,
+          102,
+          53,
+          255
+        ],
+        "length": 1.0737581455668161,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          125
+        ],
+        "rgba": [
+          19,
+          3,
+          32,
+          255
+        ],
+        "albedoRgba": [
+          39,
+          51,
+          23,
+          255
+        ],
+        "length": 1.4962261896042042,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          125
+        ],
+        "rgba": [
+          41,
+          4,
+          62,
+          255
+        ],
+        "albedoRgba": [
+          58,
+          76,
+          37,
+          255
+        ],
+        "length": 1.2893495047227186,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          195,
+          125
+        ],
+        "rgba": [
+          76,
+          7,
+          107,
+          255
+        ],
+        "albedoRgba": [
+          83,
+          108,
+          57,
+          255
+        ],
+        "length": 1.0402954065418015,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          192,
+          126
+        ],
+        "rgba": [
+          56,
+          12,
+          109,
+          250
+        ],
+        "albedoRgba": [
+          83,
+          104,
+          61,
+          250
+        ],
+        "length": 1.075246634440233,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          126
+        ],
+        "rgba": [
+          18,
+          3,
+          33,
+          255
+        ],
+        "albedoRgba": [
+          44,
+          55,
+          32,
+          255
+        ],
+        "length": 1.4968016651893112,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          126
+        ],
+        "rgba": [
+          39,
+          5,
+          62,
+          255
+        ],
+        "albedoRgba": [
+          65,
+          81,
+          47,
+          255
+        ],
+        "length": 1.2918280399250668,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          195,
+          126
+        ],
+        "rgba": [
+          72,
+          8,
+          108,
+          255
+        ],
+        "albedoRgba": [
+          84,
+          104,
+          60,
+          255
+        ],
+        "length": 1.0446620140350937,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          192,
+          127
+        ],
+        "rgba": [
+          52,
+          14,
+          111,
+          255
+        ],
+        "albedoRgba": [
+          88,
+          108,
+          65,
+          255
+        ],
+        "length": 1.0769615652357338,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          127
+        ],
+        "rgba": [
+          17,
+          4,
+          33,
+          255
+        ],
+        "albedoRgba": [
+          49,
+          59,
+          37,
+          255
+        ],
+        "length": 1.4962261896042044,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          127
+        ],
+        "rgba": [
+          36,
+          6,
+          63,
+          255
+        ],
+        "albedoRgba": [
+          71,
+          87,
+          51,
+          255
+        ],
+        "length": 1.2957743406428883,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          195,
+          127
+        ],
+        "rgba": [
+          67,
+          10,
+          110,
+          255
+        ],
+        "albedoRgba": [
+          86,
+          106,
+          61,
+          255
+        ],
+        "length": 1.0456037477131734,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          192,
+          128
+        ],
+        "rgba": [
+          48,
+          17,
+          113,
+          255
+        ],
+        "albedoRgba": [
+          82,
+          101,
+          58,
+          255
+        ],
+        "length": 1.073700854785489,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          128
+        ],
+        "rgba": [
+          16,
+          4,
+          34,
+          255
+        ],
+        "albedoRgba": [
+          44,
+          54,
+          31,
+          255
+        ],
+        "length": 1.4969249526029988,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          194,
+          128
+        ],
+        "rgba": [
+          33,
+          8,
+          64,
+          255
+        ],
+        "albedoRgba": [
+          61,
+          75,
+          43,
+          255
+        ],
+        "length": 1.2945394440358131,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          195,
+          128
+        ],
+        "rgba": [
+          63,
+          12,
+          111,
+          255
+        ],
+        "albedoRgba": [
+          79,
+          98,
+          55,
+          255
+        ],
+        "length": 1.0456037477131734,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          193,
+          129
+        ],
+        "rgba": [
+          19,
+          7,
+          46,
+          255
+        ],
+        "albedoRgba": [
+          40,
+          53,
+          22,
+          255
+        ],
+        "length": 1.423367354249835,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          194,
+          129
+        ],
+        "rgba": [
+          22,
+          6,
+          46,
+          255
+        ],
+        "albedoRgba": [
+          43,
+          56,
+          26,
+          255
+        ],
+        "length": 1.4146973896718982,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          195,
+          129
+        ],
+        "rgba": [
+          58,
+          13,
+          105,
+          255
+        ],
+        "albedoRgba": [
+          70,
+          90,
+          43,
+          255
+        ],
+        "length": 1.065245593175262,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          130
+        ],
+        "rgba": [
+          19,
+          13,
+          46,
+          255
+        ],
+        "albedoRgba": [
+          43,
+          59,
+          23,
+          255
+        ],
+        "length": 1.3925655296341568,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          194,
+          130
+        ],
+        "rgba": [
+          21,
+          7,
+          45,
+          255
+        ],
+        "albedoRgba": [
+          44,
+          60,
+          21,
+          255
+        ],
+        "length": 1.4176077341113726,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          195,
+          130
+        ],
+        "rgba": [
+          56,
+          14,
+          101,
+          255
+        ],
+        "albedoRgba": [
+          72,
+          97,
+          40,
+          255
+        ],
+        "length": 1.0724396832825254,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          193,
+          131
+        ],
+        "rgba": [
+          16,
+          10,
+          47,
+          255
+        ],
+        "albedoRgba": [
+          47,
+          62,
+          27,
+          255
+        ],
+        "length": 1.418692154032136,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          194,
+          131
+        ],
+        "rgba": [
+          20,
+          7,
+          44,
+          255
+        ],
+        "albedoRgba": [
+          51,
+          67,
+          30,
+          255
+        ],
+        "length": 1.4258286406760412,
+        "opaque3x3Interior": true
+      },
+      {
+        "pixel": [
+          195,
+          131
+        ],
+        "rgba": [
+          55,
+          15,
+          97,
+          255
+        ],
+        "albedoRgba": [
+          80,
+          103,
+          50,
+          255
+        ],
+        "length": 1.076618797611769,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          138
+        ],
+        "rgba": [
+          60,
+          20,
+          55,
+          170
+        ],
+        "albedoRgba": [
+          82,
+          107,
+          58,
+          170
+        ],
+        "length": 1.146514031846566,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          195,
+          138
+        ],
+        "rgba": [
+          50,
+          40,
+          56,
+          250
+        ],
+        "albedoRgba": [
+          79,
+          104,
+          52,
+          250
+        ],
+        "length": 1.0746743827015994,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          194,
+          139
+        ],
+        "rgba": [
+          31,
+          28,
+          33,
+          191
+        ],
+        "albedoRgba": [
+          69,
+          90,
+          48,
+          191
+        ],
+        "length": 1.315749099928957,
+        "opaque3x3Interior": false
+      },
+      {
+        "pixel": [
+          195,
+          139
+        ],
+        "rgba": [
+          52,
+          47,
+          47,
+          213
+        ],
+        "albedoRgba": [
+          86,
+          113,
+          59,
+          213
+        ],
+        "length": 1.0714067114812895,
+        "opaque3x3Interior": false
+      }
+    ],
+    "normalPngSha256": "bf65e552470968a922a3d878666a8f3b13351b17d104111375bf4841cff69b5c",
+    "albedoPngSha256": "8504cceaf14c18ae87f3e943a1aaee409b2d4c249c30588a88d0d31d673d1fbd"
+  },
+  "sourceRawGeometry": {
+    "file": "raw/oak-large-lod0.json",
+    "bytes": 1465287,
+    "sha256": "eb96d0d5c58d8491ef04b39f1ed9c47ef7439bdb9d3c7b2dcca623f6fbc99e16",
+    "lod": 0,
+    "triangles": {
+      "branches": 12006,
+      "leaves": 10560,
+      "total": 22566
+    }
+  },
+  "sourceTextures": {
+    "ezTreeLeafLicense": "MIT (bundled with EZ-Tree)",
+    "barkLicense": "AmbientCG Bark001 CC0 1.0",
+    "files": [
+      {
+        "file": "leaves/oak.png",
+        "bytes": 238115,
+        "sha256": "24451223cf396d22910a4932b8bb996a7274e63d81e24128c96a430ab67822b1"
+      },
+      {
+        "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_Color.jpg",
+        "bytes": 831490,
+        "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+      },
+      {
+        "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_NormalGL.jpg",
+        "bytes": 1270807,
+        "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+      },
+      {
+        "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_Roughness.jpg",
+        "bytes": 397062,
+        "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+      }
+    ],
+    "leafAlphaMode": "MASK, source PNG alpha retained in material; cutoff 0.5"
+  },
+  "sourceGlb": {
+    "file": "glb/oak-large-lod0-20m.glb",
+    "bytes": 3839404,
+    "sha256": "cb12ebec0ea43fc57120efd6c385d6273cffa499d18018839fe7428d96b0ebc9"
+  },
+  "sourcePreset": {
+    "file": ".work/upstream/src/lib/presets/oak_large.json",
+    "bytes": 1422,
+    "sha256": "da60d7104796e5dc099effe778f22e055a8365549e2eb6cfa6fb0bb6a8190d6b"
+  },
+  "uvBindings": {
+    "branch": {
+      "sourceUvSha256": "514d723cf21cbf750ce90aa412d6edca80f5ecfaee4a42d9bd97e6cbdfa07632",
+      "blenderLoopUvSha256": "4b43b15242d93d1c84b0e5e954df56b769c6398866f43155f86c8f4314735813",
+      "blenderLoopUvBeforeNormalsSha256": "4b43b15242d93d1c84b0e5e954df56b769c6398866f43155f86c8f4314735813",
+      "readbackPolicy": "reacquire UVMap RNA layer after custom-normal mutation; exact source-indexed little-endian float32 byte equality before and after",
+      "assignment": "U_blender = U_source; V_blender = 1 - V_source",
+      "loopCount": 36018
+    },
+    "leaves": {
+      "sourceUvSha256": "c4face1878706b9df1b5c7906854559bad6dfc4f342beefa87c69335b7aca1f5",
+      "blenderLoopUvSha256": "9b9fd9607df560dfbbf8b1b01b6752dde8a4ba5cefa5f4aeadd308663c952bcf",
+      "blenderLoopUvBeforeNormalsSha256": "9b9fd9607df560dfbbf8b1b01b6752dde8a4ba5cefa5f4aeadd308663c952bcf",
+      "readbackPolicy": "reacquire UVMap RNA layer after custom-normal mutation; exact source-indexed little-endian float32 byte equality before and after",
+      "assignment": "U_blender = U_source; V_blender = 1 - V_source",
+      "loopCount": 31680
+    }
+  },
+  "failureEvidenceFiles": {
+    "normal-length-diagnosis.json": "a3fe2cc6c791882ff036986fd05db6debf166a0c7b92fc1829e9d76f92476041",
+    "surface-impostors/tree-surface-impostors.json": "2ed399bb59e20133487c3103d48eb9ff43e075026c0aa7b0d29966ed4db00738"
+  },
+  "verifiedAt": "2026-10-10",
+  "diagnosticOnly": true,
+  "runtimeImported": false,
+  "visualAcceptance": false,
+  "productionFrame": {
+    "yawDegrees": 135,
+    "camera": {
+      "projection": "orthographic",
+      "orthoScaleWorldMetres": 22.0,
+      "distanceWorldMetres": 80.0,
+      "targetWorldMetres": [
+        0.0,
+        0.0,
+        10.5
+      ]
+    },
+    "cameraPositionBlenderWorldMetres": [
+      -56.56854248046875,
+      56.56854248046875,
+      10.5
+    ],
+    "rootPixelFromTopLeft": [
+      255.99996948242188,
+      500.36372470855713
+    ],
+    "projectedModelBoundsPixelExclusiveMax": [
+      86.78388977050781,
+      34.9091796875,
+      431.8742370605469,
+      500.36372470855713
+    ]
+  },
+  "sourceModelScale": {
+    "scale": 0.18505649593875878,
+    "actualBoundsBlenderWorldMetresXYZ": [
+      [
+        -8.394068173507408,
+        8.726749693977391
+      ],
+      [
+        -6.526716091494761,
+        7.609374669093199
+      ],
+      [
+        0.0,
+        20.0
+      ]
+    ],
+    "actualBoundsThreeLocalMetresXYZ": [
+      [
+        -8.394068173507408,
+        8.726749693977391
+      ],
+      [
+        0.0,
+        20.0
+      ],
+      [
+        -7.609374669093199,
+        6.526716091494761
+      ]
+    ],
+    "heightMetres": 20.0,
+    "sourceUnitsArePresentationOnly": true
+  }
+}
