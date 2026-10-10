@@ -259,6 +259,10 @@ jobs:
                 await page.keyboard.press('Escape');
                 await ready();
                 await snapshot('03u-real-imagery-return-to-train');
+                // Release the active software-WebGL world before preparing
+                // another station. Two simultaneous 3D pages can starve UI
+                // startup on a runner and obscure the flow under review.
+                await page.close();
                 const checkpoint = await context.newPage();
                 page = checkpoint;
                 page.on('console', message => health.console.push({ level: message.type(), text: message.text() }));
