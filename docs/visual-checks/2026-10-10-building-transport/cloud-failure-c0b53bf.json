@@ -1,0 +1,62 @@
+{
+  "sourceRun": "https://github.com/orriduck/chill-window/actions/runs/38062684232",
+  "commit": "c0b53bff2dd56f5161566350365cfd5fe31ca72d",
+  "actualStatus": "failed",
+  "sourceHealthSha256": "4ac2fc83b28a0f0476b2b2c463483f7e50500126b8818e01e76cf31a5a33674e",
+  "viewport": {
+    "width": 640,
+    "height": 360
+  },
+  "failure": "Error: Clocks advanced before actual world/GPU preparation completed\n    at fail (/home/runner/work/chill-window/chill-window/app/scripts/capture-building-transport.cjs:22:62)\n    at /home/runner/work/chill-window/chill-window/app/scripts/capture-building-transport.cjs:154:5",
+  "actualSampleCount": 108,
+  "initialFenceSamples": 28,
+  "initialFenceClockValues": [
+    [
+      0,
+      0
+    ]
+  ],
+  "lastInitialFenceSample": {
+    "phase": "gpu",
+    "presentable": "false",
+    "gpuPhase": "fence",
+    "gpuCompleted": 0,
+    "pendingGpu": 108,
+    "coverage": "0",
+    "fullGate": false,
+    "focus": 0,
+    "segment": 0
+  },
+  "lastPollingSample": {
+    "phase": "ready",
+    "presentable": "true",
+    "gpuPhase": "compile",
+    "gpuCompleted": 1,
+    "pendingGpu": 1,
+    "coverage": "49",
+    "fullGate": false,
+    "focus": 0.5,
+    "segment": 0.5
+  },
+  "heldStart": {
+    "routeMetres": "3123.283",
+    "focus": "0",
+    "segment": "0"
+  },
+  "heldEnd": {
+    "routeMetres": "3123.283",
+    "focus": "0",
+    "segment": "0"
+  },
+  "observedRequests": {
+    "total": 19,
+    "unique": 19,
+    "pack": 1,
+    "standaloneGlb": 0,
+    "textures": 16
+  },
+  "pageErrors": [],
+  "pngFiles": 0,
+  "swEnabledOfflinePhaseReached": false,
+  "interpretation": "Source ordering supports a missed initial ready/idle moment before a subsequent forward-tile compile; the failed report itself does not contain the new synchronous milestone proof. It remains a failed QA run, not acceptance."
+}

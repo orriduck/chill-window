@@ -141,6 +141,13 @@ export class RealWorld {
     for (let i = 0; i < this.detailCoverage.pixels.length; i += 4) if (this.detailCoverage.pixels[i] === 255) readyTiles++
     return { readyTiles, minTile: this.detailCoverage.minTile.toArray(), backgroundVisible: this.background?.visible ?? false }
   }
+  /** Read the actual uploaded current-view chunks without waiting for a later
+   * RAF to refresh the display mask or scheduling any forward preparation. */
+  gpuCoverageAt(s: number) {
+    const pose = this.data.pose(s), keys = [...this.tilesAt(pose.x, pose.z).keys()]
+    return { readyTiles: keys.filter(key => this.chunks.get(key)?.gpuReady === true).length, totalTiles: keys.length,
+      pendingGpu: [...this.chunks.values()].filter(chunk => !chunk.gpuReady).length }
+  }
 
   readonly data: GeoData
   constructor(data: GeoData, initialS = data.checkpoints[0]?.s ?? 0) {

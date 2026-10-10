@@ -377,6 +377,12 @@ export class GeoInspector {
   setWorldPreparation(phase: string, presentable: boolean, elapsedMs: number) {
     Object.assign(this.streamingStats.dataset, { preparationPhase: phase, presentable: String(presentable), wholePrepareMs: String(elapsedMs) })
     this.streamingStats.textContent += `\n整世界准备 ${phase} · ${(elapsedMs / 1000).toFixed(1)}s · 可呈现 ${presentable}`
+    if (this.streamingStats.dataset.initialReadyTiles) this.streamingStats.textContent += `\n初始出发证据：GPU ${this.streamingStats.dataset.initialGpuPhase} / 完成 ${this.streamingStats.dataset.initialGpuCompleted} · ${this.streamingStats.dataset.initialReadyTiles}/${this.streamingStats.dataset.initialTotalTiles} 上传区块 · 待上传 ${this.streamingStats.dataset.initialPendingGpu}`
+  }
+  setInitialPreparation(proof: { gpuPhase: string; gpuSequence: number; gpuCompleted: number; pendingGpu: number; readyTiles: number; totalTiles: number; routeMetres: number; observedAtMs: number }) {
+    Object.assign(this.streamingStats.dataset, { initialGpuPhase: proof.gpuPhase, initialGpuSequence: String(proof.gpuSequence),
+      initialGpuCompleted: String(proof.gpuCompleted), initialPendingGpu: String(proof.pendingGpu), initialReadyTiles: String(proof.readyTiles),
+      initialTotalTiles: String(proof.totalTiles), initialRouteMetres: String(proof.routeMetres), initialReadyAtMs: String(proof.observedAtMs) })
   }
   private onDown = (event: PointerEvent) => { this.lastPointer = [event.clientX, event.clientY] }
   private onUp = (event: PointerEvent) => {

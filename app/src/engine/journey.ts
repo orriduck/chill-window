@@ -5,8 +5,12 @@ export type Mode = 'free' | 'pomodoro';
 
 /** A stopped train may be dwelling or just beginning to accelerate. Clock
  * permission comes from preparation and explicit pause/inspection, never speed. */
-export function journeyClockDelta(dt: number, state: { presentable: boolean; paused: boolean; inspecting: boolean }) {
-  return state.presentable && !state.paused && !state.inspecting ? dt : 0;
+export function journeyClockDelta(dt: number, state: { presentable: boolean; paused: boolean; inspecting: boolean; readyAgeSeconds?: number }) {
+  if (!state.presentable || state.paused || state.inspecting) return 0;
+  // Readiness can arrive between RAF callbacks. The first eligible interval
+  // only includes time after that exact milestone, not the GPU preparation tail.
+  const age = state.readyAgeSeconds ?? dt;
+  return Number.isFinite(age) ? Math.min(dt, Math.max(0, age)) : 0;
 }
 
 export interface JourneyPlan {

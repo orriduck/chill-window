@@ -30,3 +30,16 @@ No commit, push, deployment, local browser or local GPU run in this task.
 
 References: current catalog/provenance and archived source batch in REFERENCES.md;
 the transport does not change visual geometry/materials or add appearance claims.
+
+Follow-up after actual c0b53bf / Actions 38062684232 failed: preserve the failed
+polling report. Add a read-only synchronous first-ready proof from actual renderer
+fence completion, current49 gpuReady flags and pending0 before departure. Home's
+existing callback records actual zero clock refs. Cloud QA binds that event to the
+current world and held route; only then may later forward GPU work coexist with
+clock progress while current displayed49 still holds. Do not change runtime
+readiness/speed/clock behavior to hide a polling race. Offline independent SHA
+checks and workflow bounds remain unchanged; new actual cloud evidence is pending.
+Independently cap the first eligible focus/segment/dwell delta by elapsed time
+since the exact initial-ready timestamp, excluding the final preparation tail
+when readiness changes mid-RAF. Verify that retained worlds, zero speed, pause
+and inspection retain their previous permissions.

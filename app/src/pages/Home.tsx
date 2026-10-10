@@ -55,7 +55,6 @@ export default function Home() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const trainControlRef = useRef<TrainControl | null>(null);
   const preparationRef = useRef<WorldPreparation>({ phase: 'loading', presentable: false, elapsedMs: 0 });
-  const onPreparationChange = useCallback((state: WorldPreparation) => { preparationRef.current = state; }, []);
   const audioRef = useRef<TrainAudio | null>(null);
   const planRef = useRef<JourneyPlan | null>(null);
   const originRef = useRef<string>('');
@@ -63,6 +62,14 @@ export default function Home() {
   const segIdxRef = useRef(0);
   const segElapsedRef = useRef(0);
   const focusDoneRef = useRef(0);
+  const onPreparationChange = useCallback((state: WorldPreparation) => {
+    preparationRef.current = state;
+    // Synchronous evidence from the existing readiness callback. These are the
+    // actual clocks, not the throttled React/DOM HUD values. No QA listener can
+    // grant readiness, change speed or advance the clocks through this event.
+    window.dispatchEvent(new CustomEvent('chill:preparation', { detail: { ...state, observedAtMs: performance.now(),
+      focusElapsedSeconds: focusDoneRef.current, segmentElapsedSeconds: segElapsedRef.current } }));
+  }, []);
   const dwellLeftRef = useRef(0);
   const arrivingRef = useRef(false);
   const stationPreparedRef = useRef(false);
@@ -116,7 +123,8 @@ export default function Home() {
       const phase = phaseRef.current;
       const trainControl = trainControlRef.current;
       const preparation = trainControl?.getPreparation() ?? preparationRef.current;
-      const clockDt = journeyClockDelta(dt, { presentable: preparation.presentable, paused: pausedRef.current, inspecting: terrainEditingRef.current });
+      const clockDt = journeyClockDelta(dt, { presentable: preparation.presentable, paused: pausedRef.current, inspecting: terrainEditingRef.current,
+        readyAgeSeconds: preparation.initialReadyProof ? (now - preparation.initialReadyProof.observedAtMs) / 1000 : 0 });
       const motion = typeof trainControl?.getMotion === 'function' ? trainControl.getMotion() : undefined;
       const speedKmh = motion?.speedKmh ?? 0;
       if (plan && (phase === 'ride' || phase === 'dwell')) {

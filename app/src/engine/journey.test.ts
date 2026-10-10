@@ -2,6 +2,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DepartureScheduler, journeyBannerText, journeyClockDelta } from './journey'
 
 describe('journey preparation clock gate', () => {
+  it('charges only the ready portion of a RAF spanning the final GPU fence', () => {
+    const state = { presentable: true, paused: false, inspecting: false };
+    // Previous RAF=1000ms, current RAF=1500ms, actual readiness=1375ms.
+    expect(journeyClockDelta(0.5, { ...state, readyAgeSeconds: (1500 - 1375) / 1000 })).toBe(0.125);
+    // A retained world was prepared before the complete current frame.
+    expect(journeyClockDelta(0.5, { ...state, readyAgeSeconds: 30 })).toBe(0.5);
+    expect(journeyClockDelta(0.5, { ...state, readyAgeSeconds: 0 })).toBe(0);
+    expect(journeyClockDelta(0.5, { ...state, readyAgeSeconds: -0.1 })).toBe(0);
+    expect(journeyClockDelta(0.5, { ...state, readyAgeSeconds: NaN })).toBe(0);
+    expect(journeyClockDelta(0.5, { ...state, paused: true, readyAgeSeconds: 30 })).toBe(0);
+    expect(journeyClockDelta(0.5, { ...state, inspecting: true, readyAgeSeconds: 30 })).toBe(0);
+  });
+
   it('holds focus and segment progress through source and GPU preparation, then advances while stationary', () => {
     let focus = 0, segment = 0
     const tick = (seconds: number, presentable: boolean, paused = false, inspecting = false) => {

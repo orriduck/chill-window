@@ -20,21 +20,44 @@ const health = { commit: process.env.CW_CAPTURE_SHA, rendering: 'Chromium / Swif
 let browser, context, releasePack;
 const save = () => fs.writeFile(path.join(output, 'building-transport-health.json'), JSON.stringify(health, null, 2));
 const fail = (condition, message) => { if (!condition) throw new Error(message); };
-function sampleUntilFullPreparationGate() {
+function installPreparationEvidenceObserver() {
+  window.__buildingPreparationEvents = [];
+  window.addEventListener('chill:preparation', event => {
+    window.__buildingPreparationEvents.push(event.detail);
+  });
+}
+function sampleUntilFullPreparationGate(heldRouteMetres) {
   const stream = document.querySelector('[aria-label="地理区块流式加载诊断"]');
   const clocks = document.querySelector('[data-journey-phase]');
   const coverage = document.querySelector('[aria-label="地形覆盖诊断"]')?.dataset.readyTiles;
   const pendingGpu = Number(/后续待上传 (\d+)/.exec(stream?.textContent ?? '')?.[1]);
   const gpuCompleted = Number(stream?.dataset.gpuCompleted);
-  const fullGate = stream?.dataset.presentable === 'true' && stream.dataset.gpuPhase === 'idle'
-    && Number.isSafeInteger(gpuCompleted) && gpuCompleted > 0 && pendingGpu === 0 && coverage === '49';
+  const events = window.__buildingPreparationEvents ?? [];
+  const currentStart = events.findLast(event => event.phase === 'loading')?.startedAtMs;
+  const initial = events.find(event => event.phase === 'ready' && event.startedAtMs === currentStart);
+  const proof = initial?.initialReadyProof;
+  const fullGate = initial?.presentable === true && Number.isFinite(currentStart) && proof?.startedAtMs === currentStart
+    && proof.gpuPhase === 'idle' && Number.isSafeInteger(proof.gpuSequence) && proof.gpuSequence > 0
+    && Number.isSafeInteger(proof.gpuCompleted) && proof.gpuCompleted > 0 && proof.pendingGpu === 0
+    && proof.readyTiles === 49 && proof.totalTiles === 49 && proof.routeMetres === Number(heldRouteMetres)
+    && Number.isFinite(proof.observedAtMs) && proof.observedAtMs >= currentStart && proof.observedAtMs <= initial.observedAtMs
+    && initial.focusElapsedSeconds === 0 && initial.segmentElapsedSeconds === 0;
   const samples = window.__buildingClockGateSamples ??= [];
   const focus = Number(clocks?.dataset.focusElapsedSeconds), segment = Number(clocks?.dataset.segmentElapsedSeconds);
   if (samples.length < 1000) samples.push({ phase: stream?.dataset.preparationPhase, presentable: stream?.dataset.presentable,
     gpuPhase: stream?.dataset.gpuPhase, gpuCompleted, pendingGpu, coverage, fullGate, focus, segment });
-  if (!fullGate && (focus !== 0 || segment !== 0)) return { failed: true, samples };
-  if (stream?.dataset.preparationPhase === 'error') return { failed: true, samples };
-  if (fullGate) return { failed: false, samples };
+  if (!fullGate && (initial || focus !== 0 || segment !== 0)) return { failed: true, samples, initial, events };
+  if (stream?.dataset.preparationPhase === 'error') return { failed: true, samples, initial, events };
+  // Later forward-tile uploads may already be in flight by this poll. They are
+  // allowed only after the synchronously observed initial full gate, while the
+  // currently displayed view must still have all 49 uploaded tiles.
+  if (fullGate) {
+    // The event precedes the first scene/HUD RAF. Wait for its display readout
+    // acknowledgement rather than treating the previous frame's 0 mask as the
+    // uploaded current-view count captured synchronously in the proof.
+    if (stream?.dataset.presentable !== 'true') return false;
+    return { failed: coverage !== '49', samples, initial, events };
+  }
   return false;
 }
 async function verifyOfflineBuildingTransport(pins) {
@@ -123,6 +146,7 @@ async function ready(page) {
     browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
     context = await browser.newContext({ serviceWorkers: 'block', viewport: health.viewport });
     await context.addInitScript(installCaptureFrameControl);
+    await context.addInitScript(installPreparationEvidenceObserver);
     const page = await context.newPage();
     page.on('pageerror', error => health.errors.push(error.message));
     page.on('request', request => { if (request.url().includes('/models/osm2world/hudson/')) health.requests.push(request.url()); });
@@ -149,10 +173,9 @@ async function ready(page) {
     releasePack();
     // Observe the complete decode/validation/batch/GPU interval as well as the
     // held network source. A gate that opens at decode completion must fail.
-    const gate = await page.waitForFunction(sampleUntilFullPreparationGate, null, { timeout: 240000, polling: 200 });
-    health.clockGateUntilPresentable = await gate.jsonValue();
-    fail(!health.clockGateUntilPresentable.failed, 'Clocks advanced before actual world/GPU preparation completed');
-    await ready(page);
+    const gate = await page.waitForFunction(sampleUntilFullPreparationGate, before.position.routeMetres, { timeout: 240000, polling: 200 });
+    health.initialPreparationGate = await gate.jsonValue();
+    fail(!health.initialPreparationGate.failed, 'Initial source/GPU/current49 gate evidence was missing or clocks advanced before it');
     await page.waitForFunction(() => Number(document.querySelector('[data-journey-phase]')?.dataset.focusElapsedSeconds) > 0);
     const prepared = await state(page); health.states.push({ name: 'prepared', ...prepared });
     health.stage = 'prepared'; await save();

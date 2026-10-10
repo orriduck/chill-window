@@ -17,9 +17,15 @@ import { DebugMode } from './core/DebugMode'
 const MAX_DT = 0.1
 export type WeatherPreset = WeatherType | 'auto'
 export interface TrainMotionTelemetry { speedKmh: number; speedRatio: number; acceleration: number }
+export interface InitialWorldPreparationProof {
+  startedAtMs: number; observedAtMs: number; routeMetres: number
+  gpuPhase: string; gpuSequence: number; gpuCompleted: number
+  pendingGpu: number; readyTiles: number; totalTiles: number
+}
 export interface WorldPreparation {
   phase: 'loading' | 'preparing' | 'gpu' | 'ready' | 'error'
   presentable: boolean; elapsedMs: number; error?: string
+  startedAtMs?: number; initialReadyProof?: Readonly<InitialWorldPreparationProof>
 }
 export interface TrainControl {
   setSpeed: (speed: number) => void
@@ -64,9 +70,11 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     const preparationStarted = performance.now()
     let preparationPhase: WorldPreparation['phase'] = 'loading', preparationError: string | undefined
     let preparationMs: number | null = null
+    let initialReadyProof: Readonly<InitialWorldPreparationProof> | undefined
     const reportPreparation = (phase: WorldPreparation['phase'], error?: string) => {
       preparationPhase = phase; preparationError = error
-      preparationListener.current?.({ phase, presentable: phase === 'ready', elapsedMs: performance.now() - preparationStarted, error })
+      preparationListener.current?.({ phase, presentable: phase === 'ready', elapsedMs: performance.now() - preparationStarted,
+        startedAtMs: preparationStarted, initialReadyProof, error })
     }
     reportPreparation('loading')
     const scene = new Scene3D()
@@ -108,7 +116,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       getRouteContext: () => ({ currentLabel: camera.z < 11420 ? 'Hudson Highlands · 真实路线' : 'Empire Service · Hudson Valley', nextLabel: 'Empire Service · 南行' }),
       getMotion: () => ({ speedKmh: motionSpeed(), speedRatio: motionSpeed() / CRUISE_SPEED_KMH, acceleration: paused || debug.isTopDown || !worldReady ? 0 : camera.acceleration }),
       getPreparation: () => ({ phase: preparationPhase, presentable: worldReady && world?.presentable === true,
-        elapsedMs: preparationMs ?? performance.now() - preparationStarted, error: preparationError }),
+        elapsedMs: preparationMs ?? performance.now() - preparationStarted, startedAtMs: preparationStarted, initialReadyProof, error: preparationError }),
       setWindowHud: readout => {
         const stations = data?.stations.filter(station => station.inCurrentRoute).sort((a, b) => a.sMetres - b.sMetres) ?? []
         const nearest = stations.find(station => station.sMetres >= camera.z) ?? stations.at(-1)
@@ -149,6 +157,13 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
         .then(() => {
           if (!disposed && world) {
             world.gpuWarmupMs = renderer.warmupMs; world.presentable = true; worldReady = true
+            // Snapshot the actual first uploaded view immediately after the
+            // completed warmup fence/markGpuChunks and before departure or any
+            // subsequent RAF can queue a forward-tile GPU batch.
+            initialReadyProof = Object.freeze({ startedAtMs: preparationStarted, observedAtMs: performance.now(), routeMetres: camera.z,
+              gpuPhase: renderer.preparation.phase, gpuSequence: renderer.preparation.sequence, gpuCompleted: renderer.preparation.completed,
+              ...world.gpuCoverageAt(camera.z) })
+            inspector.setInitialPreparation(initialReadyProof)
             preparationMs = performance.now() - preparationStarted; reportPreparation('ready')
             if (pendingDeparture) { camera.departStation(requestedSpeed); pendingDeparture = false }
             else camera.setTargetSpeed(requestedSpeed)
@@ -232,7 +247,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     window.addEventListener('resize', resize)
     return () => {
       disposed = true; abort.abort(); cancelAnimationFrame(rafRef.current); window.removeEventListener('resize', resize)
-      preparationListener.current?.({ phase: 'loading', presentable: false, elapsedMs: 0 })
+      preparationListener.current?.({ phase: 'loading', presentable: false, elapsedMs: 0, startedAtMs: preparationStarted })
       environment.current = null
       canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', endDrag); canvas.removeEventListener('pointercancel', endDrag); canvas.removeEventListener('dblclick', doubleClick)
       if (controlRef) controlRef.current = null
