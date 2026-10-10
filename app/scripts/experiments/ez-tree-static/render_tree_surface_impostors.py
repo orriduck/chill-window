@@ -42,7 +42,7 @@ CAMERA = {"projection": "orthographic", "orthoScaleWorldMetres": 22.0,
 DEPTH_CLIPPING = {
     "policy": "all actual branch and leaf vertices in actual camera space, per tree and yaw",
     "formula": "depth=-(inverse(camera.matrix_world) @ (object.matrix_world @ vertex.co)).z",
-    "marginMetres": 5.0,
+    "marginMetres": 1.0,
     "sourceDepthVerificationToleranceMetres": 1e-4,
     "calibrationRequestedClipRange": [0.1, 1000.0],
 }

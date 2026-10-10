@@ -103,14 +103,14 @@ def verify_depth_clipping(record, source_vertices, species, yaw):
     """Derive depth independently from decoded, scaled raw Three vertices."""
     assert record["species"] == species and record["yawDegrees"] == yaw
     assert record["actualVertexCount"] == len(source_vertices)
-    assert record["marginMetres"] == 5.0
+    assert record["marginMetres"] == 1.0
     angle = math.radians(yaw)
     # Source -> Blender: (X,-Z,Y), at (80*cos(yaw),80*sin(yaw),10.5).
     # For a horizontal orthographic view depth is independent of source Y.
     depths = [80 - math.cos(angle) * v[0] + math.sin(angle) * v[2] for v in source_vertices]
     assert depths and all(math.isfinite(depth) for depth in depths)
     expected_range = [min(depths), max(depths)]
-    expected_clip = [expected_range[0] - 5.0, expected_range[1] + 5.0]
+    expected_clip = [expected_range[0] - 1.0, expected_range[1] + 1.0]
     for key, expected in (("actualCameraDepthRange", expected_range),
                           ("requestedClipRange", expected_clip), ("assignedClipRange", expected_clip)):
         actual = record[key]
@@ -145,7 +145,7 @@ def verify(root, output, report):
     depth_policy = render["depthClipping"]
     assert depth_policy["policy"] == "all actual branch and leaf vertices in actual camera space, per tree and yaw"
     assert depth_policy["formula"] == "depth=-(inverse(camera.matrix_world) @ (object.matrix_world @ vertex.co)).z"
-    assert depth_policy["marginMetres"] == 5.0
+    assert depth_policy["marginMetres"] == 1.0
     assert depth_policy["sourceDepthVerificationToleranceMetres"] == DEPTH_TOLERANCE_METRES
     assert depth_policy["calibrationRequestedClipRange"] == [0.1, 1000.0]
     depth_records = depth_policy["frames"]
