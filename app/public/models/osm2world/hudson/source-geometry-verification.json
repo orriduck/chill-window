@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "scope": "Actual full-batch source height and structural footprint boundary comparison, including source polygon holes. Windows are converter appearance planes, reported separately; open roofs are not required to have walls to ground. Roof thickness/material details remain proxies.",
+  "overlaySha256": "0d5bd68c040b42f99138fbdb768167ef22e8c48b5442fe0bf7d889f7347bd54f",
+  "tiles": 415,
+  "buildings": 5853,
+  "groundVertices": 114357,
+  "windowProxyGroundVertices": 315,
+  "maxWindowProxyBoundaryDistanceMetres": 0.050571141861555806,
+  "openRoofs": [
+    {
+      "sourceId": "osm/way/1122832507",
+      "minY": 2.723900079727173,
+      "maxY": 3.033900022506714,
+      "sourceHeight": 3.0339109897613525,
+      "thicknessIsConverterProxy": true
+    },
+    {
+      "sourceId": "osm/way/1019003259",
+      "minY": 2.2216999530792236,
+      "maxY": 2.5316998958587646,
+      "sourceHeight": 2.531740665435791,
+      "thicknessIsConverterProxy": true
+    },
+    {
+      "sourceId": "osm/way/1309906442",
+      "minY": 4.26200008392334,
+      "maxY": 4.572000026702881,
+      "sourceHeight": 4.572,
+      "thicknessIsConverterProxy": true
+    },
+    {
+      "sourceId": "osm/way/510864747",
+      "minY": 4.225299835205078,
+      "maxY": 4.535299777984619,
+      "sourceHeight": 4.535286903381348,
+      "thicknessIsConverterProxy": true
+    }
+  ],
+  "maxBoundaryErrorMetres": 0.0006995313289795959,
+  "maxHeightErrorMetres": 5.0067901611328125e-05,
+  "errors": [],
+  "passed": true
+}

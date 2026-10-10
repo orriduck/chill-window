@@ -237,7 +237,7 @@ export class GeoInspector {
     })
     this.convertedCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
     const convertedNotice = document.createElement('p')
-    convertedNotice.textContent = 'Peekskill 15栋有源高度建筑，OSM2World离线转换并对齐当前DEM。勾选对比PBR通用材质；取消显示原来的源足迹体块。未导入3个默认补高对象。墙面/屋顶贴图及无标签屋顶形态为转换器的表现假设，不是当地照片。'
+    convertedNotice.textContent = '铁路两侧1200m范围内5853栋有源高度建筑，OSM2World离线转换并按各区块原点对齐当前DEM。3563栋来自高度标签，2290栋仍为上游估高；4个开放屋顶不补落地墙。勾选对比PBR通用材质，取消显示同批源足迹体块。模型和共享图片在出发前加载一次。墙面、窗面、屋顶厚度与无标签外观为转换器的表现假设，不是当地照片。'
     convertedNotice.style.cssText = notes.style.cssText
     diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.forestDistance, this.forestDirection, this.forestCase, this.forestStats, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
@@ -305,7 +305,11 @@ export class GeoInspector {
     this.aerialStats.textContent += `\n全线 ${corridor.ready ? '已准备' : '加载中'} · ${corridor.blocks} 区块 / ${corridor.atlases} 图集 · ${corridor.bytes.toLocaleString()} B\n覆盖mask约 ${(corridor.areaMetresSquared / 1000000).toFixed(2)}km² · 2.4m Mercator采样；远处缩小与拼接仍需画面检查。`
     const converted = world.convertedBuildings.stats
     this.convertedCase.disabled = !converted.ready
-    this.convertedStats.textContent = `转换建筑 ${converted.ready ? '已准备' : '加载中'} · ${converted.buildings}/15 栋 · ${converted.meshes} 合批 · ${converted.triangles} 三角形\n源高度匹配 · 足迹最大误差 ${converted.maxAlignmentErrorMetres.toFixed(4)}m · 排除 ${converted.rejectedDefaults} 个默认补高对象\n原体块与PBR模型都在初始GPU预热中提交；切换只改变可见性。`
+    Object.assign(this.convertedStats.dataset, { ready: String(converted.ready), buildings: String(converted.buildings), total: String(converted.total),
+      tiles: String(converted.tiles), totalTiles: String(converted.totalTiles), sourceTags: String(converted.sourceTags), sourceEstimates: String(converted.sourceEstimates),
+      openRoofs: String(converted.openRoofs), textures: String(converted.textures), imageSources: String(converted.imageSources), modelBytes: String(converted.modelBytes), textureBytes: String(converted.textureBytes),
+      enabled: String(this.layers.convertedBuildings), visible: String(this.layers.buildings && world.presentable) })
+    this.convertedStats.textContent = `转换建筑 ${converted.ready ? '已准备' : '加载中'} · ${converted.buildings}/${converted.total} 栋 · ${converted.meshes} 合批 · ${converted.triangles} 三角形\n全线 ${converted.tiles}/${converted.totalTiles} 区块 · 源高度标签 ${converted.sourceTags} · 上游估高 ${converted.sourceEstimates} · 开放屋顶 ${converted.openRoofs}\n共享图片 ${converted.textures} 文件 / ${converted.textureBytes.toLocaleString()} B · 模型 ${converted.modelBytes.toLocaleString()} B\n足迹最大误差 ${converted.maxAlignmentErrorMetres.toFixed(4)}m · 窗面偏移 ${converted.maxWindowOffsetMetres.toFixed(3)}m（转换器外观）\n${converted.rejectedDefaults} 个无源高度对象保留原轮廓；原体块与PBR模型都在初始GPU预热中提交，切换只改变可见性。`
     const trees = world.closeTrees.stats, samples = world.treeComparison.stats
     const canopy = world.canopy.stats
     this.forestCase.disabled = !canopy.ready

@@ -426,3 +426,11 @@ RGB降采样到EPSG3857的2.4投影米（本纬度约1.8地面米），形成141
 过黑树冠的采样修正关联`GeoTreeImpostors.ts`：原路径对含透明背景的mip样本再次乘alpha，仅修复角度混色而未恢复mip内的覆盖颜色。现在使用Three.js的premultiplyAlpha上传、直接混合预乘样本再除覆盖alpha；原PNG像素与SHA不变。已核对本地185 [`WebGLTextures`](https://github.com/mrdoob/three.js/blob/r185/src/renderers/webgl/WebGLTextures.js) 对UNPACK_PREMULTIPLY_ALPHA_WEBGL的调用。该修正针对透明边缘/缩小时的颜色损失，不以人为增亮替代实际样本；低透明度SRGB边缘与实际远坡表现仍需同机位云端截图检查。未称视觉目标已通过。
 
 建筑实际二进制的独立源码足迹核对（`verify-source-geometry.py`）覆盖415块/5853对象：114357个结构底部顶点、最大源边界误差0.000699532m、最大源高度误差0.000050068m。4个源building=roof无落地墙，约0.31m厚度明确为converter proxy；Windows材质的315个底边顶点是转换器装饰面，最大边界距离0.050571m，单独报告而不作为源墙体。初次验证错误地要求这两类都满足闭合落地墙契约，实际按源ID和材质定位后修正验证分类；墙体1cm/高度1mm界限没有放宽。当前 [`TexturedWindow`](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/world/modules/building/TexturedWindow.java) / [`Door`](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/world/modules/building/Door.java)源码可见沿墙法线平移装饰面的机制，但并不据master源码声称本次0.4.0的精确偏移常量。完整实际观察报告留在独立配方observations中；原云端raw GLB语义比较尚未取得，不宣称字节相同。
+
+## 2026-10-10：完整源高度建筑批次接入与初始准备
+
+实际 [Actions 38045813068](https://github.com/orriduck/chill-window/actions/runs/38045813068)（e3b050c）已成功：415区块、5853个源对象、104537三角形、16张共享图片；完整实际结构足迹/高度审查通过，417份转换日志无错误。下载后的每个GLB、图片、清单、输入OSM原点与源高度均经独立包装核对。模型25,160,336B、图片4,984,364B，catalog SHA `7d45e8588ea45b130766ae79b60f463ab7764a464023dc58e7e118f0a8390919`。来源为原始OSM/Overture2026-09-23.1，3563源高度标签、2290上游估高；4个开放屋顶仍不补落地墙，957个无源高度对象保留原表示。新增包装/转换配方及来源审查留在 `app/scripts/experiments/osm2world-corridor/`，完整模型与公开来源说明位于 `app/public/models/osm2world/hudson/`。
+
+`GeoCorridorBuildingAssets.ts` 校验固定清单与全部文件，16张图片各解码一次，通过本地Three.js GLTFLoader实际使用的 `LoadingManager.getHandler` / `loadImageSource` 接口共享ImageBitmap/THREE.Source；每个glTF纹理保留自己的采样器、颜色空间和UV变换。`GeoConvertedBuildings.ts` 同步声明精确替换ID，4路加载各区块静态模型，按各自输入经纬原点进行Mercator比例与南北反射/绕序校正，按1024m区域及材质合批。原体块对照同时构建，开放屋顶对照也是屋顶面；既有实际GPU预热与出发门控未绕过。通用墙面/窗面材质和屋顶厚度仍为converter外观，不宣称当地照片或LiDAR重建。
+
+Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量、共享文件与字节数读数，再安排云端同机位PBR/原体块/隐藏比较、四站区景观和故意延迟单GLB的出发测试。构建与7个既有GeoData测试通过；当前尚无新完整建筑运行时的浏览器画面验收。Cloud旧工作区连接报告environment_offline，旧批次语义指纹对比未完成，不把本次实际成功模型与旧批次宣称为raw字节一致。树冠修正和全线连续行驶验收仍独立待完成。

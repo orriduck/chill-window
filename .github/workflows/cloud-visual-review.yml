@@ -40,7 +40,7 @@ jobs:
           CW_CAPTURE_SHA: ${{ github.sha }}
           CW_TREE_REVIEW_ONLY: ${{ (github.ref_name == 'codex/near-tree-visual-review' || github.ref_name == 'codex/broadleaf-tree-visual-review' || github.ref_name == 'codex/canopy-visual-review') && '1' || '0' }}
           CW_CANOPY_REVIEW_ONLY: ${{ github.ref_name == 'codex/canopy-visual-review' && '1' || '0' }}
-          CW_BUILDING_REVIEW_ONLY: ${{ github.ref_name == 'codex/converted-building-review' && '1' || '0' }}
+          CW_BUILDING_REVIEW_ONLY: ${{ (github.ref_name == 'codex/converted-building-review' || github.ref_name == 'codex/building-visual-review') && '1' || '0' }}
           CW_AERIAL_REVIEW_ONLY: ${{ (github.ref_name == 'codex/aerial-visual-review' || github.ref_name == 'codex/corridor-visual-review') && '1' || '0' }}
           CW_CORRIDOR_REVIEW_ONLY: ${{ github.ref_name == 'codex/corridor-visual-review' && '1' || '0' }}
           CW_FOREST_REVIEW_ONLY: ${{ (github.ref_name == 'codex/forest-visual-review' || github.ref_name == 'codex/forest-impostor-review') && '1' || '0' }}
@@ -155,17 +155,30 @@ jobs:
             await page.getByRole('button', { name: '定位转换建筑', exact: true }).click();
             await ready();
             health.convertedBuildings = await page.getByLabel('转换建筑准备诊断', { exact: true }).textContent();
-            if (!health.convertedBuildings.includes('已准备 · 15/15 栋 · 2 合批')) throw new Error(`Imported source buildings not prepared: ${health.convertedBuildings}`);
+            health.corridorBuildings = await page.getByLabel('转换建筑准备诊断', { exact: true }).evaluate(element => ({ ...element.dataset }));
+            const expected = { ready: 'true', buildings: '5853', total: '5853', tiles: '415', totalTiles: '415', sourceTags: '3563', sourceEstimates: '2290', openRoofs: '4', textures: '16', imageSources: '16', modelBytes: '25160336', textureBytes: '4984364' };
+            for (const [key, value] of Object.entries(expected)) if (health.corridorBuildings[key] !== value) throw new Error(`Incomplete corridor building source ${key}: ${JSON.stringify(health.corridorBuildings)}`);
+            const beforeRequests = [...health.buildingRequests];
+            const models = beforeRequests.filter(url => url.endsWith('.glb'));
+            const images = beforeRequests.filter(url => /\.(png|jpg)$/.test(url));
+            if (models.length !== 415 || new Set(models).size !== 415 || images.length !== 16 || new Set(images).size !== 16) throw new Error(`Building assets were duplicated or missing: ${models.length} models, ${images.length} images`);
+            health.corridorBuildingRequestsVerified = { models: models.length, images: images.length };
             await page.getByLabel('真实地理林木', { exact: true }).uncheck();
             await page.getByLabel('OSM2World 建筑材质', { exact: true }).check();
             await snapshot('03k-converted-buildings-pbr');
             await page.getByLabel('OSM2World 建筑材质', { exact: true }).uncheck();
+            await ready();
+            if (await page.getByLabel('转换建筑准备诊断', { exact: true }).getAttribute('data-enabled') !== 'false') throw new Error('Original building comparison not selected');
             await snapshot('03l-converted-buildings-original');
             await page.getByLabel('OSM2World 建筑材质', { exact: true }).check();
             await page.getByLabel('真实地理建筑', { exact: true }).uncheck();
+            await ready();
+            if (await page.getByLabel('转换建筑准备诊断', { exact: true }).getAttribute('data-visible') !== 'false') throw new Error('Converted buildings did not hide');
             await snapshot('03m-converted-buildings-hidden');
             await page.getByLabel('真实地理建筑', { exact: true }).check();
             await page.getByLabel('真实地理林木', { exact: true }).check();
+            await ready();
+            if (JSON.stringify(beforeRequests) !== JSON.stringify(health.buildingRequests)) throw new Error('Building controls fetched new models/textures');
             health.convertedBuildingControlsVerified = true;
           }
           async function reviewPreparedForest() {
@@ -308,7 +321,7 @@ jobs:
           (async () => {
             try {
               browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
-              context = await browser.newContext({ serviceWorkers: 'block', viewport: process.env.CW_GPU_REVIEW_ONLY === '1' ? { width: 640, height: 360 } : process.env.CW_FOREST_REVIEW_ONLY === '1' ? { width: 960, height: 540 } : { width: 1280, height: 720 }, ...(process.env.CW_GPU_REVIEW_ONLY === '1' ? {} : { recordVideo: { dir: output, size: { width: 1280, height: 720 } } }) });
+              context = await browser.newContext({ serviceWorkers: 'block', viewport: process.env.CW_BUILDING_REVIEW_ONLY === '1' ? { width: 960, height: 540 } : process.env.CW_GPU_REVIEW_ONLY === '1' ? { width: 640, height: 360 } : process.env.CW_FOREST_REVIEW_ONLY === '1' ? { width: 960, height: 540 } : { width: 1280, height: 720 }, ...(process.env.CW_GPU_REVIEW_ONLY === '1' ? {} : { recordVideo: { dir: output, size: { width: 1280, height: 720 } } }) });
               page = await context.newPage();
               page.setDefaultTimeout(30000);
               page.on('console', message => {
@@ -320,20 +333,25 @@ jobs:
               });
               let releaseRaster;
               const rasterHold = new Promise(resolve => { releaseRaster = resolve; });
-              const heldRaster = process.env.CW_IMPOSTOR_REVIEW_ONLY === '1' ? '**/models/trees/impostors/oak-8-view-atlas.png' : process.env.CW_CORRIDOR_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/corridor/scene-atlas-02.png' : process.env.CW_FOREST_REVIEW_ONLY === '1' ? '**/models/trees/ash-large-lod1-20m.glb' : process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
+              const heldRaster = process.env.CW_BUILDING_REVIEW_ONLY === '1' ? '**/models/osm2world/hudson/tile-15-67/buildings.glb' : process.env.CW_IMPOSTOR_REVIEW_ONLY === '1' ? '**/models/trees/impostors/oak-8-view-atlas.png' : process.env.CW_CORRIDOR_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/corridor/scene-atlas-02.png' : process.env.CW_FOREST_REVIEW_ONLY === '1' ? '**/models/trees/ash-large-lod1-20m.glb' : process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
+              health.buildingRequests = [];
+              page.on('request', request => { if (request.url().includes('/models/osm2world/hudson/')) health.buildingRequests.push(request.url()); });
               health.aerialRequests = [];
               health.treeRequests = [];
               health.treeImageRequests = [];
               page.on('request', request => { if (request.url().includes('/geodata/hudson/imagery/')) health.aerialRequests.push(request.url()); });
               page.on('request', request => { if (request.url().includes('/models/trees/') && request.url().endsWith('.glb')) health.treeRequests.push(request.url()); });
               page.on('request', request => { if (request.url().includes('/models/trees/impostors/')) health.treeImageRequests.push(request.url()); });
-              await page.route(heldRaster, async route => { await rasterHold; await route.continue(); });
+              let heldSourceRequested;
+              const sourceRequested = new Promise(resolve => { heldSourceRequested = resolve; });
+              await page.route(heldRaster, async route => { heldSourceRequested(); await rasterHold; await route.continue(); });
               await page.goto(`http://127.0.0.1:4173/?world=hudson&routeMetres=${process.env.CW_GPU_REVIEW_ONLY === '1' ? '0' : '3123.283'}`, { waitUntil: 'domcontentloaded' });
               await boardInDaylight(async () => {
                 health.earlyBoardStatus = await page.getByLabel('真实地理加载状态', { exact: true }).textContent();
                 if (health.earlyBoardStatus.includes('场景就绪')) throw new Error('Early boarding did not precede required source loading');
-                if (process.env.CW_AERIAL_REVIEW_ONLY === '1' || process.env.CW_FOREST_REVIEW_ONLY === '1') {
+                if (process.env.CW_BUILDING_REVIEW_ONLY === '1' || process.env.CW_AERIAL_REVIEW_ONLY === '1' || process.env.CW_FOREST_REVIEW_ONLY === '1') {
                   await page.waitForFunction(() => Number.isFinite(Number(document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres)) && !!document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres, null, { timeout: 180000 });
+                  if (process.env.CW_BUILDING_REVIEW_ONLY === '1') await Promise.race([sourceRequested, new Promise((_, reject) => setTimeout(() => reject(new Error('Held building never requested')), 150000))]);
                   const before = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
                   await page.waitForTimeout(3000);
                   const after = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
@@ -442,6 +460,14 @@ jobs:
                 await page.keyboard.press('F5');
                 await page.getByText('数据来源与加载诊断', { exact: true }).click();
                 await reviewConvertedBuildings();
+                const buildingRequestsBefore = [...health.buildingRequests];
+                for (const name of ['Cold Spring', 'Garrison', 'Manitou', 'Peekskill']) {
+                  const preset = page.getByLabel('真实路线片段', { exact: true });
+                  const value = await preset.locator('option').filter({ hasText: name }).getAttribute('value');
+                  await preset.selectOption(value); await ready();
+                  await snapshot(`buildings-${name.replaceAll(' ', '-')}-source`);
+                }
+                if (JSON.stringify(buildingRequestsBefore) !== JSON.stringify(health.buildingRequests)) throw new Error('Changing corridor viewpoint fetched new building assets');
                 await page.keyboard.press('Escape');
                 await ready();
                 await snapshot('03n-converted-buildings-return-to-train');
