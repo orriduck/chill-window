@@ -1,0 +1,172 @@
+{
+  "asset": "Poly Haven Pine Tree 01 / native A LOD2",
+  "retrievedDate": "2026-10-10",
+  "source": {
+    "page": "https://polyhaven.com/a/pine_tree_01",
+    "api": "https://api.polyhaven.com/files/pine_tree_01",
+    "license": "CC0",
+    "blendUrl": "https://dl.polyhaven.org/file/ph-assets/Models/blend/1k/pine_tree_01/pine_tree_01_1k.blend",
+    "blendBytes": 570739325,
+    "blendApiMD5": "e6d9e76cc8dfb58e23813c264f7736e6",
+    "downloadedBlendSHA256": "db517cc486475860f308b8064673b841fee6f9ad2986446d8e02d1b81b22284d",
+    "sourceUnitSystem": "METRIC",
+    "sourceScaleLength": 1,
+    "nativeLodTriangles": {
+      "A": {
+        "LOD0": 6951524,
+        "LOD1": 826954,
+        "LOD2": 416451
+      },
+      "B": {
+        "LOD0": 4234432,
+        "LOD1": 514980,
+        "LOD2": 267343
+      },
+      "C": {
+        "LOD0": 5996296,
+        "LOD1": 703322,
+        "LOD2": 347991
+      }
+    },
+    "sourceA_LOD2TrianglesByMaterial": {
+      "pine_tree_01_twig": 345915,
+      "pine_tree_01_trunk_a": 42166,
+      "pine_tree_01_bark": 23710,
+      "pine_tree_01_dead_branches": 4660
+    },
+    "sourceA_LOD2BoundsMetresXYZ": [
+      7.601840019226074,
+      8.299274444580078,
+      20.396812438964844
+    ],
+    "gltf1kUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/pine_tree_01/pine_tree_01_1k.gltf",
+    "gltf1kJsonBytes": 30596,
+    "gltfBinUrl": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/pine_tree_01/pine_tree_01.bin",
+    "gltfBinBytes": 948849556,
+    "gltfBinMD5": "3079e56cc48c57d8ba530d005e86bae6"
+  },
+  "inspection": {
+    "blender": "4.4.3 official Linux x64 release",
+    "lod3And4Present": false,
+    "nativeHighestAvailableLod": 2,
+    "leafMaterial": "pine_tree_01_twig",
+    "leafAlphaTexture": "Dedicated 1k twig_alpha combined with twig_diff RGB",
+    "sourceLeafTriangles": 345915,
+    "gltfAlphaMode": "MASK",
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  "conversion": {
+    "operation": "Export authored LOD2 without geometry simplification; remove only author staging translation x=-6; preserve source scale 1.0 m/unit.",
+    "axis": "Blender Z-up converted to glTF Y-up by Blender glTF exporter",
+    "blender": "4.4.3",
+    "opaqueTextureReencoding": "Opaque PNG maps to JPEG quality 94, 4:4:4; alpha-bearing RGBA foliage remains PNG",
+    "sourceBoundsMetresXYZ": [
+      7.601840019226074,
+      8.299274444580078,
+      20.396812438964844
+    ],
+    "outputTriangles": 416451,
+    "materials": [
+      "pine_tree_01_bark",
+      "pine_tree_01_trunk_a",
+      "pine_tree_01_twig",
+      "pine_tree_01_dead_branches"
+    ]
+  },
+  "output": {
+    "filename": "pine_tree_01_a_LOD2-native.glb",
+    "bytes": 24328860,
+    "sha256": "5b3b8c30cf28937e5e5193602e76e48878a24f81b58377dbbf3d2587d60a3ee8",
+    "triangles": 416451,
+    "embeddedImages": [
+      {
+        "name": "pine_tree_01_bark_nor_gl_1k",
+        "mimeType": "image/jpeg",
+        "bytes": 816028,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "pine_tree_01_bark_diff_1k",
+        "mimeType": "image/jpeg",
+        "bytes": 418464,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "pine_tree_01_bark_rough_1k",
+        "mimeType": "image/jpeg",
+        "bytes": 373393,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "pine_tree_01_trunk_a_nor_gl_1k",
+        "mimeType": "image/jpeg",
+        "bytes": 944395,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "pine_tree_01_trunk_a_diff_1k",
+        "mimeType": "image/jpeg",
+        "bytes": 499567,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "pine_tree_01_trunk_a_rough_1k",
+        "mimeType": "image/jpeg",
+        "bytes": 431464,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "pine_tree_01_twig_nor_gl_1k",
+        "mimeType": "image/jpeg",
+        "bytes": 737795,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "pine_tree_01_twig_diff_alpha_1k",
+        "mimeType": "image/png",
+        "bytes": 1083366,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      {
+        "name": "pine_tree_01_twig_rough_1k",
+        "mimeType": "image/jpeg",
+        "bytes": 326687,
+        "dimensions": [
+          1024,
+          1024
+        ]
+      }
+    ],
+    "embeddedImageBytes": 5631159,
+    "alphaMode": "MASK",
+    "alphaCutoff": 0.5
+  }
+}
+

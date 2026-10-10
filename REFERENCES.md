@@ -302,3 +302,15 @@ OSM2World云端实验已完成转换：官方0.4.0、18个building way与209个�
 已取得 [Actions诊断运行](https://github.com/orriduck/chill-window/actions/runs/38008413794) 的实际GLB；该运行因跨环境原始SHA不同而失败，输出保留用于核对。历史原始SHA和交付SHA均保存在provenance，不宣称字节重建一致。当前导入15个有源height的建筑/586tri，排除3个默认补高对象。模型逐栋加当前DEM中心点地面高度并翻转Z及三角绕序，合并为两组PBR材质；同时预建原始体块作为对照，Debug Mode可定位和显隐。材质为CC0通用Plaster002/RoofingTiles010，没有取得当地立面照片，默认屋顶不标成实测。受影响代码：`GeoConvertedBuildings.ts`、`GeoConvertedBuildingRecords.ts`、`RealWorld.ts`、`GeoDistantBuildings.ts`、`GeoInspector.ts`；素材与具体SHA在 `public/models/osm2world/peekskill/provenance.json`。新版实际画面核查待云端artifact。
 
 `d7c7b2a` 的 [建筑隔离检查](https://github.com/orriduck/chill-window/actions/runs/38009285847) 已通过。已实际看PBR/原体块/返回列车截图；模型15/15、2合批、586tri，浏览器Float32坐标最大足迹误差0.0009m；全部图片49/49、缺块/迟到0，无请求或运行错误。初始GPU预热14960ms；此运行只覆盖初始准备及隔离建筑/返回，不包含完整连续路线。PBR图默认红瓦明显过饱和，未有当地颜色标签支持；因此后续材质保留既有源/中性颜色，仅从通用贴图提取低对比明度与减弱法线细节。此画面结论不表示真实逐栋立面完成。
+
+原始云端与Actions的18 source对象/36 primitive，独立按source ID与primitive整理accessor实际元素bytes（位置、法线、UV、索引）和材质名称，均得到SHA `a04a18fad2b7eaee14659d71bffaafde3f24ccbb00e5aca0b8d92db3ccdd2bb3` / 22,109B；6张内嵌纹理SHA也一致。JSON规范化及BIN原始chunk SHA仍不同，不宣称raw bytes可重现。新增明确的mesh/hash检查，并固定已观察Actions raw SHA，[591c3c1重建](https://github.com/orriduck/chill-window/actions/runs/38010556265)通过。保留两个不同的原始SHA和早期失败，不将调整验证口径写成初次检查已通过。
+
+树木候选补充：[Poly Haven Pine Tree 01](https://polyhaven.com/a/pine_tree_01)官方CC0，云端实际下载并打开Blender源文件；作者A树LOD2有416,451tri（叶片345,915tri），约20.4m高，有专用叶片alpha和真实纹理PBR。已保存完整重建脚本至 `scripts/experiments/polyhaven-pine/`，等待固定source manifest及Blender bootstrap后再在Actions生成可下载模型。它尚未接入或检查实际浏览器；不能用高面数或作者预览证明自然林目标已达成。早期25k整体简化没有被作为通过标准，后续应保留叶冠并作原生/减轻版本实际对比。Tree Small 02是4.6m Burkea africana；Jacaranda也未当成Hudson本地成熟树种。主要阔叶林模型仍缺，当前goal仍未完成。
+
+### 2026-10-09：全样板线路连续行驶与颜色修正版
+
+[150f076全线运行38009493345](https://github.com/orriduck/chill-window/actions/runs/38009493345)已通过并读取完整health：基于d7c7b2a，仅增加精确里程诊断和独立工作流，640×360 SwiftShader、正常速度、不跳转，从0实际推进到22837.381661575448m（恰好源线路终点）。95次采样缺块和累计迟到均0，初始GPU预热8352ms，终点49/49且待上传0，没有请求或运行错误。已实际看21.135km、终点及四站套件Peekskill图。此证据覆盖当前整条22.84km样板线路的连续准备，不等于完整Empire Service、硬件帧率、高分辨率所有视角或离线验收。终点树卡的轮廓与悬空感仍明显，树木目标未达成。
+
+[d7c7b2a完整交互运行38009280167](https://github.com/orriduck/chill-window/actions/runs/38009280167)已通过：另有700m连续六次缺块/迟到0，建筑原/PBR/隐藏、树模型、远地图返回、四站和移动视图保留，无请求失败。已读取health并看Peekskill图；站台/遮棚视觉仍需进一步完善，绿色地表和基础体块不能视为全部视觉完成。
+
+[b97483f颜色修正版38010134905](https://github.com/orriduck/chill-window/actions/runs/38010134905)已通过，实际查看PBR及原体块图：默认红色被移除，源/中性颜色保留，通用表面细节仍可见；15栋/586tri/2合批、足迹误差0.0009m，定位/显隐/返回均49/49且缺块/迟到0，无请求或运行错误。初始GPU预热14292ms。此运行只覆盖初次准备和隔离建筑/返回，不包含全线连续行驶；全线证据是上述150f076基于d7c7b2a的运行。[b97483f预览](https://chill-window-pokr0r9f4-orriduck.vercel.app/?world=hudson)已READY并核对提交与HTTP200。真正的立面/窗口、主要阔叶林与整段建筑视觉升级仍需继续。
