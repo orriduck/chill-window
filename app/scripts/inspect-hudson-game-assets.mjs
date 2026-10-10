@@ -27,6 +27,7 @@ const assets = new GeoGameAssets({texture:new THREE.Texture(),minTile:new THREE.
 await assets.ready;
 const templates = [...assets.templates].map(([name,t])=>{t.geometry.computeBoundingBox(); const b=t.geometry.boundingBox; return {name, triangles:t.geometry.getAttribute('position').count/3,min:b.min.toArray(),max:b.max.toArray(),size:b.getSize(new THREE.Vector3()).toArray(),roofTop:t.geometry.userData.roofTop};});
 if (assets.loadedAssets!==19 || templates.length!==18) throw new Error('Wrong source/template counts');
+for (const t of templates.filter(t=>t.name.startsWith('houseLod'))) if(t.triangles<200 || t.triangles>350) throw new Error('Far house retains too much facade geometry:'+JSON.stringify(t));
 for (const t of templates.filter(t=>t.name.startsWith('house'))) if (t.min.some(v=>!Number.isFinite(v)) || t.max[1]<5 || t.max[1]*1.15>12.5 || t.size[0]<5 || t.size[2]<6) throw new Error('House proportions invalid:'+JSON.stringify(t));
 const roofChecks = [];
 for (const [name,t] of assets.templates) if (name.startsWith('house')) {

@@ -18,26 +18,34 @@
     2504
   ],
   "lowTrianglesPerHouse": [
-    924,
-    1586,
-    1280
+    232,
+    328,
+    232
   ],
   "foundationTrianglesPerHouse": 12,
   "near7x7": {
     "sourceHouses": 1545,
     "fullTriangles": 5019442,
-    "lowTriangles": 1966162
+    "lowTriangles": 425652,
+    "previousLowTriangles": 1966162
   },
   "distantDistanceCandidates": {
     "sourceHouses": 7154,
     "fullTriangles": 23310600,
-    "lowTriangles": 9121964
+    "lowTriangles": 1971752,
+    "previousLowTriangles": 9121964
   },
   "distantApproximateFrustumCandidates": {
     "sourceHouses": 4489,
     "fullTriangles": 14652292,
-    "lowTriangles": 5724676
+    "lowTriangles": 1238164,
+    "previousLowTriangles": 5724676
   },
-  "bounds": "same original roof/chimney silhouettes, source anchors/matrices/material and 5\u201312m height constraints; full detail within220m camera distance, low outside and all distant houses",
-  "performanceAcceptance": false
+  "bounds": "Same original roof/chimney silhouettes, source anchors/matrices/material and5\u201312m height constraints. Full detail within220m; far geometry has one original wall per side spanning floors, with no repeated front doors/windows.",
+  "performanceAcceptance": false,
+  "previousLowTrianglesPerHouse": [
+    924,
+    1586,
+    1280
+  ]
 }

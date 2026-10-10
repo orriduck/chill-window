@@ -94,15 +94,23 @@ export class GeoGameAssets {
       const geometry = town.get(name)!.geometry.clone()
       geometry.scale(scale.x, scale.y, scale.z); geometry.rotateY(yaw); geometry.translate(position.x, position.y, position.z); parts.push(geometry)
     }
-    // Walls are native one-unit panels whose outside face is x=0.5. Four
-    // rotations form closed houses; fenestration stays human-scale.
+    // Walls are native one-unit panels whose outside face is x=0.5. Full
+    // houses retain human-scale doors/windows. Beyond220m, one original wall
+    // per side spans the floors; the complete original roof/chimney remains.
     for (let side = 0; side < 4; side++) {
-      const length = side % 2 ? width : depth, across = simplified && side !== 0 ? 1 : Math.ceil(length / 2.8), panel = length / across
-      const yaw = side * Math.PI / 2
+      const length = side % 2 ? width : depth, yaw = side * Math.PI / 2
+      if (simplified) {
+        const local = new THREE.Vector3((side % 2 ? depth : width) / 2 - 0.5 * 2.8, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
+        local.y = 0.65
+        const name = variant === 2 ? 'wall-wood' : variant === 1 && side % 2 === 0 ? 'wall-detail-cross' : 'wall'
+        add(name, local, new THREE.Vector3(2.8, floorHeight * floors, length), yaw)
+        continue
+      }
+      const across = Math.ceil(length / 2.8), panel = length / across
       for (let floor = 0; floor < floors; floor++) for (let col = 0; col < across; col++) {
         const local = new THREE.Vector3((side % 2 ? depth : width) / 2 - 0.5 * 2.8, 0.65 + floor * floorHeight, -length / 2 + panel * (col + 0.5)).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
         local.y = 0.65 + floor * floorHeight
-        const name = simplified && side !== 0 ? (variant === 2 ? 'wall-wood-detail-diagonal' : 'wall-detail-cross') : side === 0 && floor === 0 && col === Math.floor(across / 2) ? 'wall-door' : col % 2 === 0 ? (variant === 1 && !simplified ? 'wall-window-shutters' : 'wall-window-small') : variant === 2 ? 'wall-wood-detail-diagonal' : 'wall-detail-cross'
+        const name = side === 0 && floor === 0 && col === Math.floor(across / 2) ? 'wall-door' : col % 2 === 0 ? (variant === 1 ? 'wall-window-shutters' : 'wall-window-small') : variant === 2 ? 'wall-wood-detail-diagonal' : 'wall-detail-cross'
         add(name, local, new THREE.Vector3(2.8, floorHeight, panel), yaw)
       }
     }
@@ -192,7 +200,7 @@ export class GeoGameAssets {
     })
   }
   /** Geometry LOD only: both batches share source anchors, matrices, roofs,
-   * palette and silhouette. Far houses omit repeated small side-wall panels.
+   * palette and silhouette. Far houses use four walls without tiny facade parts.
    * All instance buffers are prepared by the same genuine GPU fence gate. */
   setHouseDetail(parent: THREE.Group, cameraPosition: THREE.Vector3) {
     parent.traverse(object => {

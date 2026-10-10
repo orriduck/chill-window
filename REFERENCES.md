@@ -544,3 +544,9 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 ### 根据实际源预览修正方块树冠
 
 根任务直接查看469c80b乘客原PNG与[Kenney Nature Kit官方原包](https://kenney.nl/assets/nature-kit)中的 `Isometric/tree_default_NE.png`、`tree_detailed_NE.png`、`tree_fat_NE.png`、`tree_pineRoundA_NE.png`。实际场景oak/detailed堆叠方块冠过强；原fat/default预览具有切面椭圆冠，pineRoundA具有层叠圆锥叶体。采用同一CC0原ZIP的 `Models/GLTF format/tree_fat.glb`（5576B，50triangles，SHA `84b262c5dda3a91ac6c95f9d8b23a0ebbb1951d678c0e1375d3e32623cc43ee2`）与 `tree_pineRoundA.glb`（14488B，204triangles，SHA `7dc9711f31585eafdcb965d0649c30af5e19f2def1955f7a915081d30759ef8e`），保留default（114triangles）；原始字节/manifest/CC0不改造来源，运行时沿用原调色与12–18m美术树高。近景约60%fat/30%default/10%round pine，远景fat/default；分布仍是实际地类范围内美术采样，不是当地逐株/物种调查。旧cube来源不再进入此唯一运行场景，19模型数不变，总原GLB+palette194763B。影响 `GeoGameAssets.ts`、`RealWorld.ts`、原始asset manifest与静态审计；不增加来源对照UI。当前构建与原源校验通过，修正后的实际像素与地图交互仍待云端直接查看。
+
+### 地图交互与上传已通过；进一步简化远村屋，图片仍待验收
+
+[实际run38075521846](https://github.com/orriduck/chill-window/actions/runs/38075521846)，commitf724f40：真实trusted平移/滚轮/点击、准确暂停里程/计时0、post-pan GPU idle/待上传0已通过（settle141秒，延后107次主画面提交）。地图截图在真正strict49/49、idle0、字体加载、冻结frame256/revision82后仅page.screenshot90秒超时；实际地图提交8,598,010三角形/1170draw。实际仍只有两张乘客PNG，无map/failurePNG，尚未执行后续Escape验证。不能把输入/准备通过扩大成已取得地图图片，或把大量三角形断定为唯一截图根因。
+
+本次仍沿用已查看/校验的Kenney官方CC0模块，不增加资产或新参考。`GeoGameAssets.ts`只简化220m外/远景村屋：每面一件原wall/wood/timber-detail spanning全部楼层，包括正面，不再重复微小门窗。三款远几何232/328/232三角形（石基各12）；完整原坡顶/烟囱、材质palette、bounds、地理源anchors/matrices及高度约束与详细款一致，近乘客1536/5730/2504款不改。既有18模板/18实际摆放/6配对LOD审计通过。源候选计数为近景425652、远景距离1971752、近似frustum1238164三角形，约比上轮低几何减少78%，仅是静态候选负载而非GPU速度测量；JSON证据见 `docs/visual-checks/2026-10-10-hudson-game-style/map-workload-static.json`。Renderer/prewarm/fence和捕获90/180/900秒真实门槛不变。新地图PNG、最终Escape与人工视觉验收仍待云端。
