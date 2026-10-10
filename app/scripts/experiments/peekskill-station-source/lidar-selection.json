@@ -1,0 +1,50 @@
+{
+  "query": "https://tnmaccess.nationalmap.gov/api/v1/products?datasets=Lidar+Point+Cloud+%28LPC%29&bbox=-73.9312%2C41.2847%2C-73.9303%2C41.2854&max=30&outputFormat=JSON",
+  "catalogueCheckedAt": "2026-10-10",
+  "scope": "Source station roof observations only. 2022 tile reused for west platforms/canopies; 2018 full-station tile independently selected because the 2022 geographic envelope does not contain the east station house. Survey and publication dates remain separate. Actual LAS CRS bounds and source footprint coverage must be checked before interpreting points.",
+  "selectedTiles": [
+    {
+      "title": "USGS Lidar Point Cloud NY_SouthEast4County_A22 u_5880057050_2022",
+      "sourceId": "66f3a453d34e791ae5dfa5a0",
+      "publicationDate": "2024-09-23",
+      "sizeInBytes": 10808037,
+      "boundingBox": {
+        "minX": -73.948823927,
+        "maxX": -73.93104624,
+        "minY": 41.2809799044,
+        "maxY": 41.2946509457
+      },
+      "downloadURL": "https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/NY_SouthEast4County_A22/NY_SE4County_1_A22/LAZ/USGS_LPC_NY_SouthEast4County_A22_u_5880057050_2022.laz",
+      "metaUrl": "https://www.sciencebase.gov/catalog/item/66f3a453d34e791ae5dfa5a0",
+      "observedSha256": "47b0fedc079e8c41fe65256058deb1d9cbc45b4bb417cb02d35f5c844f4e78cc",
+      "surveyYearFromTitle": 2022,
+      "acquisitionDateInterval": null,
+      "dateInterpretation": "Survey year inferred from official tile title; exact acquisition date/interval not yet inspected. Publication date is separate.",
+      "checksumPolicy": "enforce previously observed source hash"
+    },
+    {
+      "title": "USGS Lidar Point Cloud NY_FEMAR2_Central_2018_D19 e1817n2242",
+      "sourceId": "60a51085d34ea221ce488dbc",
+      "publicationDate": "2021-05-18",
+      "sizeInBytes": 27491800,
+      "boundingBox": {
+        "minX": -73.9414034702578,
+        "maxX": -73.92692585517317,
+        "minY": 41.27644465123599,
+        "maxY": 41.28719320680737
+      },
+      "downloadURL": "https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/NY_FEMAR2_Central_2018_D19/NY_FEMAR2_Central_B1_2018/LAZ/USGS_LPC_NY_FEMAR2_Central_2018_D19_e1817n2242.laz",
+      "metaUrl": "https://www.sciencebase.gov/catalog/item/60a51085d34ea221ce488dbc",
+      "observedSha256": null,
+      "surveyYearFromTitle": 2018,
+      "acquisitionDateInterval": null,
+      "dateInterpretation": "Survey year inferred from official tile title; exact acquisition date/interval not yet inspected. Publication date is separate.",
+      "checksumPolicy": "first acquisition discovery: record actual hash; pin it in follow-up before reproducibility or model acceptance"
+    }
+  ],
+  "sourceBuildingIds": [
+    "osm/way/1307801003",
+    "osm/way/1307801004",
+    "osm/way/285221615"
+  ]
+}

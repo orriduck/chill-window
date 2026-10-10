@@ -1,0 +1,10 @@
+{
+  "app/public/geodata/hudson/world.json": "c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec",
+  "app/public/geodata/hudson/stations.json": "121d672e1e97d45ef46f41948503e6f3a28448c6d3c5e4065764bc010dca238b",
+  "app/public/geodata/hudson/buildings.json": "0d5bd68c040b42f99138fbdb768167ef22e8c48b5442fe0bf7d889f7347bd54f",
+  "app/public/geodata/hudson/sources/overpass-stations.json.gz": "0730f5cd333ea9c06086cc042cea692c7d08b35e4d89bbf2c05a3369889ee31a",
+  "app/public/geodata/hudson/sources/osm-buildings.json.gz": "58f7693ba550c91403180874675d7c602f74f5eb55621408b475a93d18d51cc9",
+  "app/public/geodata/hudson/sources/osm-transport.json.gz": "781150cc7e55b175ce937429087ec27249176cb87af315704f9b9352f4b9a1fa",
+  "app/public/geodata/hudson/imagery/peekskill-naip-2022-scene.png": "b52faa3730355e2c11ffa9599ad6a311e84fc3dac647d63151eac60b8e2355e0",
+  "app/public/geodata/hudson/imagery/scene-raster.json": "a67507523459ee79658d46ba7e8c659c105b78ce72fdf4068145007b810c08aa"
+}

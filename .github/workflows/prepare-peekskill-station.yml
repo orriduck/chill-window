@@ -1,0 +1,51 @@
+name: Inspect real Peekskill station source structures
+on:
+  push:
+    branches: ['codex/station-source-review']
+    paths: ['app/scripts/experiments/peekskill-station-source/**', '.github/workflows/prepare-peekskill-station.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  geometry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Validate source layout against retained scene imagery
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-gdal python3-pil
+          /usr/bin/python3 app/scripts/experiments/peekskill-station-source/prepare.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: real-station-geometry-${{ github.sha }}
+          path: app/scripts/experiments/peekskill-station-source/output/*
+          if-no-files-found: error
+          retention-days: 14
+  lidar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Observe actual source coverage and surface clusters
+        run: |
+          python3 -m pip install 'laspy[lazrs]==2.6.1' numpy==2.2.3 pyproj==3.7.1 shapely==2.0.7
+          python3 app/scripts/experiments/peekskill-station-source/probe-lidar.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: real-station-points-${{ github.sha }}
+          path: |
+            app/scripts/experiments/peekskill-station-source/output/lidar/*.json
+            app/scripts/experiments/peekskill-station-source/lidar-selection.json
+          if-no-files-found: error
+          retention-days: 14
