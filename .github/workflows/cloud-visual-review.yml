@@ -45,6 +45,7 @@ jobs:
           CW_CORRIDOR_REVIEW_ONLY: ${{ github.ref_name == 'codex/corridor-visual-review' && '1' || '0' }}
           CW_FOREST_REVIEW_ONLY: ${{ (github.ref_name == 'codex/forest-visual-review' || github.ref_name == 'codex/forest-impostor-review') && '1' || '0' }}
           CW_IMPOSTOR_REVIEW_ONLY: ${{ github.ref_name == 'codex/forest-impostor-review' && '1' || '0' }}
+          CW_GPU_REVIEW_ONLY: ${{ github.ref_name == 'codex/gpu-preparation-review' && '1' || '0' }}
         run: |
           mkdir -p "$RUNNER_TEMP/chill-visual"
           npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-visual/server.log" 2>&1 &
@@ -307,7 +308,7 @@ jobs:
           (async () => {
             try {
               browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
-              context = await browser.newContext({ serviceWorkers: 'block', viewport: process.env.CW_FOREST_REVIEW_ONLY === '1' ? { width: 960, height: 540 } : { width: 1280, height: 720 }, recordVideo: { dir: output, size: { width: 1280, height: 720 } } });
+              context = await browser.newContext({ serviceWorkers: 'block', viewport: process.env.CW_GPU_REVIEW_ONLY === '1' ? { width: 640, height: 360 } : process.env.CW_FOREST_REVIEW_ONLY === '1' ? { width: 960, height: 540 } : { width: 1280, height: 720 }, ...(process.env.CW_GPU_REVIEW_ONLY === '1' ? {} : { recordVideo: { dir: output, size: { width: 1280, height: 720 } } }) });
               page = await context.newPage();
               page.setDefaultTimeout(30000);
               page.on('console', message => {
@@ -327,7 +328,7 @@ jobs:
               page.on('request', request => { if (request.url().includes('/models/trees/') && request.url().endsWith('.glb')) health.treeRequests.push(request.url()); });
               page.on('request', request => { if (request.url().includes('/models/trees/impostors/')) health.treeImageRequests.push(request.url()); });
               await page.route(heldRaster, async route => { await rasterHold; await route.continue(); });
-              await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=3123.283', { waitUntil: 'domcontentloaded' });
+              await page.goto(`http://127.0.0.1:4173/?world=hudson&routeMetres=${process.env.CW_GPU_REVIEW_ONLY === '1' ? '0' : '3123.283'}`, { waitUntil: 'domcontentloaded' });
               await boardInDaylight(async () => {
                 health.earlyBoardStatus = await page.getByLabel('真实地理加载状态', { exact: true }).textContent();
                 if (health.earlyBoardStatus.includes('场景就绪')) throw new Error('Early boarding did not precede required source loading');
@@ -357,6 +358,27 @@ jobs:
               await page.waitForFunction(initial => document.querySelector('[aria-label="真实列车位置"]')?.textContent !== initial, initialPosition, { timeout: 90000 });
               health.movementVerified = true;
               await snapshot('02-cold-spring-ride-moving');
+              if (process.env.CW_GPU_REVIEW_ONLY === '1') {
+                health.scope = 'Instrumented reproduction of route-ahead GPU preparation at the observed 1.68km stall. The full source forest and imagery runtime is retained; this is diagnosis, not full-route or visual acceptance.';
+                health.gpuPreparationSamples = [];
+                for (let sample = 0; sample < 48; sample++) {
+                  await page.waitForTimeout(10000);
+                  const current = await page.evaluate(() => {
+                    const output = document.querySelector('[aria-label="地理区块流式加载诊断"]');
+                    return { metres: Number(document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres), stream: output?.textContent, ...output?.dataset };
+                  });
+                  health.gpuPreparationSamples.push(current);
+                  await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
+                  const previous = health.gpuPreparationSamples.at(-7);
+                  if (previous && Math.abs(current.metres - previous.metres) < 0.01) throw new Error(`Observed one-minute motion stall with GPU stage: ${JSON.stringify(current)}`);
+                  if (current.metres > 2200) { health.gpuReproductionAdvancedBeyondObservedStall = true; break; }
+                }
+                if (!health.gpuReproductionAdvancedBeyondObservedStall) throw new Error('GPU diagnosis did not reach 2.2km');
+                await snapshot('gpu-preparation-after-2200m');
+                health.runtimePassed = !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
+                if (!health.runtimePassed) process.exitCode = 1;
+                return;
+              }
               if (process.env.CW_FOREST_REVIEW_ONLY === '1') {
                 health.scope = 'Production woodland models, initial source/GPU preparation, near/card controls, 40/90/150m views, and continuous tile-boundary movement. Whole-route and hardware performance are not assessed';
                 await page.keyboard.press('F5');
@@ -547,3 +569,10 @@ jobs:
           path: ${{ runner.temp }}/chill-visual/
           if-no-files-found: error
           retention-days: 7
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: chill-health-${{ github.sha }}
+          path: ${{ runner.temp }}/chill-visual/health.json
+          retention-days: 7
+          if-no-files-found: warn

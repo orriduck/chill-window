@@ -19,6 +19,7 @@ export function renderPixelRatio(
 export class WebGLRenderer {
   renderer: THREE.WebGLRenderer
   warmupMs = 0
+  readonly preparation = { sequence: 0, phase: 'idle', groups: 0, groupIndex: 0, startedAt: 0, elapsedMs: 0, completed: 0 }
   private uploadedVersions = new WeakMap<THREE.BufferAttribute | THREE.InterleavedBuffer, number>()
   private submittedSharedModels = new WeakMap<THREE.BufferGeometry, Set<THREE.Material>>()
 
@@ -52,14 +53,21 @@ export class WebGLRenderer {
 
   async warmup(scene: THREE.Scene, camera: THREE.Camera, preparedWorld?: THREE.Object3D) {
     const started = performance.now()
+    Object.assign(this.preparation, { sequence: this.preparation.sequence + 1, phase: 'compile', groups: 1, groupIndex: 0, startedAt: started })
     await this.renderer.compileAsync(scene, camera)
     if (preparedWorld) await this.uploadPreparedObject(scene, camera, preparedWorld)
     this.warmupMs = performance.now() - started
+    Object.assign(this.preparation, { phase: 'idle', elapsedMs: this.warmupMs, completed: this.preparation.completed + 1 })
   }
 
   async preload(scene: THREE.Scene, camera: THREE.Camera, preparedWorld: THREE.Object3D[]) {
-    for (const group of preparedWorld) await this.renderer.compileAsync(group, camera, scene)
+    Object.assign(this.preparation, { sequence: this.preparation.sequence + 1, phase: 'compile', groups: preparedWorld.length, groupIndex: 0, startedAt: performance.now() })
+    for (const [index, group] of preparedWorld.entries()) {
+      this.preparation.groupIndex = index
+      await this.renderer.compileAsync(group, camera, scene)
+    }
     await this.uploadPreparedObject(scene, camera, preparedWorld)
+    Object.assign(this.preparation, { phase: 'idle', elapsedMs: performance.now() - this.preparation.startedAt, completed: this.preparation.completed + 1 })
   }
 
   private async uploadPreparedObject(scene: THREE.Scene, camera: THREE.Camera, preparedWorld: THREE.Object3D | THREE.Object3D[]) {
@@ -106,6 +114,7 @@ export class WebGLRenderer {
       }
     }
     try {
+      this.preparation.phase = 'upload'
       for (const state of states) {
         state.object.visible = state.upload
         if (state.upload) {
@@ -146,6 +155,7 @@ export class WebGLRenderer {
     const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
     if (!fence) throw new Error('无法建立场景 GPU 预热同步点')
     gl.flush()
+    this.preparation.phase = 'fence'
     try {
       await new Promise<void>((resolve, reject) => {
         const poll = () => {

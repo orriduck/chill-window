@@ -195,6 +195,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
         }
       }
       inspector.update(camera.z, world)
+      inspector.setGpuPreparation(renderer.preparation)
       const cabinDarkness = Math.max(state.starOpacity, tunnel); interiorAmbient.intensity = THREE.MathUtils.lerp(0.85, 0.4, cabinDarkness); interiorKey.intensity = THREE.MathUtils.lerp(0.65, 0.2, cabinDarkness)
       windowFrame.update(viewCamera, elapsed, weather.current === WeatherType.RAIN, Math.min(1, camera.currentSpeed / CRUISE_SPEED), tunnel, ambient.intensity)
       const savedFogNear = fog.near, savedFogFar = fog.far

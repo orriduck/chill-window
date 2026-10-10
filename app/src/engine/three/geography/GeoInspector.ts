@@ -352,6 +352,14 @@ export class GeoInspector {
     const pose = this.data.pose(Number(this.progress.value))
     this.readout.textContent = `${(pose.s / 1000).toFixed(2)} km · ${pose.latitude.toFixed(5)}, ${pose.longitude.toFixed(5)}`
   }
+  setGpuPreparation(stats: { sequence: number; phase: string; groups: number; groupIndex: number; startedAt: number; elapsedMs: number; completed: number }) {
+    const elapsed = stats.phase === 'idle' ? stats.elapsedMs : performance.now() - stats.startedAt
+    Object.assign(this.streamingStats.dataset, {
+      gpuPhase: stats.phase, gpuSequence: String(stats.sequence), gpuGroupIndex: String(stats.groupIndex),
+      gpuGroups: String(stats.groups), gpuElapsedMs: String(Math.round(elapsed)), gpuCompleted: String(stats.completed),
+    })
+    this.streamingStats.textContent += `\nGPU 当前批次 ${stats.sequence} · ${stats.phase} · ${stats.groupIndex + 1}/${stats.groups} · ${elapsed.toFixed(0)}ms · 完成 ${stats.completed}`
+  }
   private onDown = (event: PointerEvent) => { this.lastPointer = [event.clientX, event.clientY] }
   private onUp = (event: PointerEvent) => {
     if (!this.real || !this.editing || !this.data || event.button !== 0 || Math.hypot(event.clientX - this.lastPointer[0], event.clientY - this.lastPointer[1]) > 6) return

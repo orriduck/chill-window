@@ -410,3 +410,13 @@ RGB降采样到EPSG3857的2.4投影米（本纬度约1.8地面米），形成141
 `GeoTreeImpostors.ts` / `GeoForest.ts`把图集用于既有林地样本的远景，按相机角度采样相邻源帧，保持根部尺度，限制各帧mip/bilinear采样范围；`RealWorld.ts`让近远景共用16m位置/朝向/高度规则，减少500–650m衔接时的密度变化。出发前校验和加载，两图集参与既有离屏GPU准备，视角变化不下载/生成资产。NLCD常绿样本仍使用原表达，不把阔叶模型误称当地实测树种。`GeoInspector.ts`增加同机位旧/新开关、650m距离和八方向观察；云端故意延迟Oak图集检查出发门控，并保留实际画面供人工检查。本段为实现与数据记录，新的远景外观、角度变化、接缝和行驶尚待实际浏览器验证。
 
 当前另把同一地理配准航片用于水面和远处建筑朝上屋顶（`RealWorld.ts` / `GeoAerial.ts`），DoubleSide屋顶背面不覆盖航片；原水位/几何没有变成实测。实际水面、近远屋顶效果需随本轮云端截图检查，不据构建通过宣称完成。
+
+### 新远景检查失败与 GPU 队列复现
+
+[8b34aef 实际检查38028212916](https://github.com/orriduck/chill-window/actions/runs/38028212916) 失败。根任务已从实际ZIP提取并校验health与三张森林PNG的CRC；初始故意延迟Oak图集时列车停在3123.283m，新/旧树冠150/650m与四方向开关均执行且资源各加载一次，前20状态均49/49。实际查看150m、650m新旧图：源树冠比旧点阵更连贯，但远坡形成过黑的成片轮廓，视觉不合格。后续Manitou地图视角等待180秒失败，终态48/49、59块待GPU准备，无shader/请求错误，不能把整次运行写为通过。
+
+[794fcbd 全线复现38028398804](https://github.com/orriduck/chill-window/actions/runs/38028398804) 从0实际推进到1679.379m后停留一分钟，失败；初始源树冠/航片都就绪，抽查视野缺块/迟到/未上传树均0，但终态28块待GPU准备。此证据未完成整线。[9df675d完整交互38027376878](https://github.com/orriduck/chill-window/actions/runs/38027376878) 前33状态、610m连续行驶和Garrison经行均通过，随后导航Manitou等待DOMContentLoaded30秒超时，实际failure.png为空白。没有应用或网络请求错误，但不把该次完整套件当作通过。
+
+从已安装Three.js185源码 `WebGLRenderer.compileAsync` / `WebGLProgram.isReady` 核对：无KHR_parallel_shader_compile时使用定时回调等待，当前应用每批最多12块逐块串行await。一个待检验的原因是低帧率下串行回调拖慢整批准备；尚无阶段证据，未据此直接修改队列。`Renderer.ts`新增compile/upload/fence/idle的批次序号、组索引和时间；`GeoInspector.ts`显示并导出同一读数，诊断分支从路线0复现1.68km停滞。这是收集根因的仪器，未声称已经修复。用户要求视野外准备完成的目标继续保留。
+
+建筑独立重建[38028263803](https://github.com/orriduck/chill-window/actions/runs/38028263803)的实际415块/5853记录/104537三角形、16张共享纹理4,984,364B均取得并检查；417转换日志无error。输出总GLB为25,160,336B，与原云端25,160,588B相差252B，旧跨环境bytes断言导致失败，不能把失败抹为成功，也暂不宣称raw字节重建一致。完整配方已恢复；进一步直接比较每栋模型的实际ground顶点/高度与原源足迹，原始云端语义指纹核对尚未取得。转换建筑未接入新的运行时。
