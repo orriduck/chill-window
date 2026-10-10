@@ -28,6 +28,8 @@ export class GeoInspector {
   private error = ''
   private lastPointer = [0, 0]
   private ray = new THREE.Raycaster()
+  private mapRevision = 0
+  private mapControlActive = false
   private canvas: HTMLCanvasElement
   constructor(canvas: HTMLCanvasElement, initiallyReal: boolean) {
     this.canvas = canvas; this.controls = new OrbitControls(this.camera, canvas)
@@ -36,6 +38,11 @@ export class GeoInspector {
     this.controls.minPolarAngle = 0.06; this.controls.maxPolarAngle = Math.PI * 0.49
     this.controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
     this.controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
+    // Input handlers update the actual OrbitControls camera synchronously.
+    // Publish those changes independently of potentially slow WebGL RAFs.
+    this.controls.addEventListener('change', this.onMapChange)
+    this.controls.addEventListener('start', this.onControlStart)
+    this.controls.addEventListener('end', this.onControlEnd)
     const font = 'font:12px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;'
     this.bar.style.cssText = `position:fixed;left:14px;top:14px;right:14px;display:flex;flex-wrap:wrap;gap:7px;align-items:center;z-index:10004;pointer-events:none;color:#eee8d8;${font}`
     this.bar.setAttribute('aria-label', '地理世界工具栏')
@@ -82,16 +89,30 @@ export class GeoInspector {
     Object.assign(this.coverage.dataset, { readyTiles: String(terrain.readyTiles), minTile: terrain.minTile.join(','), backgroundVisible: String(terrain.backgroundVisible) }); this.coverage.textContent = `背景64m / 细节8m · GPU覆盖 ${terrain.readyTiles}/49`
     Object.assign(this.streaming.dataset, { pendingGpu: String(stream.pendingGpu), visibleMissing: String(stream.visibleMissing) }); this.streaming.textContent = `缓存 ${stream.cached} · 可见 ${stream.visible}/49 · 预建 ${stream.prefetchPending}\n视野缺块 ${stream.visibleMissing} · 行驶缺块帧 ${stream.suddenAppearanceFrames}\n后续待上传 ${stream.pendingGpu} · ${stream.assets}`
     Object.assign(this.game.dataset, { style: 'fantasy', ready: String(a.readyState), loadedAssets: String(a.loadedAssets), assetBytes: String(a.assetBytes), houseDesigns: '3', placedHouses: String(a.housesPlaced), placedTrees: String(a.treesPlaced), placedGroundcover: String(a.groundcoverPlaced) }); this.game.textContent = `奇幻场景 · ${a.loadedAssets}/19 原始模型就绪\n3 村屋设计 · ${a.housesPlaced} 村屋 / ${a.treesPlaced} 林木 / ${a.groundcoverPlaced} 草灌木实例\n资源 ${(a.assetBytes / 1048576).toFixed(2)} MiB · CC0`
-    Object.assign(this.mapPosition.dataset, { x: String(this.focus.x), z: String(this.focus.z), distance: String(this.camera.position.distanceTo(this.focus)) }); this.mapPosition.textContent = `地图中心 ${this.focus.x.toFixed(1)}, ${this.focus.z.toFixed(1)}`
+    this.mapPosition.dataset.sceneFrame = String(stream.sceneFrame)
+    this.updateMapPosition()
   }
-  setPerformance(fps: number, frameMs: number, submitMs: number, info: THREE.WebGLInfo) { this.performance.textContent = `${fps} FPS · 帧 ${frameMs.toFixed(1)}ms · 提交 ${submitMs.toFixed(1)}ms\n${info.render.calls} 绘制 · ${info.render.triangles} 三角形` }
+  setPerformance(fps: number, frameMs: number, submitMs: number, info: THREE.WebGLInfo) { Object.assign(this.performance.dataset, { fps: String(fps), frameMs: String(frameMs), submitMs: String(submitMs), drawCalls: String(info.render.calls), triangles: String(info.render.triangles), geometries: String(info.memory.geometries), textures: String(info.memory.textures) }); this.performance.textContent = `${fps} FPS · 帧 ${frameMs.toFixed(1)}ms · 提交 ${submitMs.toFixed(1)}ms\n${info.render.calls} 绘制 · ${info.render.triangles} 三角形` }
   setMotionDiagnostic(requested: number, target: number, paused: boolean, inspection: boolean, ready: boolean, covered: boolean, jump: number | null) { this.motion.textContent = `请求/目标 ${requested.toFixed(1)}/${target.toFixed(1)}m/s · 暂停 ${paused} · 俯视 ${inspection}\n预热 ${ready} · 下一步覆盖 ${covered} · 跳转 ${jump ?? '无'}` }
   setGpuPreparation(s: { sequence: number; phase: string; groupIndex: number; groups: number; elapsedMs: number; completed: number }) { Object.assign(this.streaming.dataset, { gpuPhase: s.phase, gpuSequence: String(s.sequence), gpuCompleted: String(s.completed) }); this.streaming.textContent += `\nGPU ${s.phase} · 批次 ${s.sequence} · 完成 ${s.completed}` }
   setWorldPreparation(phase: string, presentable: boolean, elapsedMs: number) { Object.assign(this.streaming.dataset, { preparationPhase: phase, presentable: String(presentable), wholePrepareMs: String(elapsedMs) }) }
   setInitialPreparation(p: { gpuPhase: string; gpuSequence: number; gpuCompleted: number; pendingGpu: number; readyTiles: number; totalTiles: number; routeMetres: number; observedAtMs: number }) { Object.assign(this.streaming.dataset, { initialGpuPhase: p.gpuPhase, initialGpuSequence: String(p.gpuSequence), initialGpuCompleted: String(p.gpuCompleted), initialPendingGpu: String(p.pendingGpu), initialReadyTiles: String(p.readyTiles), initialTotalTiles: String(p.totalTiles), initialRouteMetres: String(p.routeMetres), initialReadyAtMs: String(p.observedAtMs) }) }
+  markMapRendered() { this.mapPosition.dataset.renderedRevision = String(this.mapRevision) }
+  private onControlStart = () => { this.mapControlActive = true; this.updateMapPosition() }
+  private onControlEnd = () => { this.mapControlActive = false; this.updateMapPosition() }
+  private onMapChange = () => { this.mapRevision++; this.updateMapPosition() }
+  private updateMapPosition() {
+    Object.assign(this.mapPosition.dataset, {
+      x: String(this.focus.x), y: String(this.focus.y), z: String(this.focus.z),
+      cameraX: String(this.camera.position.x), cameraY: String(this.camera.position.y), cameraZ: String(this.camera.position.z),
+      quaternion: this.camera.quaternion.toArray().join(','), distance: String(this.camera.position.distanceTo(this.focus)),
+      revision: String(this.mapRevision), controlsEnabled: String(this.controls.enabled), controlActive: String(this.mapControlActive),
+    })
+    this.mapPosition.textContent = `地图中心 ${this.focus.x.toFixed(1)}, ${this.focus.z.toFixed(1)}`
+  }
   private onDown = (event: PointerEvent) => { this.lastPointer = [event.clientX, event.clientY] }
   private onUp = (event: PointerEvent) => { if (!this.editing || !this.data || event.button !== 0 || Math.hypot(event.clientX - this.lastPointer[0], event.clientY - this.lastPointer[1]) > 6) return; const rect = this.canvas.getBoundingClientRect(); this.ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, 1 - (event.clientY - rect.top) / rect.height * 2), this.camera); const hit = new THREE.Vector3(); if (!this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.focus.y), hit)) return; this.progress.value = String(this.data.nearestRoute(hit.x, hit.z).s); this.refreshPreview() }
   get focus() { return this.controls.target }
   consume() { const p = this.pending; this.pending = {}; return p }
-  dispose() { this.controls.dispose(); this.canvas.removeEventListener('pointerdown', this.onDown); this.canvas.removeEventListener('pointerup', this.onUp); this.bar.remove(); this.panel.remove() }
+  dispose() { this.controls.removeEventListener('change', this.onMapChange); this.controls.removeEventListener('start', this.onControlStart); this.controls.removeEventListener('end', this.onControlEnd); this.controls.dispose(); this.canvas.removeEventListener('pointerdown', this.onDown); this.canvas.removeEventListener('pointerup', this.onUp); this.bar.remove(); this.panel.remove() }
 }

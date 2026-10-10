@@ -208,7 +208,7 @@ export class RealWorld {
     }
     return raw
   }
-  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; groundcover: boolean; settlements: boolean; buildings: boolean; water: boolean; stations: boolean }) {
+  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; groundcover: boolean; settlements: boolean; buildings: boolean; water: boolean; stations: boolean }, mapCameraPosition: THREE.Vector3) {
     const pose = this.data.pose(s)
     // Inspection may begin before source PNGs decode. Keep all terrain out
     // of shader compilation until its actual shared resources are available.
@@ -222,6 +222,7 @@ export class RealWorld {
     this.marker.position.set(pose.x, this.data.railHeight(s) + 22, pose.z)
     this.waterGroup.visible = layers.water; this.stationGroup.visible = layers.stations
     const point = inspection ? focus : pose
+    const houseCamera = inspection ? mapCameraPosition : new THREE.Vector3(pose.x, this.data.railHeight(s) + 2, pose.z)
     this.detailCoverage.update(point.x, point.z, key => this.chunks.get(key)?.gpuReady === true)
     this.gameAssets.focus.value.set(point.x, point.z)
     this.distantHouseGroup.visible = layers.buildings
@@ -286,6 +287,7 @@ export class RealWorld {
       chunk.group.visible = wanted.has(key) && (chunk.gpuReady || !this.presentable)
       if (chunk.group.visible) chunk.lastUsed = this.frame
       chunk.ground.visible = layers.ground
+      this.gameAssets.setHouseDetail(chunk.group, houseCamera)
       for (const child of chunk.group.children) {
         const layer = child.userData.geoLayer
         if (layer === 'vegetation') child.visible = layers.vegetation

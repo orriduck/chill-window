@@ -218,7 +218,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       ambient.color.copy(state.ambientColor).lerp(new THREE.Color(0xb4cbd9), 0.38); ambient.intensity = state.ambientIntensity * 0.95 * (1 - tunnel * 0.8)
       sun.color.copy(state.dirColor).lerp(new THREE.Color(0xffdfac), 0.28); sun.intensity = state.dirIntensity * 1.05 * (1 - tunnel * 0.92); sun.position.copy(state.dirPosition).add(viewPosition); sun.target.position.copy(viewPosition)
       const fog = scene.scene.fog as THREE.Fog; fog.color.copy(state.fogColor); fog.near = THREE.MathUtils.lerp(state.fogNear * 2, 8, tunnel); fog.far = THREE.MathUtils.lerp(state.fogFar * 3, 130, tunnel)
-      if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers)
+      if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers, inspector.camera.position)
       if (worldReady && world && !gpuChunkInFlight) {
         const prepared = world.takeGpuChunks()
         if (prepared.length) {
@@ -238,6 +238,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       if (inspection) { fog.near = 5000; fog.far = 15000; scene.scene.background = new THREE.Color(0xcbd7c5) }
       const renderStart = performance.now()
       renderer.render(scene.scene, viewCamera, inspection ? undefined : interiorScene)
+      if (inspection) inspector.markMapRendered()
       if (inspection) { fog.near = savedFogNear; fog.far = savedFogFar; scene.scene.background = null }
       perf.update()
       inspector.setPerformance(perf.currentFps, perf.currentFrameTime, performance.now() - renderStart, renderer.renderer.info)

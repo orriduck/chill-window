@@ -45,6 +45,7 @@ function installCaptureFrameControl() {
 }
 function strictReadyAndMaybeFreeze({ freeze = false, metres, inspection = false } = {}) {
   const get = label => document.querySelector(`[aria-label="${label}"]`);
+  const map = get('地图检查位置');
   const status = get('真实地理加载状态'), coverage = get('地形覆盖诊断'), stream = get('地理区块流式加载诊断'), game = get('游戏场景准备诊断'), motion = get('地理运动门控'), position = get('真实列车位置'), journey = document.querySelector('[data-journey-phase]');
   const ready = status?.textContent.includes('场景就绪') && status.textContent.includes('49/49') && coverage?.dataset.readyTiles === '49'
     && stream?.dataset.gpuPhase === 'idle' && Number(stream.dataset.gpuCompleted) > 0 && stream.dataset.presentable === 'true'
@@ -54,6 +55,7 @@ function strictReadyAndMaybeFreeze({ freeze = false, metres, inspection = false 
     && Number(game.dataset.placedHouses) > 0 && Number(game.dataset.placedTrees) > 0 && Number(game.dataset.placedGroundcover) > 0
     && journey?.dataset.worldPresentable === 'true' && Number(journey.dataset.focusElapsedSeconds) === 0 && Number(journey.dataset.segmentElapsedSeconds) === 0
     && Number.isFinite(Number(position?.dataset.routeMetres)) && Math.abs(Number(position.dataset.routeMetres) - metres) < 0.01
+    && (!inspection || (map?.dataset.revision === map?.dataset.renderedRevision && coverage.dataset.minTile === `${Math.floor(Number(map.dataset.x) / 256) - 3},${Math.floor(Number(map.dataset.z) / 256) - 3}`))
     && motion?.textContent.includes('暂停 true') && motion.textContent.includes(`俯视 ${inspection}`) && document.fonts.status === 'loaded';
   if (!ready) return false;
   if (!freeze) return true;
@@ -67,7 +69,7 @@ async function snapshot(name, metres, inspection = false) {
     await page.evaluate(() => document.fonts.ready);
     const handle = await page.waitForFunction(strictReadyAndMaybeFreeze, { freeze: true, metres, inspection }, { timeout: 180000, polling: 100 });
     state.freezeBefore = await handle.jsonValue(); await handle.dispose();
-    Object.assign(state, { url: page.url(), viewport: page.viewportSize(), status: await read('真实地理加载状态'), position: await read('真实列车位置'), streaming: await read('地理区块流式加载诊断'), coverage: await read('地形覆盖诊断'), assets: await read('游戏场景准备诊断'), motion: await read('地理运动门控'), map: await read('地图检查位置'), journey: await page.locator('[data-journey-phase]').evaluate(e => ({ ...e.dataset })) });
+    Object.assign(state, { url: page.url(), viewport: page.viewportSize(), status: await read('真实地理加载状态'), position: await read('真实列车位置'), streaming: await read('地理区块流式加载诊断'), coverage: await read('地形覆盖诊断'), assets: await read('游戏场景准备诊断'), motion: await read('地理运动门控'), map: await read('地图检查位置'), performance: await read('地理渲染性能'), journey: await page.locator('[data-journey-phase]').evaluate(e => ({ ...e.dataset })) });
     await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
     await page.screenshot({ path: path.join(output, `${name}.png`), timeout: 90000 });
     state.freezeAfter = await page.evaluate(() => ({ ...window.__cwCaptureFrameControl.status(), sceneFrame: document.querySelector('[aria-label="真实地理加载状态"]').dataset.sceneFrame }));
@@ -116,6 +118,13 @@ async function boardAndPause(metres, checkEarlyMap = false) {
   await page.addInitScript(installCaptureFrameControl);
   await page.addInitScript(() => {
     window.__cwPausePointer = null;
+    window.__cwMapInputEvents = [];
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel']) document.addEventListener(type, event => {
+      if (!document.querySelector('[aria-label="地理运动门控"]')?.textContent.includes('俯视 true')) return;
+      const target = event.target;
+      window.__cwMapInputEvents.push({ type, trusted: event.isTrusted, target: target.tagName, targetAria: target.getAttribute?.('aria-label'), canvas: target instanceof HTMLCanvasElement, x: event.clientX, y: event.clientY, deltaY: event.deltaY ?? null, buttons: event.buttons ?? null, phase: window.__cwMapInputPhase ?? 'unassigned', at: performance.now() });
+      if (window.__cwMapInputEvents.length > 300) window.__cwMapInputEvents.shift();
+    }, { capture: true, passive: true });
     document.addEventListener('pointerdown', event => { const b = event.target.closest?.('button'); if (b?.getAttribute('aria-label') === 'Pause journey') window.__cwPausePointer = { trusted: event.isTrusted, target: b.getAttribute('aria-label'), presentable: document.querySelector('[data-world-presentable]')?.dataset.worldPresentable, initialReadyTiles: document.querySelector('[aria-label="地理区块流式加载诊断"]')?.dataset.initialReadyTiles ?? null }; }, true);
   });
   await page.goto(`http://127.0.0.1:4173/?world=hudson&routeMetres=${metres}`, { waitUntil: 'domcontentloaded' });
@@ -175,13 +184,43 @@ async function boardAndPause(metres, checkEarlyMap = false) {
     let pointer = await boardAndPause(2790, true); await snapshot('01-forest-passenger', 2790); health.states.at(-1).pausePointer = pointer; await page.close(); page = null;
     const village = 21083.216; pointer = await boardAndPause(village); await snapshot('02-village-passenger', village); health.states.at(-1).pausePointer = pointer;
     await page.keyboard.press('F5'); await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' }); await ready(village, true);
-    const before = await read('地图检查位置');
-    await page.mouse.move(220, 260); await page.mouse.down(); await page.mouse.move(310, 305, { steps: 8 }); await page.mouse.up(); await page.mouse.wheel(0, -200);
-    await page.waitForFunction(previous => { const d = document.querySelector('[aria-label="地图检查位置"]')?.dataset; return d && (d.x !== previous.x || d.z !== previous.z) && Number(d.distance) !== Number(previous.distance); }, before, { timeout: 30000 });
-    const range = page.getByLabel('真实路线里程', { exact: true }); const priorPreview = await range.inputValue(); await page.mouse.click(280, 290);
+    health.mapInteraction = { phases: [] };
+    const mapPhase = async name => {
+      const state = { name, recordedAt: new Date().toISOString(), map: await read('地图检查位置'), performance: await read('地理渲染性能'), streaming: await read('地理区块流式加载诊断'), coverage: await read('地形覆盖诊断'), position: await read('真实列车位置'), motion: await read('地理运动门控'), events: await page.evaluate(() => [...window.__cwMapInputEvents]) };
+      health.mapInteraction.phases.push(state); await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2)); return state;
+    };
+    const canvas = page.locator('canvas').first(), canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('Missing actual map canvas');
+    const start = { x: canvasBox.x + canvasBox.width * .24, y: canvasBox.y + canvasBox.height * .52 }, end = { x: start.x + 60, y: start.y + 30 };
+    const targetProof = await page.evaluate(points => points.map(point => { const target = document.elementFromPoint(point.x, point.y); return { ...point, tag: target?.tagName, aria: target?.getAttribute('aria-label'), canvas: target instanceof HTMLCanvasElement }; }), [start, end]);
+    health.mapInteraction.targetProof = targetProof;
+    if (targetProof.some(point => !point.canvas)) throw new Error(`Map input hits an overlay: ${JSON.stringify(targetProof)}`);
+    await page.evaluate(() => { window.__cwMapInputPhase = 'pan'; });
+    const beforePan = await mapPhase('before pan');
+    await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(end.x, end.y, { steps: 6 }); await page.mouse.up();
+    await mapPhase('pan input delivered');
+    await page.waitForFunction(previous => { const d = document.querySelector('[aria-label="地图检查位置"]')?.dataset; return d && Number(d.revision) > Number(previous.revision) && Math.hypot(Number(d.x)-Number(previous.x),Number(d.z)-Number(previous.z)) > 1 && Math.hypot(Number(d.cameraX)-Number(previous.cameraX),Number(d.cameraZ)-Number(previous.cameraZ)) > 1; }, beforePan.map, { timeout: 30000 });
+    const afterPan = await mapPhase('pan camera changed');
+    if (!afterPan.events.some(e => e.phase === 'pan' && e.type === 'pointerdown' && e.trusted && e.canvas) || !afterPan.events.some(e => e.phase === 'pan' && e.type === 'pointermove' && e.buttons === 1 && e.trusted && e.canvas)) throw new Error('Pan lacks actual trusted canvas events');
+    // Settle the real uploaded viewport between independent gestures. Keep
+    // the existing readiness timeout and fence proof, rather than coupling
+    // two inputs to an RAF-delayed shared DOM predicate.
+    await ready(village, true); await mapPhase('pan scene GPU ready');
+    await page.evaluate(() => { window.__cwMapInputPhase = 'zoom'; });
+    const beforeZoom = await mapPhase('before zoom');
+    await page.mouse.move(end.x, end.y); await page.mouse.wheel(0, -200);
+    await mapPhase('wheel input delivered');
+    await page.waitForFunction(previous => { const d = document.querySelector('[aria-label="地图检查位置"]')?.dataset; return d && Number(d.revision) > Number(previous.revision) && Number(d.distance) < Number(previous.distance) - 1; }, beforeZoom.map, { timeout: 30000 });
+    const afterZoom = await mapPhase('zoom camera changed');
+    if (!afterZoom.events.some(e => e.phase === 'zoom' && e.type === 'wheel' && e.deltaY < 0 && e.trusted && e.canvas)) throw new Error('Zoom lacks an actual trusted canvas wheel event');
+    await ready(village, true); await mapPhase('zoom scene GPU ready');
+    const range = page.getByLabel('真实路线里程', { exact: true }), priorPreview = await range.inputValue();
+    await page.evaluate(() => { window.__cwMapInputPhase = 'click'; }); await page.mouse.click(start.x + 30, start.y + 15);
     await page.waitForFunction(previous => document.querySelector('[aria-label="真实路线里程"]')?.value !== previous, priorPreview, { timeout: 30000 });
+    const afterClick = await mapPhase('route click preview changed');
+    if (!afterClick.events.some(e => e.phase === 'click' && e.type === 'pointerup' && e.trusted && e.canvas)) throw new Error('Route click lacks actual trusted canvas input');
+    health.mapInteraction.clickPreviewMetres = await range.inputValue(); health.mapInteraction.pausedTrainMetres = afterClick.position.routeMetres;
     await snapshot('03-village-map', village, true);
-    health.mapInteraction = { before, after: await read('地图检查位置'), clickPreviewMetres: await range.inputValue(), pausedTrainMetres: (await read('真实列车位置')).routeMetres };
     await page.keyboard.press('Escape'); await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'hidden' }); await ready(village);
     health.returnToRide = { position: await read('真实列车位置'), streaming: await read('地理区块流式加载诊断'), motion: await read('地理运动门控') };
     if (Math.abs(Number(health.returnToRide.position.routeMetres) - village) > 0.01 || health.returnToRide.streaming.visibleMissing !== '0') throw new Error('Map return moved paused train or exposed missing chunks');
@@ -189,6 +228,23 @@ async function boardAndPause(metres, checkEarlyMap = false) {
     if (!health.runtimePassed) process.exitCode = 1;
   } catch (error) {
     health.runtimePassed = false; health.failure = String(error.stack ?? error); process.exitCode = 1;
-    if (page) { health.finalDiagnostic = await page.evaluate(() => Object.fromEntries(['真实地理加载状态', '真实列车位置', '地理区块流式加载诊断', '游戏场景准备诊断', '地理运动门控'].map(l => [l, document.querySelector(`[aria-label="${l}"]`)?.textContent]))).catch(() => ({})); await page.screenshot({ path: path.join(output, 'failure.png'), timeout: 15000 }).catch(() => {}); }
+    if (page) {
+      health.finalDiagnostic = await page.evaluate(() => ({
+        outputs: Object.fromEntries(['真实地理加载状态', '真实列车位置', '地理区块流式加载诊断', '游戏场景准备诊断', '地理运动门控', '地图检查位置', '地理渲染性能', '地形覆盖诊断'].map(label => { const e = document.querySelector(`[aria-label="${label}"]`); return [label, e ? { text: e.textContent, ...e.dataset } : null]; })),
+        inputEvents: window.__cwMapInputEvents, frameControl: window.__cwCaptureFrameControl?.status(),
+      })).catch(() => ({}));
+      // Failure pictures use the same actual-ready freeze, and are explicitly
+      // absent when coverage/fences are not ready. Never freeze an upload.
+      const metres = Number(health.finalDiagnostic.outputs?.['真实列车位置']?.routeMetres);
+      const inspection = health.finalDiagnostic.outputs?.['地理运动门控']?.text.includes('俯视 true') ?? false;
+      let frozen = false;
+      try {
+        const proof = await page.evaluate(strictReadyAndMaybeFreeze, { freeze: true, metres, inspection });
+        frozen = !!proof; health.failureCapture = { captured: false, readyProof: proof || null };
+        if (frozen) { await page.screenshot({ path: path.join(output, 'failure.png'), timeout: 15000 }); health.failureCapture.captured = true; }
+        else health.failureCapture.reason = 'Actual latest viewport/fence/font/clock proof is incomplete';
+      } catch (captureError) { health.failureCapture = { captured: false, failure: String(captureError) }; }
+      finally { if (frozen) health.failureResume = await page.evaluate(() => window.__cwCaptureFrameControl.resume()).catch(error => ({ error: String(error) })); }
+    }
   } finally { await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2)); await context?.close(); await browser?.close(); }
 })();

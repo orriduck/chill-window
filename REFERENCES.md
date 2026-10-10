@@ -528,3 +528,11 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 规格审查跟进：原屋顶模块最高顶点的脊线沿native X，现先旋转90°，按旋转后的实际边界铺成一件完整坡顶；不再沿Z重复未旋转模块。纯Node实际顶点审计得到三款连续depth脊长7.65/9.65/7.65m、X跨度近零。摆放审计直接调用实际addHouses、读取实际instance matrices与原顶点，覆盖near/distant、tiny/oversized footprint及三款设计；记录含-0.15m基底偏移后的屋顶/全屋高度，屋脊至少5m、总高约6.004–11.2925m。这些是渲染几何检查，仍不是实测当地高度或云端画面验收。
 
 质量审查跟进：场景从构造时隐藏，只有实际共享资源解码完成后 `assetsReady && (inspection || presentable)` 才允许显示，防止提前F5用undefined painted samplers编译背景shader；GPU上传/fence与同步初始49/49证明不变。Town palette object URL在成功或parse/decode失败时均finally撤销。森林云端配方在导航前注册page-only route，实际取得草PNG原响应（HTTP200/561283B）后限时持有，先检查F5/Escape两态仍presentable=false、计时0、里程不变，再交付原字节并继续同三张PNG。health记录真实interception/fulfillment计数、时间与加载态，不把独立game模型ready误作painted maps已ready。当前脚本仅静态检查，真实延迟/交互结果尚待云端。
+
+### 奇幻场景首轮云端与地图跟进（实际结果分开记录）
+
+[实际run38072714122](https://github.com/orriduck/chill-window/actions/runs/38072714122)，commit60304500，产出两张实际暂停乘客PNG；根任务下载并直接查看forest/village原图。两张均实际初始与当前49/49、GPU idle/待上传0、原生Pause/里程准确/计时0、字体与冻结帧验证通过；真正延迟原草PNG期间提前F5/Escape检查通过，无应用错误或请求失败。Peekskill乘客视角面对河岸，没有借截图声称能看到该处村屋。总体run仍失败于合并pan+wheel的30秒判断；地图PNG不存在，最终地图活跃、列车暂停准确里程、49覆盖但2待GPU/fence。旧health缺少失败时地图前后相机和性能读数，不能断言吞输入或GPU负载已是根因，也不把两张图片扩大为地图/整线验收。
+
+跟进只使用原CC0资源、真实GIS与本次云端证据，不增加未观察的风格参考。`GeoInspector.ts`按真正OrbitControls变化事件独立输出相机/焦点/距离/revision，避免只等RAF更新读数；新捕获将平移、滚轮与点击分别记录，检查实际canvas hit target和trusted事件，保存前后实际camera/performance/coverage/GPU数据。图片仍须rendered revision与当前地图coverage origin匹配、49/49、GPU idle/待上传0；失败图片也仅在真实ready后冻结，未完成上传不拍图。
+
+静态源计数见 `docs/visual-checks/2026-10-10-hudson-game-style/map-workload-static.json`：Peekskill近景1545村屋约502万三角形；远景距离范围7154村屋约2331万；采用近似区域sphere frustum后4489村屋约1465万。这是候选几何数量，不是实测GPU或性能根因。`GeoGameAssets.ts`为相同三款村屋新增924/1586/1280三角形距离LOD（详细款仍1536/5730/2504）；保留真实锚点矩阵、原palette、前门窗、完整坡顶/烟囱和实际bounds，超过220m及远景使用较少的侧墙模块。对应候选数变为近景约197万、远景距离约912万、近似frustum约572万，约降低61%；近乘客村屋仍详细。GPU门控照常验证全部instance buffers，没有新旧模式或外观比较开关。纯Node18模板/18摆放及6LOD配对审计通过，19原GLB+palette220755B不变；当前只完成静态检查，下一轮实际地图PNG、交互与视觉验收仍待执行。

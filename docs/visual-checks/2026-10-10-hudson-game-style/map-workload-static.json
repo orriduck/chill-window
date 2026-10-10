@@ -1,0 +1,43 @@
+{
+  "scope": "Pure Node source/GIS candidate workload, not measured GPU load or frame performance; frustum uses approximate 760m region spheres.",
+  "sourceCommit": "60304500dcdd91791eb9f61cbe377692c46505c6",
+  "routeMetres": 21083.216,
+  "camera": [
+    1883.9382101227732,
+    782.7317973071695,
+    -7494.913235176741
+  ],
+  "target": [
+    2342.3103947574073,
+    2.731797307169504,
+    -8405.776490767023
+  ],
+  "fullTrianglesPerHouse": [
+    1536,
+    5730,
+    2504
+  ],
+  "lowTrianglesPerHouse": [
+    924,
+    1586,
+    1280
+  ],
+  "foundationTrianglesPerHouse": 12,
+  "near7x7": {
+    "sourceHouses": 1545,
+    "fullTriangles": 5019442,
+    "lowTriangles": 1966162
+  },
+  "distantDistanceCandidates": {
+    "sourceHouses": 7154,
+    "fullTriangles": 23310600,
+    "lowTriangles": 9121964
+  },
+  "distantApproximateFrustumCandidates": {
+    "sourceHouses": 4489,
+    "fullTriangles": 14652292,
+    "lowTriangles": 5724676
+  },
+  "bounds": "same original roof/chimney silhouettes, source anchors/matrices/material and 5\u201312m height constraints; full detail within220m camera distance, low outside and all distant houses",
+  "performanceAcceptance": false
+}

@@ -83,12 +83,12 @@ export class GeoGameAssets {
       // the mesh parse. GLTFLoader caches it across all modular models.
       const textures = [...this.materials].map(m => m.map).filter((t): t is THREE.Texture => !!t)
       await Promise.all(textures.map(t => t.image instanceof HTMLImageElement && !t.image.complete ? t.image.decode() : Promise.resolve()))
-      for (let variant = 0; variant < 3; variant++) this.assembleHouse(town, variant)
+      for (let variant = 0; variant < 3; variant++) { this.assembleHouse(town, variant); this.assembleHouse(town, variant, true) }
       for (const template of town.values()) template.geometry.dispose()
       this.readyState = !this.disposed
     } finally { URL.revokeObjectURL(textureUrl) }
   }
-  private assembleHouse(town: Map<string, Template>, variant: number) {
+  private assembleHouse(town: Map<string, Template>, variant: number, simplified = false) {
     const parts: THREE.BufferGeometry[] = [], width = variant === 2 ? 7.5 : 6, depth = variant === 1 ? 9 : 7, floors = variant === 0 ? 1 : 2, floorHeight = 2.8
     const add = (name: string, position: THREE.Vector3, scale: THREE.Vector3, yaw = 0) => {
       const geometry = town.get(name)!.geometry.clone()
@@ -97,12 +97,12 @@ export class GeoGameAssets {
     // Walls are native one-unit panels whose outside face is x=0.5. Four
     // rotations form closed houses; fenestration stays human-scale.
     for (let side = 0; side < 4; side++) {
-      const length = side % 2 ? width : depth, across = Math.ceil(length / 2.8), panel = length / across
+      const length = side % 2 ? width : depth, across = simplified && side !== 0 ? 1 : Math.ceil(length / 2.8), panel = length / across
       const yaw = side * Math.PI / 2
       for (let floor = 0; floor < floors; floor++) for (let col = 0; col < across; col++) {
         const local = new THREE.Vector3((side % 2 ? depth : width) / 2 - 0.5 * 2.8, 0.65 + floor * floorHeight, -length / 2 + panel * (col + 0.5)).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw)
         local.y = 0.65 + floor * floorHeight
-        const name = side === 0 && floor === 0 && col === Math.floor(across / 2) ? 'wall-door' : col % 2 === 0 ? (variant === 1 ? 'wall-window-shutters' : 'wall-window-small') : variant === 2 ? 'wall-wood-detail-diagonal' : 'wall-detail-cross'
+        const name = simplified && side !== 0 ? (variant === 2 ? 'wall-wood-detail-diagonal' : 'wall-detail-cross') : side === 0 && floor === 0 && col === Math.floor(across / 2) ? 'wall-door' : col % 2 === 0 ? (variant === 1 && !simplified ? 'wall-window-shutters' : 'wall-window-small') : variant === 2 ? 'wall-wood-detail-diagonal' : 'wall-detail-cross'
         add(name, local, new THREE.Vector3(2.8, floorHeight, panel), yaw)
       }
     }
@@ -126,7 +126,8 @@ export class GeoGameAssets {
     geometry.userData.roofTop = roofBase + ridgeRise
     geometry.userData.roofVertexStart = roofVertexStart
     geometry.userData.roofVertexCount = roof.getAttribute('position').count
-    this.templates.set(`house${variant}`, { geometry, material })
+    this.templates.set(`${simplified ? 'houseLod' : 'house'}${variant}`, { geometry, material })
+    if (simplified) return
     const foundation = new THREE.BoxGeometry(width, 0.8, depth).toNonIndexed(); foundation.translate(0, 0.25, 0)
     const stone = new THREE.MeshStandardMaterial({ color: 0x77786c, roughness: 1 }); this.materials.add(stone)
     this.templates.set(`foundation${variant}`, { geometry: foundation, material: stone })
@@ -177,14 +178,36 @@ export class GeoGameAssets {
       groups[variant].push({ x, y: y - 0.15, z, yaw, height: scale, variant }); this.housesPlaced++
     }
     const group = new THREE.Group(); group.userData.geoLayer = 'building'; parent.add(group)
-    groups.forEach((placements, variant) => { this.addBatch(group, `house${variant}`, placements, distant); this.addBatch(group, `foundation${variant}`, placements, distant) })
+    group.userData.sourceHouseCount = groups.reduce((count, placements) => count + placements.length, 0)
+    groups.forEach((placements, variant) => {
+      if (!distant) {
+        this.addBatch(group, `house${variant}`, placements)
+        const full = group.children.at(-1)
+        if (placements.length && full) full.userData.houseDetail = 'full'
+      }
+      this.addBatch(group, `houseLod${variant}`, placements, distant)
+      const low = group.children.at(-1)
+      if (placements.length && low && !distant) { low.userData.houseDetail = 'low'; low.visible = false }
+      this.addBatch(group, `foundation${variant}`, placements, distant)
+    })
+  }
+  /** Geometry LOD only: both batches share source anchors, matrices, roofs,
+   * palette and silhouette. Far houses omit repeated small side-wall panels.
+   * All instance buffers are prepared by the same genuine GPU fence gate. */
+  setHouseDetail(parent: THREE.Group, cameraPosition: THREE.Vector3) {
+    parent.traverse(object => {
+      if (!(object instanceof THREE.InstancedMesh) || !object.userData.houseDetail || !object.boundingSphere) return
+      const near = object.boundingSphere.center.distanceTo(cameraPosition) < 220
+      object.visible = object.userData.houseDetail === 'full' ? near : !near
+    })
   }
   release(parent: THREE.Group) {
-    parent.traverse(object => { if (object instanceof THREE.InstancedMesh && object.userData.gameAsset) {
+    parent.traverse(object => {
+      if (object.userData.sourceHouseCount) this.housesPlaced -= object.userData.sourceHouseCount
+      if (object instanceof THREE.InstancedMesh && object.userData.gameAsset) {
       const name = object.userData.gameAsset as string
       if (name.startsWith('tree')) this.treesPlaced -= object.count
-      else if (name.startsWith('house')) this.housesPlaced -= object.count
-      else if (!name.startsWith('foundation')) this.groundcoverPlaced -= object.count
+      else if (!name.startsWith('foundation') && !name.startsWith('house')) this.groundcoverPlaced -= object.count
     } })
   }
   dispose() { this.disposed = true; for (const t of this.templates.values()) t.geometry.dispose(); for (const m of this.materials) { m.map?.dispose(); m.dispose() } }
