@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   capture:
-    if: github.ref_name != 'codex/full-route-streaming-review'
+    if: github.ref_name != 'codex/full-route-streaming-review' && github.ref_name != 'codex/tree-asset-preparation'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
         with:
@@ -38,7 +38,7 @@ jobs:
       - name: Capture ride, geography, station positions and movement
         env:
           CW_CAPTURE_SHA: ${{ github.sha }}
-          CW_TREE_REVIEW_ONLY: ${{ github.ref_name == 'codex/near-tree-visual-review' && '1' || '0' }}
+          CW_TREE_REVIEW_ONLY: ${{ (github.ref_name == 'codex/near-tree-visual-review' || github.ref_name == 'codex/broadleaf-tree-visual-review') && '1' || '0' }}
           CW_BUILDING_REVIEW_ONLY: ${{ github.ref_name == 'codex/converted-building-review' && '1' || '0' }}
         run: |
           mkdir -p "$RUNNER_TEMP/chill-visual"
@@ -112,13 +112,29 @@ jobs:
             await page.getByRole('button', { name: '定位树模型对照', exact: true }).click();
             await ready();
             health.treeModels = await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent();
-            if (!health.treeModels.includes('来源尺度对照 已准备 · 2 株 · 1,246,344 B')) throw new Error(`Tree assets were not prepared: ${health.treeModels}`);
+            if (!health.treeModels.includes('来源尺度对照 已准备 · 5 实例 · 53,790,996 B')) throw new Error(`Tree assets were not prepared: ${health.treeModels}`);
             health.treeAssetsPreparedVerified = true;
             await page.getByLabel('真实地理林木', { exact: true }).uncheck();
             await page.getByLabel('真实地理建筑', { exact: true }).uncheck();
             await page.getByLabel('真实地理道路', { exact: true }).uncheck();
             await snapshot('03i-tree-source-models');
+            const comparison = page.getByLabel('树模型材质对照版本', { exact: true });
+            health.phototexturedTreeCases = [];
+            for (const [mode, image, triangles] of [['old-pine', '03i1-old-pine-matched-view', '6,588'], ['native', '03i2-phototextured-pine-native', '416,451'], ['branch50', '03i3-phototextured-pine-branch50', '381,180'], ['birch', '03i5-silver-birch-source-scale', '52,476']]) {
+              await comparison.selectOption(mode);
+              await ready();
+              const diagnostic = await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent();
+              if (!diagnostic.includes(`对照当前显示 1 实例 / ${triangles} 三角形`)) throw new Error(`Wrong prepared tree variant: ${diagnostic}`);
+              const stream = await page.getByLabel('地理区块流式加载诊断', { exact: true }).textContent();
+              if (!stream.includes('视野缺块 0') || !stream.includes('行驶缺块帧 0')) throw new Error(`Tree comparison revealed late scenery: ${stream}`);
+              health.phototexturedTreeCases.push({mode, diagnostic, stream});
+              await snapshot(image);
+            }
+            health.phototexturedTreeControlsVerified = true;
             await page.getByLabel('树模型来源尺度对照', { exact: true }).uncheck();
+            await ready();
+            const hidden = await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent();
+            if (!hidden.includes('对照当前显示 0 实例 / 0 三角形')) throw new Error(`Tree comparison remained visible: ${hidden}`);
             await snapshot('03j-tree-source-models-hidden');
             health.treeControlsVerified = true;
             await page.getByLabel('真实地理林木', { exact: true }).check();
@@ -197,6 +213,10 @@ jobs:
                 await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
                 await page.getByText('数据来源与加载诊断', { exact: true }).click();
                 await reviewTreeModels();
+                await page.keyboard.press('Escape');
+                await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'hidden' });
+                await ready();
+                await snapshot('03i4-prepared-tree-return-to-ride');
                 health.runtimePassed = !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
                 if (!health.runtimePassed) process.exitCode = 1;
                 return;
@@ -298,7 +318,7 @@ jobs:
             }
           })();
           NODE
-          timeout 1500s node "$RUNNER_TEMP/chill-review.cjs"
+          timeout 2400s node "$RUNNER_TEMP/chill-review.cjs"
       - uses: actions/upload-artifact@v5
         if: always()
         with:

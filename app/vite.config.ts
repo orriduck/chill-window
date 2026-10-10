@@ -50,7 +50,9 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff2,glb}', 'geodata/hudson/world.json', 'geodata/hudson/elevation.f32'],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Authored source-tree comparisons are local 23–24MB GLBs and must
+        // remain available alongside the prepared scene after installation.
+        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
         navigateFallback: '/index.html',
       },
     }),

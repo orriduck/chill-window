@@ -42,6 +42,7 @@ export class GeoInspector {
   private buildingCase: HTMLButtonElement
   private treeStats = document.createElement('output')
   private treeCase: HTMLButtonElement
+  private treeModel = document.createElement('select')
   private convertedStats = document.createElement('output')
   private convertedCase: HTMLButtonElement
   private world: RealWorld | null = null
@@ -53,8 +54,8 @@ export class GeoInspector {
     this.real = initiallyReal
     this.controls = new OrbitControls(this.camera, canvas)
     this.controls.enabled = false; this.controls.enableDamping = true; this.controls.dampingFactor = 0.12
-    this.controls.screenSpacePanning = false; this.controls.minDistance = 100; this.controls.maxDistance = 7000
-    this.controls.minPolarAngle = 0.06; this.controls.maxPolarAngle = Math.PI * 0.43
+    this.controls.screenSpacePanning = false; this.controls.minDistance = 12; this.controls.maxDistance = 7000
+    this.controls.minPolarAngle = 0.06; this.controls.maxPolarAngle = Math.PI * 0.49
     this.controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
     this.controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
     const font = 'font:13px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;'
@@ -125,18 +126,32 @@ export class GeoInspector {
     }
     this.treeCase = this.button('定位树模型对照', () => {
       if (!this.world || this.world.treeComparison.stats.preparedTrees < 2) return
-      const point = this.world.treeComparisonPoint
+      const mode = this.treeModel.value
+      this.world.treeComparison.setAssetFilter(mode === 'native' ? ['phototextured-pine-native'] : mode === 'branch50' ? ['phototextured-pine-branch50'] : mode === 'old-pine' ? ['scots-pine'] : mode === 'birch' ? ['silver-birch'] : ['scots-pine', 'oak-street-tree'])
+      const point = mode === 'originals' ? this.world.treeComparisonPoint : this.world.treeComparisonTreePoint
+      if (this.data) { this.progress.value = String(this.data.nearestRoute(point.x, point.z).s); this.refreshPreview() }
       this.layers.treeSamples = true
       const input = treeLayers.querySelector<HTMLInputElement>('[aria-label="树模型来源尺度对照"]')
       if (input) input.checked = true
       const damping = this.controls.enableDamping; this.controls.enableDamping = false; this.controls.update()
       this.controls.target.copy(point)
-      this.camera.position.set(point.x + 70, point.y + 40, point.z + 70)
+      if (mode === 'originals') this.camera.position.set(point.x + 70, point.y + 40, point.z + 70)
+      else {
+        this.controls.target.y += 10
+        const ground = this.world.terrainHeight(point.x + 24, point.z + 28)
+        this.camera.position.set(point.x + 24, Math.max(point.y + 11, (ground ?? point.y) + 3), point.z + 28)
+      }
       this.controls.update(); this.controls.enableDamping = damping
     })
     this.treeCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
+    this.treeModel.setAttribute('aria-label', '树模型材质对照版本')
+    this.treeModel.style.cssText = this.source.style.cssText + 'width:100%;margin-top:6px;'
+    for (const [value, text] of [['originals', '现有松树 / 橡树来源尺度'], ['old-pine', '现有松树 · 同机位'], ['native', '真实纹理松树 · 作者原生 LOD2'], ['branch50', '真实纹理松树 · 保留叶片，减少枝干'], ['birch', '成熟桦树 · 14m作者尺度，外观候选']] as const) {
+      const option = document.createElement('option'); option.value = value; option.textContent = text; this.treeModel.append(option)
+    }
+    this.treeModel.onchange = () => this.treeCase.click()
     const treeNotice = document.createElement('p')
-    treeNotice.textContent = '来源模型：18m Scots pine / 约8.6m橡树街树，保留作者尺度。近景松树只用于NLCD常绿林的外观样本；地理分类不识别逐株树种。橡树仅在此对照显示。模型和内嵌纹理随应用预加载，不表示当地实测树木。'
+    treeNotice.textContent = '来源模型均保留作者尺度：现有松树18m、橡树约8.6m；Poly Haven松树约20.4m，原生416,451 / 减枝干381,180三角形，叶片与照片纹理相同。桦树14m、52,476三角形、64px贴图，不能据此标为摄影纹理。新模型只用于此对照，尚未铺满森林；地理分类不识别逐株树种。所有版本在出发前预加载和GPU准备，切换只改变显隐。'
     treeNotice.style.cssText = notes.style.cssText
     this.convertedStats.setAttribute('aria-label', '转换建筑准备诊断'); this.convertedStats.style.cssText = this.streamingStats.style.cssText
     const convertedLabel = document.createElement('label'), convertedInput = document.createElement('input')
@@ -146,6 +161,7 @@ export class GeoInspector {
     this.convertedCase = this.button('定位转换建筑', () => {
       if (!this.world?.convertedBuildings.stats.ready) return
       const point = this.world.convertedBuildings.focusPoint
+      if (this.data) { this.progress.value = String(this.data.nearestRoute(point.x, point.z).s); this.refreshPreview() }
       const damping = this.controls.enableDamping; this.controls.enableDamping = false; this.controls.update()
       this.controls.target.copy(point); this.camera.position.set(point.x + 60, point.y + 45, point.z + 65)
       this.controls.update(); this.controls.enableDamping = damping
@@ -154,7 +170,7 @@ export class GeoInspector {
     const convertedNotice = document.createElement('p')
     convertedNotice.textContent = 'Peekskill 15栋有源高度建筑，OSM2World离线转换并对齐当前DEM。勾选对比PBR通用材质；取消显示原来的源足迹体块。未导入3个默认补高对象。墙面/屋顶贴图及无标签屋顶形态为转换器的表现假设，不是当地照片。'
     convertedNotice.style.cssText = notes.style.cssText
-    diagnostics.append(summary, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, treeLayers, this.treeCase, this.treeStats, treeNotice, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
+    diagnostics.append(summary, treeLayers, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
@@ -212,7 +228,7 @@ export class GeoInspector {
     this.convertedStats.textContent = `转换建筑 ${converted.ready ? '已准备' : '加载中'} · ${converted.buildings}/15 栋 · ${converted.meshes} 合批 · ${converted.triangles} 三角形\n源高度匹配 · 足迹最大误差 ${converted.maxAlignmentErrorMetres.toFixed(4)}m · 排除 ${converted.rejectedDefaults} 个默认补高对象\n原体块与PBR模型都在初始GPU预热中提交；切换只改变可见性。`
     const trees = world.closeTrees.stats, samples = world.treeComparison.stats
     this.treeCase.disabled = !samples.ready || samples.preparedTrees < 2
-    this.treeStats.textContent = `常绿林3D ${trees.ready ? '已准备' : '加载中'} · ${trees.preparedTrees} 位置样本\n局部显示 ${trees.visibleTrees} 株 / ${trees.visibleDrawCalls} 合批 · ${trees.visibleTriangles.toLocaleString()} 三角形\n来源尺度对照 ${samples.ready ? '已准备' : '加载中'} · ${samples.preparedTrees} 株 · ${samples.processedAssetBytes.toLocaleString()} B\n模型在初始GPU离屏预热中提交；当前显示统计是距离筛选上界，不是实际frustum绘制次数。`
+    this.treeStats.textContent = `常绿林3D ${trees.ready ? '已准备' : '加载中'} · ${trees.preparedTrees} 位置样本\n局部显示 ${trees.visibleTrees} 株 / ${trees.visibleDrawCalls} 合批 · ${trees.visibleTriangles.toLocaleString()} 三角形\n来源尺度对照 ${samples.ready ? '已准备' : '加载中'} · ${samples.preparedTrees} 实例 · ${samples.processedAssetBytes.toLocaleString()} B\n对照当前显示 ${samples.visibleTrees} 实例 / ${samples.visibleTriangles.toLocaleString()} 三角形 · ${this.treeModel.selectedOptions[0]?.textContent}\n模型在初始GPU离屏预热中提交；当前显示统计是距离筛选上界，不是实际frustum绘制次数。`
     if (this.editing) this.controls.update()
     const pose = this.data.pose(s)
     this.position.dataset.routeMetres = String(pose.s)

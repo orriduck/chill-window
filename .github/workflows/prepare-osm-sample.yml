@@ -1,0 +1,71 @@
+name: Prepare OSM2World contrast sample
+
+on:
+  push:
+    branches: ['codex/tree-asset-preparation']
+    paths:
+      - 'app/scripts/experiments/osm2world-peekskill/**'
+      - '.github/workflows/prepare-osm-sample.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fetch and verify the official converter
+        run: |
+          curl --fail --location --retry 2 'https://osm2world.org/download/files/0.4.0/OSM2World-0.4.0-bin.zip' --output "$RUNNER_TEMP/osm2world.zip"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          expected = json.loads(Path('app/scripts/experiments/osm2world-peekskill/manifest.json').read_text())
+          archive = Path(os.environ['RUNNER_TEMP']) / 'osm2world.zip'
+          assert archive.stat().st_size == expected['software']['releaseArchiveBytes']
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == expected['software']['releaseArchiveSha256']
+          for filename, sha in [('peekskill-overpass.xml', expected['input']['osmSnapshotSha256']), ('peekskill-overpass.ql', expected['input']['querySha256']), ('peekskill-buildings-only.osm', 'e0259c468e98d620e207d45ec13b5eb4512d9f025d16152652c0e7b610b953ed')]:
+              path = Path('app/scripts/experiments/osm2world-peekskill/input') / filename
+              assert hashlib.sha256(path.read_bytes()).hexdigest() == sha, filename
+          PY
+          unzip -q "$RUNNER_TEMP/osm2world.zip" -d "$RUNNER_TEMP/osm2world"
+          chmod +x "$RUNNER_TEMP/osm2world/osm2world.sh"
+      - name: Rebuild the exact real-data model
+        run: |
+          cp app/scripts/experiments/osm2world-peekskill/manifest.json "$RUNNER_TEMP/osm-expected-manifest.json"
+          mkdir -p app/scripts/experiments/osm2world-peekskill/output
+          python3 app/scripts/experiments/osm2world-peekskill/prepare.py --osm2world "$RUNNER_TEMP/osm2world/osm2world.sh"
+          python3 app/scripts/experiments/osm2world-peekskill/prepare.py --verify-only
+          python3 app/scripts/experiments/osm2world-peekskill/verify-semantic-output.py
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          old = json.loads((Path(os.environ['RUNNER_TEMP']) / 'osm-expected-manifest.json').read_text())
+          new = json.loads(Path('app/scripts/experiments/osm2world-peekskill/manifest.json').read_text())
+          # Both raw binaries remain pinned. Their source-keyed accessor bytes
+          # were independently compared in the original cloud and Actions.
+          assert new['output']['sha256'] == '29a077b67cccd602c01eb6bd0de204cf6a20bebe9ff882af5238fe0ec11b79af'
+          assert old['output']['embeddedImages'] == new['output']['embeddedImages']
+          assert old['input']['records'] == new['input']['records']
+          assert new['output']['triangles'] == 630
+          assert new['input']['retainedBuildingWays'] == 18
+          assert new['defaults']['observedNoHeightFeatureOutputTopMetres'] == [7.5]
+          assert new['defaults']['observedMissingHeightFeatureCountWithGeometry'] == 3
+          print(new['output']['sha256'])
+          PY
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: osm2world-peekskill-contrast-sample
+          path: app/scripts/experiments/osm2world-peekskill/
+          retention-days: 7
+          if-no-files-found: error

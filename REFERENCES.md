@@ -300,3 +300,35 @@ OSM2World云端实验已完成转换：官方0.4.0、18个building way与209个�
 主要来源：[OSM2World](https://github.com/tordanik/OSM2World)、[默认样式/材质](https://github.com/tordanik/OSM2World-default-style)、[MetricMapProjection](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/math/geo/MetricMapProjection.java)、[MercatorProjection](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/math/geo/MercatorProjection.java)。投影公式从作者源码核对，实际binary投影后地面顶点与现有OSM源足迹最大偏差0.0006442m。
 
 已取得 [Actions诊断运行](https://github.com/orriduck/chill-window/actions/runs/38008413794) 的实际GLB；该运行因跨环境原始SHA不同而失败，输出保留用于核对。历史原始SHA和交付SHA均保存在provenance，不宣称字节重建一致。当前导入15个有源height的建筑/586tri，排除3个默认补高对象。模型逐栋加当前DEM中心点地面高度并翻转Z及三角绕序，合并为两组PBR材质；同时预建原始体块作为对照，Debug Mode可定位和显隐。材质为CC0通用Plaster002/RoofingTiles010，没有取得当地立面照片，默认屋顶不标成实测。受影响代码：`GeoConvertedBuildings.ts`、`GeoConvertedBuildingRecords.ts`、`RealWorld.ts`、`GeoDistantBuildings.ts`、`GeoInspector.ts`；素材与具体SHA在 `public/models/osm2world/peekskill/provenance.json`。新版实际画面核查待云端artifact。
+
+`d7c7b2a` 的 [建筑隔离检查](https://github.com/orriduck/chill-window/actions/runs/38009285847) 已通过。已实际看PBR/原体块/返回列车截图；模型15/15、2合批、586tri，浏览器Float32坐标最大足迹误差0.0009m；全部图片49/49、缺块/迟到0，无请求或运行错误。初始GPU预热14960ms；此运行只覆盖初始准备及隔离建筑/返回，不包含完整连续路线。PBR图默认红瓦明显过饱和，未有当地颜色标签支持；因此后续材质保留既有源/中性颜色，仅从通用贴图提取低对比明度与减弱法线细节。此画面结论不表示真实逐栋立面完成。
+
+原始云端与Actions的18 source对象/36 primitive，独立按source ID与primitive整理accessor实际元素bytes（位置、法线、UV、索引）和材质名称，均得到SHA `a04a18fad2b7eaee14659d71bffaafde3f24ccbb00e5aca0b8d92db3ccdd2bb3` / 22,109B；6张内嵌纹理SHA也一致。JSON规范化及BIN原始chunk SHA仍不同，不宣称raw bytes可重现。新增明确的mesh/hash检查，并固定已观察Actions raw SHA，[591c3c1重建](https://github.com/orriduck/chill-window/actions/runs/38010556265)通过。保留两个不同的原始SHA和早期失败，不将调整验证口径写成初次检查已通过。
+
+树木候选补充：[Poly Haven Pine Tree 01](https://polyhaven.com/a/pine_tree_01)官方CC0，云端实际下载并打开Blender源文件；作者A树LOD2有416,451tri（叶片345,915tri），约20.4m高，有专用叶片alpha和真实纹理PBR。已保存完整重建脚本至 `scripts/experiments/polyhaven-pine/`，等待固定source manifest及Blender bootstrap后再在Actions生成可下载模型。它尚未接入或检查实际浏览器；不能用高面数或作者预览证明自然林目标已达成。早期25k整体简化没有被作为通过标准，后续应保留叶冠并作原生/减轻版本实际对比。Tree Small 02是4.6m Burkea africana；Jacaranda也未当成Hudson本地成熟树种。主要阔叶林模型仍缺，当前goal仍未完成。
+
+### 2026-10-09：全样板线路连续行驶与颜色修正版
+
+[150f076全线运行38009493345](https://github.com/orriduck/chill-window/actions/runs/38009493345)已通过并读取完整health：基于d7c7b2a，仅增加精确里程诊断和独立工作流，640×360 SwiftShader、正常速度、不跳转，从0实际推进到22837.381661575448m（恰好源线路终点）。95次采样缺块和累计迟到均0，初始GPU预热8352ms，终点49/49且待上传0，没有请求或运行错误。已实际看21.135km、终点及四站套件Peekskill图。此证据覆盖当前整条22.84km样板线路的连续准备，不等于完整Empire Service、硬件帧率、高分辨率所有视角或离线验收。终点树卡的轮廓与悬空感仍明显，树木目标未达成。
+
+[d7c7b2a完整交互运行38009280167](https://github.com/orriduck/chill-window/actions/runs/38009280167)已通过：另有700m连续六次缺块/迟到0，建筑原/PBR/隐藏、树模型、远地图返回、四站和移动视图保留，无请求失败。已读取health并看Peekskill图；站台/遮棚视觉仍需进一步完善，绿色地表和基础体块不能视为全部视觉完成。
+
+[b97483f颜色修正版38010134905](https://github.com/orriduck/chill-window/actions/runs/38010134905)已通过，实际查看PBR及原体块图：默认红色被移除，源/中性颜色保留，通用表面细节仍可见；15栋/586tri/2合批、足迹误差0.0009m，定位/显隐/返回均49/49且缺块/迟到0，无请求或运行错误。初始GPU预热14292ms。此运行只覆盖初次准备和隔离建筑/返回，不包含全线连续行驶；全线证据是上述150f076基于d7c7b2a的运行。[b97483f预览](https://chill-window-pokr0r9f4-orriduck.vercel.app/?world=hudson)已READY并核对提交与HTTP200。真正的立面/窗口、主要阔叶林与整段建筑视觉升级仍需继续。
+
+### 2026-10-10：原生纹理松树配方与阔叶候选实际文件
+
+原生松树 Actions 配方保留实际源 .blend 与18张贴图的 SHA/大小，固定官方下载 Blender4.4.3 的363,316,148B归档及SHA。原生416,451tri与只减枝干的381,180tri版本保持叶片accessor hash `0ae502cc8ceb0ff51013367cfe9b983aaece6e0b9a073bd8850a7bf64f0aedd6`，待实际输出校验完成；此内容尚未成为默认运行模型。首次[38014145361](https://github.com/orriduck/chill-window/actions/runs/38014145361)下载Blender遇到403；标准curl下载后已成功验证归档并导出两版。第二次[38014301825](https://github.com/orriduck/chill-window/actions/runs/38014301825)因验证器要求显式alphaCutoff而失败，实际glTF允许省略该属性，默认0.5；按[Khronos glTF2.0规范](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#_material_alphacutoff)修正，并按源名称比较纹理，未改变叶片hash要求。
+
+核对[Innerscene Mature silver birch](https://www.innerscene.com/tools/library/3d-parts/mature-silver-birch-tree-8e297753)作者页及其公开Download GLB链接，root实际取得4,902,236B文件，SHA `d1832a237f9e5d3728c7c6dc6e8e8243ac2984e51abe102cdf12bb996ca3dcc7`。源文件103mesh、52,476tri、5材质/5张64×64内嵌PNG，实际顶点及节点变换后的尺度8.185×14.000×7.791m，CC0 original_design。作者页的textured标记不能写成真实摄影纹理；尚未检查应用内树冠自然程度、未接入或替换主要阔叶林。下载临时原件为 `/tmp/chill-silver-birch-source.glb`，尚无运行代码引用。
+
+后续[c647543 / 38014443841](https://github.com/orriduck/chill-window/actions/runs/38014443841)已成功，实际取回原生24,328,860B及枝干版23,313,556B产物，root重新计算SHA分别为 `5b3b8c30cf28937e5e5193602e76e48878a24f81b58377dbbf3d2587d60a3ee8` 和 `6d6dbf39b0f2d0099df6cb12bea32e0d4f43de19a76bbce9b0188eeb2d5bf6db`，与之前云端相同；两版完整叶片hash一致、内嵌图像逐源名称hash相同。保留实际报告至 `scripts/experiments/polyhaven-pine/cloud-delivery-report.json`。此资源重建成功尚不表示浏览器自然外观通过，也尚未铺到运行世界。
+
+将上述实际GLB接入`GeoCloseTrees.ts`和`RealWorld.ts`的来源尺度对照，在同一现有林地显示采样点保留20.4m作者尺度/方向/地面位置；暂不覆盖主要森林。`GeoInspector.ts`折叠诊断增加版本选择，现有松树/新原生/仅减枝干版本使用同一机位，沿线林木在来源对照时隔离、退出调试恢复。所有版本初次加载验证真实字节SHA并随整世界GPU准备，选择只改显隐。两版各约23–24MB，不把它们称为已适合整片森林或PWA离线可用；本次原生416k与381k画面待云端检查。主要借鉴点为真实针叶RGB/alpha、树皮normal/roughness和作者枝叶结构；出处[Poly Haven原作者页](https://polyhaven.com/a/pine_tree_01)及上述固定源码/纹理清单。
+
+[0b2a1d5树模型运行38015041430](https://github.com/orriduck/chill-window/actions/runs/38015041430)通过，已读完整health并实际查看旧松树/原生/仅减枝干/隐藏/返回车窗五图。初次GPU预热14686ms，所有对照和返回49/49、缺块/迟到0，无请求或运行错误；此套件不含全线连续或四站。原生与减枝干图的轮廓一致，但地图相机minDistance=100把申请的近距离机位推远，树冠仍显细小/偏疏；不能以这几图判定主要森林自然目标达成。后续756e6a3放开12m最小距离、允许近水平观察，机位高于实际地面，并在来源对照时隔离区块线/路线帮助图形；待新图进一步判断针叶与树皮。桦树来源元数据不能证明摄影纹理，但用户目标是自然外观，所以增加同机位实际对照再判断，不因元数据预先当作合格或不合格。
+
+[4b5fa34完整运行38014046719](https://github.com/orriduck/chill-window/actions/runs/38014046719)失败：实际620m/六次缺块与迟到0，树显隐、建筑PBR/原体块/隐藏、远地图返回及Garrison跳转已记录为49/49；在随后Manitou重新载入世界时到达原1500秒执行时限，浏览器被终止。health明确runtimePassed=false，不能说完整四站通过；此前d7完整四站证据仍保留。已读取完整health与失败日志，此次将完整套件时限改为2400秒/45分钟job，覆盖余下世界重新准备和新增树对照；测试要求不减少。
+
+建筑补充研究：[USGS LiDAR Explorer](https://www.usgs.gov/tools/lidarexplorer)、[点云来源说明](https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it)、[实际2022片区记录](https://www.sciencebase.gov/catalog/item/66f3a453d34e791ae5dfa5a0)、[laspy分类/分块读示例](https://laspy.readthedocs.io/en/latest/examples.html)。实际查询和OSM源足迹保存在`scripts/experiments/peekskill-lidar/source-selection.json`。云端[ef7c17b首次扫描](https://github.com/orriduck/chill-window/actions/runs/38015443417)与[0d5e05e未分类点扫描](https://github.com/orriduck/chill-window/actions/runs/38016007012)均成功，读取实际报告：10,808,037B LAZ、1,740,009点，SHA `47b0fedc079e8c41fe65256058deb1d9cbc45b4bb417cb02d35f5c844f4e78cc`；2022项目、2024-09-23发布，WKT为NAD83(2011)/UTM18N加NAVD88/GEOID18、三轴米。源数据没有分类6，三栋足迹中分类1样本分别26,925/1,996/943；不能称其为已分类屋顶，可能包含树木。暂只保留真实观察用于后续屋顶归属/形状判断，没有改运行高度或造出新屋顶。
+
+另查[Westchester官方DSM服务](https://giswww.westchestergov.com/arcgis/rest/services/DigitalSurfaceModel/MapServer)、[2023航片服务](https://giswww.westchestergov.com/arcgis/rest/services/MappingWestchesterCounty_AerialPhoto2023/MapServer)。DSM服务目录没有提供本次可直接用的屋顶三维网格；航片元数据为2023-03-20、6英寸自然色正射，不能提供建筑立面。服务注明禁止exportTiles；本轮仅读取服务元数据，没有抓取瓦片、接入图片或宣称开放再分发许可。

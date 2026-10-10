@@ -76,6 +76,7 @@ export class RealWorld {
   readonly closeTrees: GeoCloseTrees
   readonly treeComparison: GeoCloseTrees
   readonly treeComparisonPoint: THREE.Vector3
+  readonly treeComparisonTreePoint: THREE.Vector3
   readonly convertedBuildings: GeoConvertedBuildings
   private nearBuildingFade = createBuildingFadeController('near', this.detailCoverage)
   private distantBuildings: DistantBuildingSet
@@ -183,9 +184,15 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     const samples = [...closePlacements].sort((a, b) => this.data.nearestRoute(a.x, a.z).distance - this.data.nearestRoute(b.x, b.z).distance)
     const first = samples[0]
     const second = first ? samples.find(p => Math.hypot(p.x - first.x, p.z - first.z) > 15 && Math.hypot(p.x - first.x, p.z - first.z) < 55) : undefined
-    const comparison = first && second ? [{ ...first, asset: 'scots-pine' as const }, { ...second, asset: 'oak-street-tree' as const }] : []
+    const comparison = first && second ? [
+      { ...first, asset: 'scots-pine' as const }, { ...second, asset: 'oak-street-tree' as const },
+      { ...first, asset: 'phototextured-pine-native' as const }, { ...first, asset: 'phototextured-pine-branch50' as const },
+      { ...first, asset: 'silver-birch' as const },
+    ] : []
     this.treeComparison = new GeoCloseTrees(comparison)
+    this.treeComparison.setAssetFilter(['scots-pine', 'oak-street-tree'])
     this.treeComparisonPoint = first && second ? new THREE.Vector3((first.x + second.x) / 2, (first.y + second.y) / 2, (first.z + second.z) / 2) : new THREE.Vector3()
+    this.treeComparisonTreePoint = first ? new THREE.Vector3(first.x, first.y, first.z) : new THREE.Vector3()
     this.group.add(this.closeTrees.root, this.treeComparison.root)
     this.convertedBuildings = new GeoConvertedBuildings(data, (x, z) => this.terrainHeight(x, z))
     this.group.add(this.convertedBuildings.group)
@@ -268,13 +275,14 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
   }
   update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; convertedBuildings?: boolean; closeTrees?: boolean; treeSamples?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
     const pose = this.data.pose(s)
+    const compareTrees = inspection && (layers.treeSamples ?? false)
     this.group.visible = this.presentable || inspection
     if (inspection) { this.group.position.set(0, 0, 0); this.group.rotation.y = 0 }
     else {
       this.group.rotation.y = -pose.heading
       this.group.position.set(-pose.dz * pose.x + pose.dx * pose.z, 0, s - pose.dx * pose.x - pose.dz * pose.z)
     }
-    this.routeLine.visible = this.marker.visible = inspection
+    this.routeLine.visible = this.marker.visible = inspection && !compareTrees
     this.marker.position.set(pose.x, this.data.railHeight(s) + 22, pose.z)
     this.waterGroup.visible = layers.water
     this.stationGroup.visible = layers.stations ?? true
@@ -282,13 +290,14 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.detailCoverage.update(point.x, point.z, key => this.chunks.get(key)?.gpuReady === true)
     this.landSourceMode.value = inspection && layers.sourceLandCover ? 1 : 0
     this.forest.setFocus(point.x, point.z); this.distantForest.setFocus(point.x, point.z)
-    const useClose = layers.vegetation && (layers.closeTrees ?? true) && this.presentable
+    const showVegetation = layers.vegetation && !compareTrees
+    const useClose = showVegetation && (layers.closeTrees ?? true) && this.presentable
     this.closeTrees.setVisible(useClose)
-    this.treeComparison.setVisible(inspection && (layers.treeSamples ?? false) && this.presentable)
+    this.treeComparison.setVisible(compareTrees && this.presentable)
     this.convertedBuildings.setVisible((layers.buildings ?? true) && this.presentable, layers.convertedBuildings ?? true)
     this.closeTrees.setFocus(point.x, point.z); this.treeComparison.setFocus(point.x, point.z)
     this.forest.setCloseTreesEnabled(useClose); this.distantForest.setCloseTreesEnabled(useClose)
-    this.distantForestGroup.visible = layers.vegetation
+    this.distantForestGroup.visible = showVegetation
     this.nearBuildingFade.updateFocus(point.x, point.z); this.distantBuildings.fade.updateFocus(point.x, point.z)
     this.distantBuildings.group.visible = (layers.buildings ?? true) && (layers.farBuildings ?? true)
     for (const child of this.distantBuildings.group.children) if (child instanceof THREE.Mesh && child.geometry.boundingSphere) {
@@ -358,13 +367,13 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       chunk.ground.visible = layers.ground
       for (const child of chunk.group.children) {
         const layer = child.userData.geoLayer
-        if (layer === 'vegetation') child.visible = layers.vegetation
+        if (layer === 'vegetation') child.visible = showVegetation
         if (layer === 'building') child.visible = layers.buildings ?? true
         if (layer === 'settlement') {
           child.visible = layers.settlements
         }
         if (layer === 'farmland') child.visible = layers.farmland
-        if (layer === 'inspection') child.visible = inspection
+        if (layer === 'inspection') child.visible = inspection && !compareTrees
       }
     }
     if (!this.readyResolved && [...this.initialKeys].every(key => this.chunks.has(key))) {

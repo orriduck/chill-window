@@ -1,0 +1,22 @@
+{
+  "sourceName": "Mature silver birch tree",
+  "sourceAuthor": "Innerscene original model",
+  "sourcePage": "https://www.innerscene.com/tools/library/3d-parts/mature-silver-birch-tree-8e297753",
+  "sourceDownload": "https://www.innerscene.com/api/library/mature-silver-birch-tree-8e297753/download",
+  "license": "CC0-1.0",
+  "retrievedDate": "2026-10-10",
+  "bytes": 4902236,
+  "sha256": "d1832a237f9e5d3728c7c6dc6e8e8243ac2984e51abe102cdf12bb996ca3dcc7",
+  "sourceMeshes": 103,
+  "sourceTriangles": 52476,
+  "sourceMaterials": 5,
+  "embeddedImages": "5 PNG images, each 64 x 64; no evidence that these are photographic textures",
+  "actualBoundsMetresXYZ": {
+    "min": [-3.3469975019468734, 0.000000000194950972, -4.03167034074329],
+    "max": [4.838162108786435, 13.999999850993447, 3.7594058063614]
+  },
+  "sourceGeometry": "Author closed foliage crowns, connected branch and trunk geometry; real-world-scale authored asset, not a surveyed Hudson tree",
+  "runtimePreparation": "Verify delivered source SHA, bake actual node transforms, merge by the five source material objects, retain triangles and authored size, prepare before departure",
+  "visualAcceptance": "Pending actual same-camera browser comparison; source metadata and successful preparation do not prove natural forest appearance",
+  "use": "Debug Mode source-scale comparison only until judged in actual scenery"
+}

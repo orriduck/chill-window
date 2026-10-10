@@ -550,6 +550,13 @@
     "sameManifestExceptRawSha256": true,
     "canonicalJsonSha256": "4e1965df93fe5a4316f817f30b29d3530b4cd52245ec14094bcf26d827c3a050",
     "binarySha256": "73f158a835afefe99113b4c44447c9d27208cc53d0c473540870d6fa6c126d94",
-    "originalChunkComparison": "pending"
+    "originalChunkComparison": "Independent source-keyed accessor comparison completed: all 18 objects and 36 primitives match, as do all six embedded texture hashes. Original JSON/BIN chunk hashes differ; raw-byte equality is not claimed.",
+    "originalCloudCanonicalJsonSha256": "fa2fc64e8067ab64b7c8531b916687e06ca3a677d37ef374e988bdfbf5ae5eb2",
+    "originalCloudBinarySha256": "618c3684ceb595090caf416ad442ef8d9c6f63bd06b0f75a207315f77ed0a24f",
+    "semanticMeshSha256": "a04a18fad2b7eaee14659d71bffaafde3f24ccbb00e5aca0b8d92db3ccdd2bb3",
+    "semanticMeshBytes": 22109,
+    "semanticSourceObjects": 18,
+    "semanticPrimitives": 36,
+    "sourceKeyedMeshBytesEqual": true
   }
 }
