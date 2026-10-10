@@ -1,0 +1,1229 @@
+{
+  "type": "FeatureCollection",
+  "name": "Peekskill Station source geometry",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "EPSG:4326"
+    }
+  },
+  "sourceRelations": [
+    {
+      "id": "relation/8336095",
+      "tags": {
+        "name": "Peekskill",
+        "network": "Metro-North Railroad",
+        "public_transport": "stop_area",
+        "railway": "facility",
+        "type": "public_transport"
+      },
+      "members": [
+        {
+          "type": "node",
+          "ref": 3049479038,
+          "role": "stop",
+          "lat": 41.2848579,
+          "lon": -73.9313408
+        },
+        {
+          "type": "way",
+          "ref": 533839753,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.2838386,
+              "lon": -73.9326633
+            },
+            {
+              "lat": 41.2838169,
+              "lon": -73.9326356
+            },
+            {
+              "lat": 41.2844663,
+              "lon": -73.9317714
+            },
+            {
+              "lat": 41.2844789,
+              "lon": -73.9317544
+            },
+            {
+              "lat": 41.2847103,
+              "lon": -73.9314411
+            },
+            {
+              "lat": 41.2848441,
+              "lon": -73.93126
+            },
+            {
+              "lat": 41.2848693,
+              "lon": -73.931291
+            },
+            {
+              "lat": 41.2845213,
+              "lon": -73.9317567
+            },
+            {
+              "lat": 41.2838386,
+              "lon": -73.9326633
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 59729448,
+          "role": "stop",
+          "lat": 41.2839127,
+          "lon": -73.9326712
+        },
+        {
+          "type": "way",
+          "ref": 533839748,
+          "role": "platform",
+          "geometry": [
+            {
+              "lat": 41.2839498,
+              "lon": -73.9327248
+            },
+            {
+              "lat": 41.2839218,
+              "lon": -73.932691
+            },
+            {
+              "lat": 41.2849486,
+              "lon": -73.9313194
+            },
+            {
+              "lat": 41.2849623,
+              "lon": -73.9313388
+            },
+            {
+              "lat": 41.2849742,
+              "lon": -73.9313556
+            },
+            {
+              "lat": 41.2849323,
+              "lon": -73.9314116
+            },
+            {
+              "lat": 41.2849273,
+              "lon": -73.9314182
+            },
+            {
+              "lat": 41.2839498,
+              "lon": -73.9327248
+            }
+          ]
+        },
+        {
+          "type": "node",
+          "ref": 7100409527,
+          "role": "",
+          "lat": 41.2844218,
+          "lon": -73.9319345
+        },
+        {
+          "type": "node",
+          "ref": 13888177883,
+          "role": "entrance",
+          "lat": 41.2847103,
+          "lon": -73.9314411
+        },
+        {
+          "type": "node",
+          "ref": 13888177881,
+          "role": "entrance",
+          "lat": 41.2844789,
+          "lon": -73.9317544
+        },
+        {
+          "type": "node",
+          "ref": 5178511638,
+          "role": "entrance",
+          "lat": 41.2849207,
+          "lon": -73.9311404
+        },
+        {
+          "type": "node",
+          "ref": 5178511637,
+          "role": "entrance",
+          "lat": 41.2850062,
+          "lon": -73.9312825
+        },
+        {
+          "type": "node",
+          "ref": 13888177892,
+          "role": "entrance",
+          "lat": 41.284951,
+          "lon": -73.9314514
+        }
+      ]
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "id": "node/7100409527",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9319345,
+          41.2844218
+        ]
+      },
+      "properties": {
+        "role": "station",
+        "sourceId": "node/7100409527",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "name": "Peekskill",
+          "network": "Metro-North Railroad",
+          "public_transport": "station",
+          "railway": "station",
+          "train": "yes",
+          "wheelchair": "yes",
+          "wikidata": "Q7160175"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589439.377,
+            4570881.424,
+            589439.377,
+            4570881.424
+          ],
+          "axisAlignedWidthMetres": 0.0,
+          "axisAlignedLengthMetres": 0.0,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            0.0
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Point",
+          "vertexCount": 1,
+          "isValid": true
+        },
+        "stationSMetres": 21083.216,
+        "stationName": "Peekskill"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/59729448",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9326712,
+          41.2839127
+        ]
+      },
+      "properties": {
+        "role": "stop_position",
+        "sourceId": "node/59729448",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "name": "Peekskill",
+          "network": "Metro-North Railroad",
+          "public_transport": "stop_position",
+          "railway": "stop",
+          "train": "yes"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589378.38,
+            4570824.146,
+            589378.38,
+            4570824.146
+          ],
+          "axisAlignedWidthMetres": 0.0,
+          "axisAlignedLengthMetres": 0.0,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            0.0
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Point",
+          "vertexCount": 1,
+          "isValid": true
+        },
+        "stationSMetres": 21083.216,
+        "stationName": "Peekskill"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/3049479038",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9313408,
+          41.2848579
+        ]
+      },
+      "properties": {
+        "role": "stop_position",
+        "sourceId": "node/3049479038",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "name": "Peekskill",
+          "network": "Metro-North Railroad",
+          "public_transport": "stop_position",
+          "railway": "stop",
+          "train": "yes"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589488.498,
+            4570930.45,
+            589488.498,
+            4570930.45
+          ],
+          "axisAlignedWidthMetres": 0.0,
+          "axisAlignedLengthMetres": 0.0,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            0.0
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Point",
+          "vertexCount": 1,
+          "isValid": true
+        },
+        "stationSMetres": 21083.216,
+        "stationName": "Peekskill"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/533839748",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.9327248,
+              41.2839498
+            ],
+            [
+              -73.932691,
+              41.2839218
+            ],
+            [
+              -73.9313194,
+              41.2849486
+            ],
+            [
+              -73.9313388,
+              41.2849623
+            ],
+            [
+              -73.9313556,
+              41.2849742
+            ],
+            [
+              -73.9314116,
+              41.2849323
+            ],
+            [
+              -73.9314182,
+              41.2849273
+            ],
+            [
+              -73.9327248,
+              41.2839498
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "active_platform_area",
+        "sourceId": "way/533839748",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "area": "yes",
+          "bench": "yes",
+          "bin": "yes",
+          "height": "4'",
+          "lit": "yes",
+          "network": "Metro-North Railroad",
+          "public_transport": "platform",
+          "railway": "platform",
+          "shelter": "yes",
+          "train": "yes"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589373.841,
+            4570825.136,
+            589490.167,
+            4570943.346
+          ],
+          "axisAlignedWidthMetres": 116.326,
+          "axisAlignedLengthMetres": 118.21,
+          "principalAxisVertexExtentMetres": [
+            4.281,
+            161.836
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Polygon",
+          "vertexCount": 8,
+          "isValid": true,
+          "areaSquareMetres": 674.85,
+          "perimeterMetres": 331.702
+        },
+        "heightSource": {
+          "raw": "4'",
+          "unit": "ft",
+          "metres": 1.2192,
+          "status": "source_tag",
+          "datum": "platform height tag; place relative to track rail top, not terrain"
+        },
+        "stopAreaAssociation": {
+          "id": "way/533839748",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/8336095"
+        },
+        "activeStatus": "OSM stop_area member; current MTA station record",
+        "stationName": "Peekskill"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/533839753",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.9326633,
+              41.2838386
+            ],
+            [
+              -73.9326356,
+              41.2838169
+            ],
+            [
+              -73.9317714,
+              41.2844663
+            ],
+            [
+              -73.9317544,
+              41.2844789
+            ],
+            [
+              -73.9314411,
+              41.2847103
+            ],
+            [
+              -73.93126,
+              41.2848441
+            ],
+            [
+              -73.931291,
+              41.2848693
+            ],
+            [
+              -73.9317567,
+              41.2845213
+            ],
+            [
+              -73.9326633,
+              41.2838386
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "active_platform_area",
+        "sourceId": "way/533839753",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "area": "yes",
+          "bench": "yes",
+          "bin": "yes",
+          "height": "4'",
+          "lit": "yes",
+          "network": "Metro-North Railroad",
+          "public_transport": "platform",
+          "railway": "platform",
+          "shelter": "yes",
+          "train": "yes"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589379.143,
+            4570813.547,
+            589495.284,
+            4570931.767
+          ],
+          "axisAlignedWidthMetres": 116.141,
+          "axisAlignedLengthMetres": 118.22,
+          "principalAxisVertexExtentMetres": [
+            4.649,
+            162.207
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Polygon",
+          "vertexCount": 9,
+          "isValid": true,
+          "areaSquareMetres": 565.598,
+          "perimeterMetres": 331.451
+        },
+        "heightSource": {
+          "raw": "4'",
+          "unit": "ft",
+          "metres": 1.2192,
+          "status": "source_tag",
+          "datum": "platform height tag; place relative to track rail top, not terrain"
+        },
+        "stopAreaAssociation": {
+          "id": "way/533839753",
+          "method": "osm_stop_area_member",
+          "relationId": "relation/8336095"
+        },
+        "activeStatus": "OSM stop_area member; current MTA station record",
+        "stationName": "Peekskill"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/13888177883",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9314411,
+          41.2847103
+        ]
+      },
+      "properties": {
+        "role": "station_entrance_from_stop_area",
+        "sourceId": "node/13888177883",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {},
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589480.301,
+            4570913.96,
+            589480.301,
+            4570913.96
+          ],
+          "axisAlignedWidthMetres": 0.0,
+          "axisAlignedLengthMetres": 0.0,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            0.0
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Point",
+          "vertexCount": 1,
+          "isValid": true
+        },
+        "relationId": "relation/8336095",
+        "relationRole": "entrance",
+        "tagsUnavailableInRetainedStationSubset": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/13888177881",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9317544,
+          41.2844789
+        ]
+      },
+      "properties": {
+        "role": "station_entrance_from_stop_area",
+        "sourceId": "node/13888177881",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {},
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589454.381,
+            4570887.948,
+            589454.381,
+            4570887.948
+          ],
+          "axisAlignedWidthMetres": 0.0,
+          "axisAlignedLengthMetres": 0.0,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            0.0
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Point",
+          "vertexCount": 1,
+          "isValid": true
+        },
+        "relationId": "relation/8336095",
+        "relationRole": "entrance",
+        "tagsUnavailableInRetainedStationSubset": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/5178511638",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9311404,
+          41.2849207
+        ]
+      },
+      "properties": {
+        "role": "station_entrance_from_stop_area",
+        "sourceId": "node/5178511638",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {},
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589505.194,
+            4570937.628,
+            589505.194,
+            4570937.628
+          ],
+          "axisAlignedWidthMetres": 0.0,
+          "axisAlignedLengthMetres": 0.0,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            0.0
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Point",
+          "vertexCount": 1,
+          "isValid": true
+        },
+        "relationId": "relation/8336095",
+        "relationRole": "entrance",
+        "tagsUnavailableInRetainedStationSubset": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/5178511637",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9312825,
+          41.2850062
+        ]
+      },
+      "properties": {
+        "role": "station_entrance_from_stop_area",
+        "sourceId": "node/5178511637",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {},
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589493.178,
+            4570946.974,
+            589493.178,
+            4570946.974
+          ],
+          "axisAlignedWidthMetres": 0.0,
+          "axisAlignedLengthMetres": 0.0,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            0.0
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Point",
+          "vertexCount": 1,
+          "isValid": true
+        },
+        "relationId": "relation/8336095",
+        "relationRole": "entrance",
+        "tagsUnavailableInRetainedStationSubset": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "node/13888177892",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9314514,
+          41.284951
+        ]
+      },
+      "properties": {
+        "role": "station_entrance_from_stop_area",
+        "sourceId": "node/13888177892",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {},
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589479.11,
+            4570940.672,
+            589479.11,
+            4570940.672
+          ],
+          "axisAlignedWidthMetres": 0.0,
+          "axisAlignedLengthMetres": 0.0,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            0.0
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Point",
+          "vertexCount": 1,
+          "isValid": true
+        },
+        "relationId": "relation/8336095",
+        "relationRole": "entrance",
+        "tagsUnavailableInRetainedStationSubset": true
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "osm/way/1307801003",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.9315312,
+              41.284872
+            ],
+            [
+              -73.9314414,
+              41.2849394
+            ],
+            [
+              -73.9313913,
+              41.2849017
+            ],
+            [
+              -73.9322539,
+              41.2842544
+            ],
+            [
+              -73.9322832,
+              41.2842765
+            ],
+            [
+              -73.9315103,
+              41.2848563
+            ],
+            [
+              -73.9315312,
+              41.284872
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "open_platform_canopy",
+        "sourceId": "osm/way/1307801003",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "amenity": "shelter",
+          "building": "yes",
+          "shelter_type": "public_transport"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589410.375,
+            4570862.51,
+            589484.21,
+            4570939.394
+          ],
+          "axisAlignedWidthMetres": 73.834,
+          "axisAlignedLengthMetres": 76.884,
+          "principalAxisVertexExtentMetres": [
+            6.179,
+            101.99
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Polygon",
+          "vertexCount": 7,
+          "isValid": true,
+          "areaSquareMetres": 378.964,
+          "perimeterMetres": 215.664
+        },
+        "buildingHeight": {
+          "metres": null,
+          "status": "missing",
+          "method": null,
+          "sources": []
+        },
+        "gersMatches": [
+          {
+            "gersId": "ca357e6c-ed61-454e-835e-345fd6ad12e1",
+            "iou": 1.0,
+            "release": "2026-09-23.1"
+          }
+        ],
+        "overtureProperties": {
+          "sources": [
+            {
+              "property": "",
+              "dataset": "OpenStreetMap",
+              "license": "ODbL-1.0",
+              "record_id": "w1307801003@1",
+              "update_time": "2024-08-14T17:59:00.000Z",
+              "provider": "osm",
+              "resource": "planet",
+              "version": "2026-09-06T00:00:00.000Z"
+            }
+          ],
+          "is_underground": false,
+          "subtype": "civic",
+          "class": "shelter",
+          "has_parts": false,
+          "version": 2
+        },
+        "wallSemantics": "open_shelter_no_solid_walls",
+        "sourceGeometryRecordId": "osm/way/1307801003"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "osm/way/1307801004",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.931761,
+              41.2844502
+            ],
+            [
+              -73.9318012,
+              41.2844807
+            ],
+            [
+              -73.9313187,
+              41.2848397
+            ],
+            [
+              -73.9312784,
+              41.2848091
+            ],
+            [
+              -73.931761,
+              41.2844502
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "open_platform_canopy",
+        "sourceId": "osm/way/1307801004",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "amenity": "shelter",
+          "building": "yes",
+          "shelter_type": "public_transport"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589450.46,
+            4570884.755,
+            589493.791,
+            4570928.452
+          ],
+          "axisAlignedWidthMetres": 43.331,
+          "axisAlignedLengthMetres": 43.697,
+          "principalAxisVertexExtentMetres": [
+            5.581,
+            56.8
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Polygon",
+          "vertexCount": 5,
+          "isValid": true,
+          "areaSquareMetres": 271.408,
+          "perimeterMetres": 123.078
+        },
+        "buildingHeight": {
+          "metres": null,
+          "status": "missing",
+          "method": null,
+          "sources": []
+        },
+        "gersMatches": [
+          {
+            "gersId": "5aeda3bb-5af4-40cb-b23e-27b6edc7a8c2",
+            "iou": 1.0,
+            "release": "2026-09-23.1"
+          }
+        ],
+        "overtureProperties": {
+          "sources": [
+            {
+              "property": "",
+              "dataset": "OpenStreetMap",
+              "license": "ODbL-1.0",
+              "record_id": "w1307801004@1",
+              "update_time": "2024-08-14T17:59:00.000Z",
+              "provider": "osm",
+              "resource": "planet",
+              "version": "2026-09-06T00:00:00.000Z"
+            }
+          ],
+          "is_underground": false,
+          "subtype": "civic",
+          "class": "shelter",
+          "has_parts": false,
+          "version": 2
+        },
+        "wallSemantics": "open_shelter_no_solid_walls",
+        "sourceGeometryRecordId": "osm/way/1307801004"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "osm/way/285221615",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.931011,
+              41.284953
+            ],
+            [
+              -73.9310554,
+              41.2849849
+            ],
+            [
+              -73.9307867,
+              41.2851964
+            ],
+            [
+              -73.9306675,
+              41.2851108
+            ],
+            [
+              -73.9309164,
+              41.284915
+            ],
+            [
+              -73.9309911,
+              41.2849686
+            ],
+            [
+              -73.931011,
+              41.284953
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "role": "station_house",
+        "sourceId": "osm/way/285221615",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "building": "train_station",
+          "name": "Peekskill"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589512.224,
+            4570937.227,
+            589544.535,
+            4570968.601
+          ],
+          "axisAlignedWidthMetres": 32.311,
+          "axisAlignedLengthMetres": 31.374,
+          "principalAxisVertexExtentMetres": [
+            15.345,
+            33.252
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Polygon",
+          "vertexCount": 7,
+          "isValid": true,
+          "areaSquareMetres": 427.358,
+          "perimeterMetres": 92.597
+        },
+        "buildingHeight": {
+          "metres": 5.555979251861572,
+          "status": "source_estimate",
+          "method": "upstream_machine_learning",
+          "sources": [
+            "Microsoft ML Buildings"
+          ]
+        },
+        "gersMatches": [
+          {
+            "gersId": "2022c696-2786-4c11-b030-7cfb7925638b",
+            "iou": 1.0,
+            "release": "2026-09-23.1"
+          }
+        ],
+        "overtureProperties": {
+          "names": {
+            "primary": "Peekskill"
+          },
+          "sources": [
+            {
+              "property": "",
+              "dataset": "OpenStreetMap",
+              "license": "ODbL-1.0",
+              "record_id": "w285221615@4",
+              "update_time": "2024-08-14T17:59:00.000Z",
+              "provider": "osm",
+              "resource": "planet",
+              "version": "2026-09-06T00:00:00.000Z"
+            },
+            {
+              "property": "/properties/height",
+              "dataset": "Microsoft ML Buildings",
+              "license": "ODbL-1.0",
+              "provider": "microsoft",
+              "resource": "ml_buildings",
+              "version": "2026-08-11"
+            }
+          ],
+          "height": 5.555979251861572,
+          "is_underground": false,
+          "subtype": "transportation",
+          "class": "train_station",
+          "has_parts": false,
+          "version": 2
+        },
+        "wallSemantics": "building_walls_from_footprint; no roof shape or facade material asserted",
+        "sourceGeometryRecordId": "osm/way/285221615"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/1307801005",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.9311404,
+            41.2849207
+          ],
+          [
+            -73.93126,
+            41.2848441
+          ]
+        ]
+      },
+      "properties": {
+        "role": "pedestrian_crossover_component",
+        "sourceId": "way/1307801005",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "bridge": "yes",
+          "highway": "steps",
+          "layer": "1"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589495.284,
+            4570929.001,
+            589505.194,
+            4570937.628
+          ],
+          "axisAlignedWidthMetres": 9.911,
+          "axisAlignedLengthMetres": 8.627,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            13.14
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Line String",
+          "vertexCount": 2,
+          "isValid": true,
+          "lengthMetres": 13.14
+        },
+        "verticalStatus": "missing",
+        "widthStatus": "missing",
+        "materialStatus": "missing",
+        "assemblyId": "peekskill-crossover-osm-connected-ways",
+        "note": "bridge=yes/layer=1 segments encode topology only; no deck elevation, width or member geometry is supplied"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/533839749",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.9313388,
+            41.2849623
+          ],
+          [
+            -73.9312825,
+            41.2850062
+          ]
+        ]
+      },
+      "properties": {
+        "role": "pedestrian_crossover_component",
+        "sourceId": "way/533839749",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "bridge": "yes",
+          "highway": "steps",
+          "layer": "1"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589488.523,
+            4570942.042,
+            589493.178,
+            4570946.974
+          ],
+          "axisAlignedWidthMetres": 4.655,
+          "axisAlignedLengthMetres": 4.932,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            6.781
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Line String",
+          "vertexCount": 2,
+          "isValid": true,
+          "lengthMetres": 6.781
+        },
+        "verticalStatus": "missing",
+        "widthStatus": "missing",
+        "materialStatus": "missing",
+        "assemblyId": "peekskill-crossover-osm-connected-ways",
+        "note": "bridge=yes/layer=1 segments encode topology only; no deck elevation, width or member geometry is supplied"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/533839750",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.9312825,
+            41.2850062
+          ],
+          [
+            -73.9311404,
+            41.2849207
+          ]
+        ]
+      },
+      "properties": {
+        "role": "pedestrian_crossover_component",
+        "sourceId": "way/533839750",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "bridge": "yes",
+          "highway": "footway",
+          "layer": "1"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589493.178,
+            4570937.628,
+            589505.194,
+            4570946.974
+          ],
+          "axisAlignedWidthMetres": 12.016,
+          "axisAlignedLengthMetres": 9.346,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            15.223
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Line String",
+          "vertexCount": 2,
+          "isValid": true,
+          "lengthMetres": 15.223
+        },
+        "verticalStatus": "missing",
+        "widthStatus": "missing",
+        "materialStatus": "missing",
+        "assemblyId": "peekskill-crossover-osm-connected-ways",
+        "note": "bridge=yes/layer=1 segments encode topology only; no deck elevation, width or member geometry is supplied"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "way/533839751",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.931024,
+            41.2850202
+          ],
+          [
+            -73.9311404,
+            41.2849207
+          ]
+        ]
+      },
+      "properties": {
+        "role": "pedestrian_crossover_component",
+        "sourceId": "way/533839751",
+        "sourceDataset": "OpenStreetMap",
+        "sourceLicense": "ODbL-1.0",
+        "tags": {
+          "bridge": "yes",
+          "highway": "steps",
+          "layer": "1"
+        },
+        "geometryMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589505.194,
+            4570937.628,
+            589514.806,
+            4570948.795
+          ],
+          "axisAlignedWidthMetres": 9.611,
+          "axisAlignedLengthMetres": 11.166,
+          "principalAxisVertexExtentMetres": [
+            0.0,
+            14.733
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Line String",
+          "vertexCount": 2,
+          "isValid": true,
+          "lengthMetres": 14.733
+        },
+        "verticalStatus": "missing",
+        "widthStatus": "missing",
+        "materialStatus": "missing",
+        "assemblyId": "peekskill-crossover-osm-connected-ways",
+        "note": "bridge=yes/layer=1 segments encode topology only; no deck elevation, width or member geometry is supplied"
+      }
+    }
+  ]
+}

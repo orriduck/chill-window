@@ -1,0 +1,310 @@
+{
+  "experiment": "Peekskill station source-first geometry audit",
+  "verifiedAt": "2026-10-10",
+  "route": {
+    "worldSha256": "c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec",
+    "routeLengthMetres": 22837.381660374882,
+    "stationId": "node/7100409527",
+    "stationSMetres": 21083.216,
+    "empireServiceStopsHere": false
+  },
+  "naip": {
+    "sourceTile": "m_4107341_se_18_060_20221022.tif",
+    "sourceSha256": "8c35fc499c0eec831baec91c1c03edf21f7f8dad4ca50b07076c997cb67a3bb1",
+    "sourceAcquisitionDateFromTileName": "2022-10-22",
+    "cropSha256": "b52faa3730355e2c11ffa9599ad6a311e84fc3dac647d63151eac60b8e2355e0",
+    "cropBytes": 978340,
+    "crs": "EPSG:3857",
+    "cropRepresentation": "existing scene raster reprojected from prior 0.6m UTM crop; no new imagery request",
+    "sceneGeoTransform": [
+      -8230295.234918027,
+      0.7995485496703736,
+      0.0,
+      5054773.472820384,
+      0.0,
+      -0.7995485496703736
+    ],
+    "use": "overhead layout/footprint cross-check; not a building-height or facade source",
+    "diagnosticOverlay": {
+      "path": "app/scripts/experiments/peekskill-station-source/output/peekskill-naip-station-source-overlay.png",
+      "bytes": 976225,
+      "sha256": "63d5b9c4f0e954f65443c41c1c3a8568908fd315afbe9a2445824b96e92b56d8",
+      "method": "OSM source outlines drawn over existing unmodified-color NAIP RGB crop; annotations are diagnostic only",
+      "sourceVertexCoverage": {
+        "insideCrop": 52,
+        "totalVertices": 52,
+        "allInside": true
+      }
+    }
+  },
+  "counts": {
+    "activePlatforms": 2,
+    "openCanopies": 2,
+    "stationHouseFootprint": 1,
+    "crossoverComponents": 4,
+    "stopAreaEntranceNodes": 5,
+    "georeferencedFeatures": 17
+  },
+  "geometryChecks": {
+    "polygonAndLineFeatures": 9,
+    "allValid": true,
+    "rasterCoverage": {
+      "insideCrop": 52,
+      "totalVertices": 52,
+      "allInside": true
+    }
+  },
+  "heightAndShapeFindings": {
+    "platforms": [
+      {
+        "id": "way/533839748",
+        "rawHeight": "4'",
+        "convertedMetres": 1.2192,
+        "footprintMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589373.841,
+            4570825.136,
+            589490.167,
+            4570943.346
+          ],
+          "axisAlignedWidthMetres": 116.326,
+          "axisAlignedLengthMetres": 118.21,
+          "principalAxisVertexExtentMetres": [
+            4.281,
+            161.836
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Polygon",
+          "vertexCount": 8,
+          "isValid": true,
+          "areaSquareMetres": 674.85,
+          "perimeterMetres": 331.702
+        }
+      },
+      {
+        "id": "way/533839753",
+        "rawHeight": "4'",
+        "convertedMetres": 1.2192,
+        "footprintMetrics": {
+          "projectedCrs": "EPSG:26918",
+          "boundsMetres": [
+            589379.143,
+            4570813.547,
+            589495.284,
+            4570931.767
+          ],
+          "axisAlignedWidthMetres": 116.141,
+          "axisAlignedLengthMetres": 118.22,
+          "principalAxisVertexExtentMetres": [
+            4.649,
+            162.207
+          ],
+          "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+          "geometryType": "Polygon",
+          "vertexCount": 9,
+          "isValid": true,
+          "areaSquareMetres": 565.598,
+          "perimeterMetres": 331.451
+        }
+      }
+    ],
+    "canopies": [
+      {
+        "id": "osm/way/1307801003",
+        "areaSquareMetres": 378.964,
+        "heightStatus": "missing",
+        "walls": "open, excluded"
+      },
+      {
+        "id": "osm/way/1307801004",
+        "areaSquareMetres": 271.408,
+        "heightStatus": "missing",
+        "walls": "open, excluded"
+      }
+    ],
+    "stationHouse": {
+      "id": "osm/way/285221615",
+      "heightMetres": 5.555979251861572,
+      "heightStatus": "source_estimate",
+      "heightMethod": "upstream_machine_learning",
+      "roofShape": null,
+      "roofMaterial": null,
+      "facadeMaterial": null,
+      "footprintMetrics": {
+        "projectedCrs": "EPSG:26918",
+        "boundsMetres": [
+          589512.224,
+          4570937.227,
+          589544.535,
+          4570968.601
+        ],
+        "axisAlignedWidthMetres": 32.311,
+        "axisAlignedLengthMetres": 31.374,
+        "principalAxisVertexExtentMetres": [
+          15.345,
+          33.252
+        ],
+        "principalAxisMethod": "PCA of original polygon/line vertices; approximate geometry envelope, not surveyed dimensions",
+        "geometryType": "Polygon",
+        "vertexCount": 7,
+        "isValid": true,
+        "areaSquareMetres": 427.358,
+        "perimeterMetres": 92.597
+      }
+    },
+    "crossover": [
+      {
+        "id": "way/1307801005",
+        "lengthMetres": 13.14,
+        "rawTags": {
+          "bridge": "yes",
+          "highway": "steps",
+          "layer": "1"
+        },
+        "heightWidthMaterial": "missing"
+      },
+      {
+        "id": "way/533839749",
+        "lengthMetres": 6.781,
+        "rawTags": {
+          "bridge": "yes",
+          "highway": "steps",
+          "layer": "1"
+        },
+        "heightWidthMaterial": "missing"
+      },
+      {
+        "id": "way/533839750",
+        "lengthMetres": 15.223,
+        "rawTags": {
+          "bridge": "yes",
+          "highway": "footway",
+          "layer": "1"
+        },
+        "heightWidthMaterial": "missing"
+      },
+      {
+        "id": "way/533839751",
+        "lengthMetres": 14.733,
+        "rawTags": {
+          "bridge": "yes",
+          "highway": "steps",
+          "layer": "1"
+        },
+        "heightWidthMaterial": "missing"
+      }
+    ]
+  },
+  "photoSources": [
+    {
+      "id": "mta-renovation-canopy-art-2013",
+      "url": "https://commons.wikimedia.org/wiki/File:Peekskill_E._Signage_front_(8682713117).jpg",
+      "directImageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d4/Peekskill_E._Signage_front_%288682713117%29.jpg",
+      "author": "Metropolitan Transportation Authority of the State of New York; photo by Ken Shung",
+      "date": "2013-02-15",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "cameraWgs84": [
+        -73.9317389,
+        41.2845167
+      ],
+      "observations": [
+        "MTA identifies this as a photo of the renovated Peekskill station and site-specific Jan Peeck's Vine artwork.",
+        "Columns, canopy/eaves and attached painted-steel artwork are visible; the artwork must not be mistaken for station structure.",
+        "This photo is appearance evidence, not a measured roof or canopy survey."
+      ],
+      "downloaded": false
+    },
+    {
+      "id": "peekskill-station-house-2014",
+      "url": "https://commons.wikimedia.org/wiki/File:Peekskill_railroad_station_house.jpg",
+      "directImageUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ee/Peekskill_railroad_station_house.jpg",
+      "author": "Beyond My Ken",
+      "date": "2014-10-18",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "cameraWgs84": null,
+      "observations": [
+        "The Commons description identifies the subject as the Peekskill Metro-North station house on Railroad Avenue.",
+        "Suitable for station-house massing/roofline reference only; no scale bar or surveyed dimensions are supplied."
+      ],
+      "downloaded": false
+    },
+    {
+      "id": "peekskill-crossover-stairs-2014",
+      "url": "https://commons.wikimedia.org/wiki/File:Peekskill_railroad_station_crossover.jpg",
+      "directImageUrl": "https://upload.wikimedia.org/wikipedia/commons/6/69/Peekskill_railroad_station_crossover.jpg",
+      "author": "Beyond My Ken",
+      "date": "2014-10-18",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "cameraWgs84": [
+        -73.9308944,
+        41.2849028
+      ],
+      "observations": [
+        "The Commons description identifies the subject as Peekskill station crossover stairs; the photo is geolocated at the north/east-side stair approach.",
+        "Confirms a stair/crossover assembly, but does not provide deck elevation, stair width, or structural material measurements."
+      ],
+      "downloaded": false
+    }
+  ],
+  "lidar": {
+    "status": "separate cloud point observations; not executed by this layout audit",
+    "selection": "app/scripts/experiments/peekskill-station-source/lidar-selection.json",
+    "earlierObservation": "app/scripts/experiments/peekskill-lidar/observations/report.json",
+    "coverageCaution": "2022 tile excludes east station house; 2018 tile selected for full station. Actual CRS bounds and classification must be inspected.",
+    "demCaution": "The retained USGS elevation TIFF is bare-earth terrain and is not used as a building roof/surface height."
+  },
+  "limitations": [
+    "No station-house roof shape or facade material tag exists in the retained OSM geometry.",
+    "The station-house height 5.555979 m is Microsoft GlobalMLBuildingFootprints model-estimated, not a measured or LiDAR height.",
+    "Both canopy polygons are amenity=shelter with shelter_type=public_transport and have no height; they remain open-outline source geometry only.",
+    "Crossover OSM ways map path/stairs topology, not a deck footprint, elevation, width, support layout, or materials.",
+    "NAIP RGB orthophoto supports plan-view placement only; it is not facade photography and cannot yield heights.",
+    "No GLB is emitted by this source-audit pass; unsupported vertical surfaces are intentionally left unmodeled."
+  ],
+  "inputs": [
+    {
+      "path": "app/public/geodata/hudson/world.json",
+      "bytes": 4368117,
+      "sha256": "c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec"
+    },
+    {
+      "path": "app/public/geodata/hudson/stations.json",
+      "bytes": 55722,
+      "sha256": "121d672e1e97d45ef46f41948503e6f3a28448c6d3c5e4065764bc010dca238b"
+    },
+    {
+      "path": "app/public/geodata/hudson/buildings.json",
+      "bytes": 32522230,
+      "sha256": "0d5bd68c040b42f99138fbdb768167ef22e8c48b5442fe0bf7d889f7347bd54f"
+    },
+    {
+      "path": "app/public/geodata/hudson/sources/overpass-stations.json.gz",
+      "bytes": 4657,
+      "sha256": "0730f5cd333ea9c06086cc042cea692c7d08b35e4d89bbf2c05a3369889ee31a"
+    },
+    {
+      "path": "app/public/geodata/hudson/sources/osm-buildings.json.gz",
+      "bytes": 3125245,
+      "sha256": "58f7693ba550c91403180874675d7c602f74f5eb55621408b475a93d18d51cc9"
+    },
+    {
+      "path": "app/public/geodata/hudson/sources/osm-transport.json.gz",
+      "bytes": 2502001,
+      "sha256": "781150cc7e55b175ce937429087ec27249176cb87af315704f9b9352f4b9a1fa"
+    },
+    {
+      "path": "app/public/geodata/hudson/imagery/peekskill-naip-2022-scene.png",
+      "bytes": 978340,
+      "sha256": "b52faa3730355e2c11ffa9599ad6a311e84fc3dac647d63151eac60b8e2355e0"
+    },
+    {
+      "path": "app/public/geodata/hudson/imagery/scene-raster.json",
+      "bytes": 5475,
+      "sha256": "a67507523459ee79658d46ba7e8c659c105b78ce72fdf4068145007b810c08aa"
+    }
+  ]
+}

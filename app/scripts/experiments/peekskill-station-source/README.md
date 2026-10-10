@@ -98,7 +98,7 @@ Class 1 is unclassified and may include plants, platforms or crossing structures
 class 6 identifies building observations but still requires geometry review.
 No vertical plane fit is produced if the source CRS omits vertical units. The
 bare-earth DEM is not used to infer canopy or station-house roof heights.
-These new jobs have not yet produced verified outputs in this revision.
+The geometry job in [actual run 38053050173](https://github.com/orriduck/chill-window/actions/runs/38053050173) passed: 17 features, 9 valid polygon/line features, all 52 vertices inside the scene crop. The downloaded checksum-verified overlay was visually inspected and archived in `observations/layout-932b67d/`. The separate point job also passed. Actual source subsets and report are archived in `observations/points-932b67d/`; both observed LAZ hashes are now pinned. The 2018 tile provides 2,549 station-house unclassified points; the 2022 tile has none there. Canopy subsets contain thousands of unclassified points in both years. Neither tile supplies class-6 building points, so spatial/plane review is required before roof acceptance. The sources use distinct Geoid12B/Geoid18 realizations of NAVD88; do not combine absolute heights silently. Source roofs are not yet accepted.
 
 No GLB is emitted in this audit. Station-house ML height can support a clearly
 labelled estimate in a future model, but roof geometry/materials are missing;

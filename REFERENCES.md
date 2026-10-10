@@ -446,3 +446,6 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 [373dd04 实际运行38047928868](https://github.com/orriduck/chill-window/actions/runs/38047928868) 已失败结束。5853栋、415 GLB、16共享图片Source全部准备，模型/图片各请求一次；故意延迟单GLB时列车不出发，源材质/原体块/隐藏比较执行。实际PBR/原体块与Garrison PNG经ZIP CRC验证后查看：布局能对齐航片，建筑仍有通用体块，远坡树冠仍过黑。Manitou终态36/49、95待GPU，不能将资源门控通过扩大为四站区或整线验收。独立预览保持可用，PR188仍为此前9df基线。
 
 [USGS TNM 官方站区点云查询](https://tnmaccess.nationalmap.gov/api/v1/products?datasets=Lidar+Point+Cloud+%28LPC%29&bbox=-73.9312%2C41.2847%2C-73.9303%2C41.2854&max=30&outputFormat=JSON)（2026-10-10实际读取）返回2022年u_5880057050和2018年e1817n2242等瓦片。2022发布边界不包含东侧站房，2018边界覆盖完整站区，需继续检查实际LAS坐标、点位与分类，不能仅凭包围盒称完整屋面覆盖。`app/scripts/experiments/peekskill-station-source/`保留来源选择、八输入SHA、真实OSM站台/站棚/站房/天桥线几何与云端观察配方。站房Microsoft估高、站棚缺失高度、天桥路径缺失垂直尺寸仍明确；采集年份和发布日分开，class1与拟合平面不自动当屋顶。布局图复用实际EPSG3857 scene PNG，尺寸计算独立使用EPSG26918。新点云下载与几何输出尚待云端实际执行。
+
+
+[车站源检查38053050173](https://github.com/orriduck/chill-window/actions/runs/38053050173)（932b67d）两个云端job实际成功。几何输出17对象/9有效面线/52顶点均在实际scene crop，下载PNG校验SHA后查看，站台/站棚/站房/跨轨路径与航片对齐。点云实际2018SHA `f8ae1cb7541c9fcd874c1cba016fe0488a9b5babd2ac323b64c3b46bd1b484cb`已固定；2022SHA与先前观测一致。2018站房2549个class1点、两棚2787/1211，2022站房0、两棚2781/1953。均无class6建筑点，平面拟合不自动变为屋面。2018实际CRS含NAVD88/Geoid12B、2022含NAVD88/Geoid18，年份和垂直实现不混合。完整实际JSON和源叠加PNG留在站区配方observations；站房/站棚模型尚未新增，不能把数据任务通过写成真实车站画面完成。

@@ -1,0 +1,1030 @@
+{
+  "scope": "Actual station point-cloud coverage/classification/plane observations; no runtime mesh or invented heights",
+  "catalogueQuery": "https://tnmaccess.nationalmap.gov/api/v1/products?datasets=Lidar+Point+Cloud+%28LPC%29&bbox=-73.9312%2C41.2847%2C-73.9303%2C41.2854&max=30&outputFormat=JSON",
+  "tiles": [
+    {
+      "title": "USGS Lidar Point Cloud NY_SouthEast4County_A22 u_5880057050_2022",
+      "catalogueId": "66f3a453d34e791ae5dfa5a0",
+      "publicationDate": "2024-09-23",
+      "surveyYearFromTitle": 2022,
+      "acquisitionDateInterval": null,
+      "dateInterpretation": "Survey year inferred from official tile title; exact acquisition date/interval not yet inspected. Publication date is separate.",
+      "checksumPolicy": "enforce previously observed source hash",
+      "sourceUrl": "https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/NY_SouthEast4County_A22/NY_SE4County_1_A22/LAZ/USGS_LPC_NY_SouthEast4County_A22_u_5880057050_2022.laz",
+      "bytes": 10808037,
+      "sha256": "47b0fedc079e8c41fe65256058deb1d9cbc45b4bb417cb02d35f5c844f4e78cc",
+      "sourceCRSWKT": "COMPOUNDCRS[\"NAD83(2011) / UTM zone 18N + NAVD88 height - Geoid18 (metres)\",PROJCRS[\"NAD83(2011) / UTM zone 18N\",BASEGEOGCRS[\"NAD83(2011)\",DATUM[\"NAD83 (National Spatial Reference System 2011)\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",6318]],CONVERSION[\"UTM zone 18N\",METHOD[\"Transverse Mercator\",ID[\"EPSG\",9807]],PARAMETER[\"Latitude of natural origin\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8801]],PARAMETER[\"Longitude of natural origin\",-75,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"Scale factor at natural origin\",0.9996,SCALEUNIT[\"unity\",1],ID[\"EPSG\",8805]],PARAMETER[\"False easting\",500000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"easting\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],ID[\"EPSG\",6347]],VERTCRS[\"NAVD88 height\",VDATUM[\"North American Vertical Datum 1988\"],CS[vertical,1],AXIS[\"up\",up,LENGTHUNIT[\"metre\",1]],GEOIDMODEL[\"GEOID18\"],ID[\"EPSG\",5703]]]",
+      "axes": [
+        {
+          "name": "Easting",
+          "unit": "metre",
+          "unitConversionFactor": 1.0
+        },
+        {
+          "name": "Northing",
+          "unit": "metre",
+          "unitConversionFactor": 1.0
+        },
+        {
+          "name": "Up",
+          "unit": "metre",
+          "unitConversionFactor": 1.0
+        }
+      ],
+      "headerBoundsSourceUnits": {
+        "minimum": [
+          588029.451,
+          4570500.001,
+          -6.261
+        ],
+        "maximum": [
+          589500.0,
+          4571999.998,
+          116.818
+        ]
+      },
+      "pointCount": 1740009,
+      "classificationCounts": {
+        "1": 901127,
+        "2": 832743,
+        "7": 2007,
+        "17": 1759,
+        "18": 110,
+        "20": 2263
+      },
+      "footprints": [
+        {
+          "sourceId": "osm/way/285221615",
+          "headerBoundsIntersectionFraction": 0.0,
+          "coverageMethod": "LAS header XY bounding rectangle only; no point-density or surveyed-footprint completeness inferred",
+          "class6BuildingPoints": 0,
+          "class1UnclassifiedPoints": 0,
+          "sourceHeightAttribute": {
+            "metres": 5.555979251861572,
+            "status": "source_estimate",
+            "method": "upstream_machine_learning",
+            "sourceDatasets": [
+              "Microsoft ML Buildings"
+            ]
+          },
+          "nearbyClass2GroundPoints": 0,
+          "groundSourceZQuantiles": null,
+          "groundZUnits": "unchanged source CRS vertical units",
+          "verticalUnitConversionToMetres": 1.0,
+          "classifiedPlaneObservations": {
+            "status": "no_declared_vertical_units_or_fewer_than_20_points",
+            "planes": []
+          },
+          "unclassifiedPlaneObservations": {
+            "status": "no_declared_vertical_units_or_fewer_than_20_points",
+            "planes": []
+          },
+          "interpretation": "Class 6 denotes building observations. Class 1 is not classified roof; footprint clipping can include plants, platforms, bridge or other structures. Plane clusters are not accepted roof geometry."
+        },
+        {
+          "sourceId": "osm/way/1307801003",
+          "headerBoundsIntersectionFraction": 0.9999999999999988,
+          "coverageMethod": "LAS header XY bounding rectangle only; no point-density or surveyed-footprint completeness inferred",
+          "class6BuildingPoints": 0,
+          "class1UnclassifiedPoints": 2781,
+          "sourceHeightAttribute": {
+            "metres": null,
+            "status": "missing",
+            "method": null,
+            "sources": []
+          },
+          "nearbyClass2GroundPoints": 6018,
+          "groundSourceZQuantiles": [
+            2.483,
+            2.624,
+            2.88
+          ],
+          "groundZUnits": "unchanged source CRS vertical units",
+          "verticalUnitConversionToMetres": 1.0,
+          "classifiedPlaneObservations": {
+            "status": "no_declared_vertical_units_or_fewer_than_20_points",
+            "planes": []
+          },
+          "unclassifiedPlaneObservations": {
+            "status": "source_plane_clusters_not_accepted_roofs",
+            "toleranceMetres": 0.08,
+            "planes": [
+              {
+                "pointCount": 1588,
+                "fractionOfClassSubset": 0.5710176195613089,
+                "xyOriginSourceUnits": [
+                  589449.309,
+                  4570902.118
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.10440459273496687,
+                  0.10261144479879603,
+                  7.79893833367446
+                ],
+                "zMetresRange": [
+                  7.615,
+                  8.358
+                ],
+                "xyExtentMetres": [
+                  -38.324999999953434,
+                  -38.916000000201166,
+                  34.08100000000559,
+                  35.213000000454485
+                ],
+                "residualRMSEMetres": 0.03670426066390208
+              },
+              {
+                "pointCount": 393,
+                "fractionOfClassSubset": 0.1413160733549083,
+                "xyOriginSourceUnits": [
+                  589449.309,
+                  4570902.118
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.09345985233866311,
+                  0.09150460040225163,
+                  7.945367341697026
+                ],
+                "zMetresRange": [
+                  7.696,
+                  8.486
+                ],
+                "xyExtentMetres": [
+                  -38.07799999997951,
+                  -39.174999999813735,
+                  34.131999999983236,
+                  36.8050000006333
+                ],
+                "residualRMSEMetres": 0.037709913017467345
+              },
+              {
+                "pointCount": 332,
+                "fractionOfClassSubset": 0.11938151743976987,
+                "xyOriginSourceUnits": [
+                  589449.309,
+                  4570902.118
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.027301681433331046,
+                  -0.034609161893540866,
+                  4.148791290911366
+                ],
+                "zMetresRange": [
+                  3.844,
+                  4.513
+                ],
+                "xyExtentMetres": [
+                  -38.836000000010245,
+                  -38.59999999962747,
+                  34.13899999996647,
+                  34.63400000054389
+                ],
+                "residualRMSEMetres": 0.03950147971582686
+              },
+              {
+                "pointCount": 161,
+                "fractionOfClassSubset": 0.05789284430061129,
+                "xyOriginSourceUnits": [
+                  589449.309,
+                  4570902.118
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.1142792921587517,
+                  0.10996563678342913,
+                  8.05639978852257
+                ],
+                "zMetresRange": [
+                  7.795,
+                  8.724
+                ],
+                "xyExtentMetres": [
+                  -35.52899999998044,
+                  -38.47300000023097,
+                  32.21400000003632,
+                  36.26200000010431
+                ],
+                "residualRMSEMetres": 0.0323080099308166
+              },
+              {
+                "pointCount": 98,
+                "fractionOfClassSubset": 0.035239122617763394,
+                "xyOriginSourceUnits": [
+                  589449.309,
+                  4570902.118
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.018136579344045358,
+                  -0.021436552407051612,
+                  4.164673694205521
+                ],
+                "zMetresRange": [
+                  3.86,
+                  4.433
+                ],
+                "xyExtentMetres": [
+                  -37.15399999998044,
+                  -38.96199999935925,
+                  33.43700000003446,
+                  36.375
+                ],
+                "residualRMSEMetres": 0.04327722687984922
+              },
+              {
+                "pointCount": 96,
+                "fractionOfClassSubset": 0.034519956850053934,
+                "xyOriginSourceUnits": [
+                  589449.309,
+                  4570902.118
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.07015753482864276,
+                  0.06849552474976306,
+                  7.713431870131297
+                ],
+                "zMetresRange": [
+                  7.615,
+                  7.908
+                ],
+                "xyExtentMetres": [
+                  -37.400999999954365,
+                  -35.96499999985099,
+                  33.59299999999348,
+                  34.071000000461936
+                ],
+                "residualRMSEMetres": 0.03363765812582339
+              }
+            ]
+          },
+          "interpretation": "Class 6 denotes building observations. Class 1 is not classified roof; footprint clipping can include plants, platforms, bridge or other structures. Plane clusters are not accepted roof geometry."
+        },
+        {
+          "sourceId": "osm/way/1307801004",
+          "headerBoundsIntersectionFraction": 0.9999999999999998,
+          "coverageMethod": "LAS header XY bounding rectangle only; no point-density or surveyed-footprint completeness inferred",
+          "class6BuildingPoints": 0,
+          "class1UnclassifiedPoints": 1953,
+          "sourceHeightAttribute": {
+            "metres": null,
+            "status": "missing",
+            "method": null,
+            "sources": []
+          },
+          "nearbyClass2GroundPoints": 4031,
+          "groundSourceZQuantiles": [
+            2.412,
+            2.591,
+            2.859
+          ],
+          "groundZUnits": "unchanged source CRS vertical units",
+          "verticalUnitConversionToMetres": 1.0,
+          "classifiedPlaneObservations": {
+            "status": "no_declared_vertical_units_or_fewer_than_20_points",
+            "planes": []
+          },
+          "unclassifiedPlaneObservations": {
+            "status": "source_plane_clusters_not_accepted_roofs",
+            "toleranceMetres": 0.08,
+            "planes": [
+              {
+                "pointCount": 970,
+                "fractionOfClassSubset": 0.49667178699436765,
+                "xyOriginSourceUnits": [
+                  589472.709,
+                  4570907.313
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.1139120100606762,
+                  0.10633940134083743,
+                  7.819678433417526
+                ],
+                "zMetresRange": [
+                  7.625,
+                  8.313
+                ],
+                "xyExtentMetres": [
+                  -21.447000000043772,
+                  -21.152999999932945,
+                  18.233999999938533,
+                  20.450000000186265
+                ],
+                "residualRMSEMetres": 0.036689074527570566
+              },
+              {
+                "pointCount": 532,
+                "fractionOfClassSubset": 0.2724014336917563,
+                "xyOriginSourceUnits": [
+                  589472.709,
+                  4570907.313
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.11133561971451543,
+                  -0.11472351072611134,
+                  7.616397584820391
+                ],
+                "zMetresRange": [
+                  7.659,
+                  8.115
+                ],
+                "xyExtentMetres": [
+                  -19.788000000058673,
+                  -21.847000000067055,
+                  20.64299999992363,
+                  17.730999999679625
+                ],
+                "residualRMSEMetres": 0.030581374670110892
+              },
+              {
+                "pointCount": 211,
+                "fractionOfClassSubset": 0.1080389144905274,
+                "xyOriginSourceUnits": [
+                  589472.709,
+                  4570907.313
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.044274008467973684,
+                  -0.0495709155215448,
+                  4.1013772310236
+                ],
+                "zMetresRange": [
+                  3.817,
+                  4.249
+                ],
+                "xyExtentMetres": [
+                  -21.709000000031665,
+                  -20.487999999895692,
+                  18.54700000002049,
+                  20.83100000023842
+                ],
+                "residualRMSEMetres": 0.036563860880420664
+              },
+              {
+                "pointCount": 86,
+                "fractionOfClassSubset": 0.044034818228366614,
+                "xyOriginSourceUnits": [
+                  589472.709,
+                  4570907.313
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.12364798630547981,
+                  0.11702897761375397,
+                  7.907623383768995
+                ],
+                "zMetresRange": [
+                  7.712,
+                  8.389
+                ],
+                "xyExtentMetres": [
+                  -21.484000000054948,
+                  -19.58299999963492,
+                  18.35999999998603,
+                  20.3410000000149
+                ],
+                "residualRMSEMetres": 0.03278170181046306
+              }
+            ]
+          },
+          "interpretation": "Class 6 denotes building observations. Class 1 is not classified roof; footprint clipping can include plants, platforms, bridge or other structures. Plane clusters are not accepted roof geometry."
+        }
+      ]
+    },
+    {
+      "title": "USGS Lidar Point Cloud NY_FEMAR2_Central_2018_D19 e1817n2242",
+      "catalogueId": "60a51085d34ea221ce488dbc",
+      "publicationDate": "2021-05-18",
+      "surveyYearFromTitle": 2018,
+      "acquisitionDateInterval": null,
+      "dateInterpretation": "Survey year inferred from official tile title; exact acquisition date/interval not yet inspected. Publication date is separate.",
+      "checksumPolicy": "first acquisition discovery: record actual hash; pin it in follow-up before reproducibility or model acceptance",
+      "sourceUrl": "https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/NY_FEMAR2_Central_2018_D19/NY_FEMAR2_Central_B1_2018/LAZ/USGS_LPC_NY_FEMAR2_Central_2018_D19_e1817n2242.laz",
+      "bytes": 27491800,
+      "sha256": "f8ae1cb7541c9fcd874c1cba016fe0488a9b5babd2ac323b64c3b46bd1b484cb",
+      "sourceCRSWKT": "COMPOUNDCRS[\"NAD83(2011) / Conus Albers + NAVD88 height - Geoid12B (Meters)\",PROJCRS[\"NAD83(2011) / Conus Albers\",BASEGEOGCRS[\"NAD83(2011)\",DATUM[\"NAD83 (National Spatial Reference System 2011)\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",6318]],CONVERSION[\"unnamed\",METHOD[\"Albers Equal Area\",ID[\"EPSG\",9822]],PARAMETER[\"Latitude of 1st standard parallel\",29.5,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Latitude of 2nd standard parallel\",45.5,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8824]],PARAMETER[\"Latitude of false origin\",23,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8821]],PARAMETER[\"Longitude of false origin\",-96,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8822]],PARAMETER[\"Easting at false origin\",0,LENGTHUNIT[\"meter\",1],ID[\"EPSG\",8826]],PARAMETER[\"Northing at false origin\",0,LENGTHUNIT[\"meter\",1],ID[\"EPSG\",8827]]],CS[Cartesian,2],AXIS[\"x\",east,ORDER[1],LENGTHUNIT[\"meter\",1]],AXIS[\"y\",north,ORDER[2],LENGTHUNIT[\"meter\",1]],ID[\"EPSG\",6350]],VERTCRS[\"NAVD88 height - Geoid12B (Meters)\",VDATUM[\"North American Vertical Datum 1988\"],CS[vertical,1],AXIS[\"up\",up,LENGTHUNIT[\"meter\",1]],GEOIDMODEL[\"GEOID12B\"],ID[\"EPSG\",5703]]]",
+      "axes": [
+        {
+          "name": "X",
+          "unit": "meter",
+          "unitConversionFactor": 1.0
+        },
+        {
+          "name": "Y",
+          "unit": "meter",
+          "unitConversionFactor": 1.0
+        },
+        {
+          "name": "Up",
+          "unit": "meter",
+          "unitConversionFactor": 1.0
+        }
+      ],
+      "headerBoundsSourceUnits": {
+        "minimum": [
+          1817000.01,
+          2242000.0100000002,
+          -2.08
+        ],
+        "maximum": [
+          1818000.0,
+          2243000.0,
+          250.59
+        ]
+      },
+      "pointCount": 6069050,
+      "classificationCounts": {
+        "1": 3301879,
+        "2": 1884012,
+        "7": 22598,
+        "9": 843954,
+        "17": 14692,
+        "20": 1915
+      },
+      "footprints": [
+        {
+          "sourceId": "osm/way/285221615",
+          "headerBoundsIntersectionFraction": 1.0000000000000002,
+          "coverageMethod": "LAS header XY bounding rectangle only; no point-density or surveyed-footprint completeness inferred",
+          "class6BuildingPoints": 0,
+          "class1UnclassifiedPoints": 2549,
+          "sourceHeightAttribute": {
+            "metres": 5.555979251861572,
+            "status": "source_estimate",
+            "method": "upstream_machine_learning",
+            "sourceDatasets": [
+              "Microsoft ML Buildings"
+            ]
+          },
+          "nearbyClass2GroundPoints": 4249,
+          "groundSourceZQuantiles": [
+            2.36,
+            2.57,
+            2.73
+          ],
+          "groundZUnits": "unchanged source CRS vertical units",
+          "verticalUnitConversionToMetres": 1.0,
+          "classifiedPlaneObservations": {
+            "status": "no_declared_vertical_units_or_fewer_than_20_points",
+            "planes": []
+          },
+          "unclassifiedPlaneObservations": {
+            "status": "source_plane_clusters_not_accepted_roofs",
+            "toleranceMetres": 0.08,
+            "planes": [
+              {
+                "pointCount": 447,
+                "fractionOfClassSubset": 0.1753628874068262,
+                "xyOriginSourceUnits": [
+                  1817684.5,
+                  2242915.69
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.49117038526587714,
+                  -0.28526867429822156,
+                  10.475406971179758
+                ],
+                "zMetresRange": [
+                  6.58,
+                  11.25
+                ],
+                "xyExtentMetres": [
+                  -14.330000000074506,
+                  -11.259999999776483,
+                  5.53000000002794,
+                  16.229999999981374
+                ],
+                "residualRMSEMetres": 0.045668729087038465
+              },
+              {
+                "pointCount": 424,
+                "fractionOfClassSubset": 0.16633974107493135,
+                "xyOriginSourceUnits": [
+                  1817684.5,
+                  2242915.69
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.4497506312434285,
+                  0.26834108961323455,
+                  12.03952224105383
+                ],
+                "zMetresRange": [
+                  8.74,
+                  11.24
+                ],
+                "xyExtentMetres": [
+                  -3.1299999998882413,
+                  -14.729999999981374,
+                  11.870000000111759,
+                  8.459999999962747
+                ],
+                "residualRMSEMetres": 0.037868486447099795
+              },
+              {
+                "pointCount": 335,
+                "fractionOfClassSubset": 0.13142408787759907,
+                "xyOriginSourceUnits": [
+                  1817684.5,
+                  2242915.69
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.14790245142141756,
+                  -0.07705843115602451,
+                  8.336270172377393
+                ],
+                "zMetresRange": [
+                  7.19,
+                  9.32
+                ],
+                "xyExtentMetres": [
+                  -13.089999999850988,
+                  -14.089999999850988,
+                  10.510000000009313,
+                  15.43999999994412
+                ],
+                "residualRMSEMetres": 0.03740919674109332
+              },
+              {
+                "pointCount": 155,
+                "fractionOfClassSubset": 0.06080816006276971,
+                "xyOriginSourceUnits": [
+                  1817684.5,
+                  2242915.69
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.4903943946619087,
+                  -0.2755326293823239,
+                  10.41455265608837
+                ],
+                "zMetresRange": [
+                  6.49,
+                  11.17
+                ],
+                "xyExtentMetres": [
+                  -13.889999999897555,
+                  -11.839999999850988,
+                  4.810000000055879,
+                  16.22000000020489
+                ],
+                "residualRMSEMetres": 0.036346106678482176
+              },
+              {
+                "pointCount": 109,
+                "fractionOfClassSubset": 0.04276186739897999,
+                "xyOriginSourceUnits": [
+                  1817684.5,
+                  2242915.69
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.18439633511982326,
+                  -0.2375058768176791,
+                  10.969503308897986
+                ],
+                "zMetresRange": [
+                  6.29,
+                  11.27
+                ],
+                "xyExtentMetres": [
+                  -2.909999999916181,
+                  -3.9399999999441206,
+                  13.010000000009313,
+                  13.78000000026077
+                ],
+                "residualRMSEMetres": 0.04301818180166664
+              },
+              {
+                "pointCount": 124,
+                "fractionOfClassSubset": 0.04864652805021577,
+                "xyOriginSourceUnits": [
+                  1817684.5,
+                  2242915.69
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.5249494976961748,
+                  -0.2866503495013619,
+                  10.558978394971113
+                ],
+                "zMetresRange": [
+                  6.43,
+                  11.19
+                ],
+                "xyExtentMetres": [
+                  -12.199999999953434,
+                  -9.569999999832362,
+                  4.600000000093132,
+                  12.18999999994412
+                ],
+                "residualRMSEMetres": 0.04058007494025958
+              }
+            ]
+          },
+          "interpretation": "Class 6 denotes building observations. Class 1 is not classified roof; footprint clipping can include plants, platforms, bridge or other structures. Plane clusters are not accepted roof geometry."
+        },
+        {
+          "sourceId": "osm/way/1307801003",
+          "headerBoundsIntersectionFraction": 0.9999999999999999,
+          "coverageMethod": "LAS header XY bounding rectangle only; no point-density or surveyed-footprint completeness inferred",
+          "class6BuildingPoints": 0,
+          "class1UnclassifiedPoints": 2787,
+          "sourceHeightAttribute": {
+            "metres": null,
+            "status": "missing",
+            "method": null,
+            "sources": []
+          },
+          "nearbyClass2GroundPoints": 7910,
+          "groundSourceZQuantiles": [
+            2.49,
+            2.63,
+            2.89
+          ],
+          "groundZUnits": "unchanged source CRS vertical units",
+          "verticalUnitConversionToMetres": 1.0,
+          "classifiedPlaneObservations": {
+            "status": "no_declared_vertical_units_or_fewer_than_20_points",
+            "planes": []
+          },
+          "unclassifiedPlaneObservations": {
+            "status": "source_plane_clusters_not_accepted_roofs",
+            "toleranceMetres": 0.08,
+            "planes": [
+              {
+                "pointCount": 956,
+                "fractionOfClassSubset": 0.34302116971654106,
+                "xyOriginSourceUnits": [
+                  1817612.74,
+                  2242839.5
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.1498062425777609,
+                  0.0928093218809542,
+                  7.850099337709074
+                ],
+                "zMetresRange": [
+                  7.54,
+                  8.61
+                ],
+                "xyExtentMetres": [
+                  -22.489999999990687,
+                  -36.62999999988824,
+                  31.18999999994412,
+                  51.330000000074506
+                ],
+                "residualRMSEMetres": 0.043527984689815113
+              },
+              {
+                "pointCount": 678,
+                "fractionOfClassSubset": 0.2432723358449946,
+                "xyOriginSourceUnits": [
+                  1817612.74,
+                  2242839.5
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.07335001485721604,
+                  -0.05050066840197489,
+                  4.188572510802261
+                ],
+                "zMetresRange": [
+                  3.7600000000000002,
+                  4.33
+                ],
+                "xyExtentMetres": [
+                  -21.729999999981374,
+                  -32.919999999925494,
+                  31.12000000011176,
+                  50.27000000001863
+                ],
+                "residualRMSEMetres": 0.03684051482550257
+              },
+              {
+                "pointCount": 416,
+                "fractionOfClassSubset": 0.14926444205238606,
+                "xyOriginSourceUnits": [
+                  1817612.74,
+                  2242839.5
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.01702474083476542,
+                  0.008544381307297108,
+                  7.799107100796685
+                ],
+                "zMetresRange": [
+                  7.62,
+                  7.92
+                ],
+                "xyExtentMetres": [
+                  -21.649999999906868,
+                  -36.41000000014901,
+                  31.56000000005588,
+                  49.83999999985099
+                ],
+                "residualRMSEMetres": 0.043412211525099116
+              },
+              {
+                "pointCount": 234,
+                "fractionOfClassSubset": 0.08396124865446716,
+                "xyOriginSourceUnits": [
+                  1817612.74,
+                  2242839.5
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.07329759078933124,
+                  -0.050474235585398895,
+                  4.2718942398735
+                ],
+                "zMetresRange": [
+                  3.88,
+                  4.41
+                ],
+                "xyExtentMetres": [
+                  -23.28000000002794,
+                  -35.58999999985099,
+                  30.199999999953434,
+                  50.08999999985099
+                ],
+                "residualRMSEMetres": 0.02360023295647831
+              },
+              {
+                "pointCount": 155,
+                "fractionOfClassSubset": 0.05561535701471116,
+                "xyOriginSourceUnits": [
+                  1817612.74,
+                  2242839.5
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.16289394030302187,
+                  0.09714757240273952,
+                  7.841733101942491
+                ],
+                "zMetresRange": [
+                  7.53,
+                  8.48
+                ],
+                "xyExtentMetres": [
+                  -23.239999999990687,
+                  -35.93999999994412,
+                  29.449999999953434,
+                  50.760000000242144
+                ],
+                "residualRMSEMetres": 0.04260725022290352
+              },
+              {
+                "pointCount": 105,
+                "fractionOfClassSubset": 0.03767491926803014,
+                "xyOriginSourceUnits": [
+                  1817612.74,
+                  2242839.5
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.13067548636358242,
+                  0.08213891007833987,
+                  7.9704901411500595
+                ],
+                "zMetresRange": [
+                  7.67,
+                  8.64
+                ],
+                "xyExtentMetres": [
+                  -18.71999999997206,
+                  -33.14999999990687,
+                  31.260000000009313,
+                  51.169999999925494
+                ],
+                "residualRMSEMetres": 0.03739676503482876
+              }
+            ]
+          },
+          "interpretation": "Class 6 denotes building observations. Class 1 is not classified roof; footprint clipping can include plants, platforms, bridge or other structures. Plane clusters are not accepted roof geometry."
+        },
+        {
+          "sourceId": "osm/way/1307801004",
+          "headerBoundsIntersectionFraction": 1.0,
+          "coverageMethod": "LAS header XY bounding rectangle only; no point-density or surveyed-footprint completeness inferred",
+          "class6BuildingPoints": 0,
+          "class1UnclassifiedPoints": 1211,
+          "sourceHeightAttribute": {
+            "metres": null,
+            "status": "missing",
+            "method": null,
+            "sources": []
+          },
+          "nearbyClass2GroundPoints": 5307,
+          "groundSourceZQuantiles": [
+            2.47,
+            2.63,
+            2.83
+          ],
+          "groundZUnits": "unchanged source CRS vertical units",
+          "verticalUnitConversionToMetres": 1.0,
+          "classifiedPlaneObservations": {
+            "status": "no_declared_vertical_units_or_fewer_than_20_points",
+            "planes": []
+          },
+          "unclassifiedPlaneObservations": {
+            "status": "source_plane_clusters_not_accepted_roofs",
+            "toleranceMetres": 0.08,
+            "planes": [
+              {
+                "pointCount": 499,
+                "fractionOfClassSubset": 0.412056151940545,
+                "xyOriginSourceUnits": [
+                  1817637.4100000001,
+                  2242855.41
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.01478348861074891,
+                  -0.013880949949170746,
+                  4.041702234130383
+                ],
+                "zMetresRange": [
+                  3.84,
+                  4.19
+                ],
+                "xyExtentMetres": [
+                  -14.590000000083819,
+                  -20.770000000018626,
+                  16.169999999925494,
+                  27.799999999813735
+                ],
+                "residualRMSEMetres": 0.03333442691115816
+              },
+              {
+                "pointCount": 328,
+                "fractionOfClassSubset": 0.2708505367464905,
+                "xyOriginSourceUnits": [
+                  1817637.4100000001,
+                  2242855.41
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.08509052149134794,
+                  0.04647725480971958,
+                  7.980862525215728
+                ],
+                "zMetresRange": [
+                  7.61,
+                  8.24
+                ],
+                "xyExtentMetres": [
+                  -12.790000000037253,
+                  -22.070000000298023,
+                  17.069999999832362,
+                  25.540000000037253
+                ],
+                "residualRMSEMetres": 0.04475258296603673
+              },
+              {
+                "pointCount": 151,
+                "fractionOfClassSubset": 0.12469033856317094,
+                "xyOriginSourceUnits": [
+                  1817637.4100000001,
+                  2242855.41
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  0.12700605998862002,
+                  -0.08410844251166257,
+                  7.5658324076527155
+                ],
+                "zMetresRange": [
+                  7.53,
+                  8.120000000000001
+                ],
+                "xyExtentMetres": [
+                  -11.81000000005588,
+                  -22.56000000005588,
+                  18.069999999832362,
+                  24.83999999985099
+                ],
+                "residualRMSEMetres": 0.04459029988784843
+              },
+              {
+                "pointCount": 76,
+                "fractionOfClassSubset": 0.06275805119735756,
+                "xyOriginSourceUnits": [
+                  1817637.4100000001,
+                  2242855.41
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.05086515831735793,
+                  0.02975892840230321,
+                  8.1077697739712
+                ],
+                "zMetresRange": [
+                  7.9,
+                  8.23
+                ],
+                "xyExtentMetres": [
+                  -10.490000000223517,
+                  -20.020000000018626,
+                  17.019999999785796,
+                  26.509999999776483
+                ],
+                "residualRMSEMetres": 0.04054283296189323
+              },
+              {
+                "pointCount": 62,
+                "fractionOfClassSubset": 0.05119735755573906,
+                "xyOriginSourceUnits": [
+                  1817637.4100000001,
+                  2242855.41
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.09152206546668616,
+                  0.05161193623064458,
+                  7.861126416410989
+                ],
+                "zMetresRange": [
+                  7.5600000000000005,
+                  7.97
+                ],
+                "xyExtentMetres": [
+                  -12.910000000149012,
+                  -21.600000000093132,
+                  12.429999999934807,
+                  18.580000000074506
+                ],
+                "residualRMSEMetres": 0.033820189293317315
+              },
+              {
+                "pointCount": 25,
+                "fractionOfClassSubset": 0.02064409578860446,
+                "xyOriginSourceUnits": [
+                  1817637.4100000001,
+                  2242855.41
+                ],
+                "xyUnits": "metres relative to source origin",
+                "equation": "zMetres = a*xMetres + b*yMetres + c",
+                "coefficients": [
+                  -0.08257082604988746,
+                  0.04589114334519584,
+                  8.088025781538477
+                ],
+                "zMetresRange": [
+                  7.8100000000000005,
+                  8.290000000000001
+                ],
+                "xyExtentMetres": [
+                  -13.190000000176951,
+                  -20.020000000018626,
+                  16.55999999982305,
+                  26.75
+                ],
+                "residualRMSEMetres": 0.02319659419547052
+              }
+            ]
+          },
+          "interpretation": "Class 6 denotes building observations. Class 1 is not classified roof; footprint clipping can include plants, platforms, bridge or other structures. Plane clusters are not accepted roof geometry."
+        }
+      ]
+    }
+  ]
+}

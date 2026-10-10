@@ -1,0 +1,61 @@
+{
+  "sourceTileSha256": "47b0fedc079e8c41fe65256058deb1d9cbc45b4bb417cb02d35f5c844f4e78cc",
+  "sourceCRSWKT": "COMPOUNDCRS[\"NAD83(2011) / UTM zone 18N + NAVD88 height - Geoid18 (metres)\",PROJCRS[\"NAD83(2011) / UTM zone 18N\",BASEGEOGCRS[\"NAD83(2011)\",DATUM[\"NAD83 (National Spatial Reference System 2011)\",ELLIPSOID[\"GRS 1980\",6378137,298.257222101,LENGTHUNIT[\"metre\",1]]],PRIMEM[\"Greenwich\",0,ANGLEUNIT[\"degree\",0.0174532925199433]],ID[\"EPSG\",6318]],CONVERSION[\"UTM zone 18N\",METHOD[\"Transverse Mercator\",ID[\"EPSG\",9807]],PARAMETER[\"Latitude of natural origin\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8801]],PARAMETER[\"Longitude of natural origin\",-75,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"Scale factor at natural origin\",0.9996,SCALEUNIT[\"unity\",1],ID[\"EPSG\",8805]],PARAMETER[\"False easting\",500000,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"easting\",east,ORDER[1],LENGTHUNIT[\"metre\",1]],AXIS[\"northing\",north,ORDER[2],LENGTHUNIT[\"metre\",1]],ID[\"EPSG\",6347]],VERTCRS[\"NAVD88 height\",VDATUM[\"North American Vertical Datum 1988\"],CS[vertical,1],AXIS[\"up\",up,LENGTHUNIT[\"metre\",1]],GEOIDMODEL[\"GEOID18\"],ID[\"EPSG\",5703]]]",
+  "axisUnits": [
+    {
+      "name": "Easting",
+      "unit": "metre",
+      "unitConversionFactor": 1.0
+    },
+    {
+      "name": "Northing",
+      "unit": "metre",
+      "unitConversionFactor": 1.0
+    },
+    {
+      "name": "Up",
+      "unit": "metre",
+      "unitConversionFactor": 1.0
+    }
+  ],
+  "pointFields": [
+    "x",
+    "y",
+    "z",
+    "classification",
+    "returnNumber",
+    "numberOfReturns"
+  ],
+  "interpretation": "Class 6 denotes building observations. Class 1 is not classified roof; footprint clipping can include plants, platforms, bridge or other structures. Plane clusters are not accepted roof geometry.",
+  "footprint": [
+    [
+      -73.931011,
+      41.284953
+    ],
+    [
+      -73.9310554,
+      41.2849849
+    ],
+    [
+      -73.9307867,
+      41.2851964
+    ],
+    [
+      -73.9306675,
+      41.2851108
+    ],
+    [
+      -73.9309164,
+      41.284915
+    ],
+    [
+      -73.9309911,
+      41.2849686
+    ],
+    [
+      -73.931011,
+      41.284953
+    ]
+  ],
+  "points": []
+}

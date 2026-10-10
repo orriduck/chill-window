@@ -20,7 +20,7 @@
       "surveyYearFromTitle": 2022,
       "acquisitionDateInterval": null,
       "dateInterpretation": "Survey year inferred from official tile title; exact acquisition date/interval not yet inspected. Publication date is separate.",
-      "checksumPolicy": "enforce previously observed source hash"
+      "checksumPolicy": "enforce previously observed actual source hash from successful run 38053050173"
     },
     {
       "title": "USGS Lidar Point Cloud NY_FEMAR2_Central_2018_D19 e1817n2242",
@@ -35,11 +35,11 @@
       },
       "downloadURL": "https://rockyweb.usgs.gov/vdelivery/Datasets/Staged/Elevation/LPC/Projects/NY_FEMAR2_Central_2018_D19/NY_FEMAR2_Central_B1_2018/LAZ/USGS_LPC_NY_FEMAR2_Central_2018_D19_e1817n2242.laz",
       "metaUrl": "https://www.sciencebase.gov/catalog/item/60a51085d34ea221ce488dbc",
-      "observedSha256": null,
+      "observedSha256": "f8ae1cb7541c9fcd874c1cba016fe0488a9b5babd2ac323b64c3b46bd1b484cb",
       "surveyYearFromTitle": 2018,
       "acquisitionDateInterval": null,
       "dateInterpretation": "Survey year inferred from official tile title; exact acquisition date/interval not yet inspected. Publication date is separate.",
-      "checksumPolicy": "first acquisition discovery: record actual hash; pin it in follow-up before reproducibility or model acceptance"
+      "checksumPolicy": "enforce previously observed actual source hash from successful run 38053050173"
     }
   ],
   "sourceBuildingIds": [
