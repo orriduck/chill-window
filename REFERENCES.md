@@ -420,3 +420,9 @@ RGB降采样到EPSG3857的2.4投影米（本纬度约1.8地面米），形成141
 从已安装Three.js185源码 `WebGLRenderer.compileAsync` / `WebGLProgram.isReady` 核对：无KHR_parallel_shader_compile时使用定时回调等待，当前应用每批最多12块逐块串行await。一个待检验的原因是低帧率下串行回调拖慢整批准备；尚无阶段证据，未据此直接修改队列。`Renderer.ts`新增compile/upload/fence/idle的批次序号、组索引和时间；`GeoInspector.ts`显示并导出同一读数，诊断分支从路线0复现1.68km停滞。这是收集根因的仪器，未声称已经修复。用户要求视野外准备完成的目标继续保留。
 
 建筑独立重建[38028263803](https://github.com/orriduck/chill-window/actions/runs/38028263803)的实际415块/5853记录/104537三角形、16张共享纹理4,984,364B均取得并检查；417转换日志无error。输出总GLB为25,160,336B，与原云端25,160,588B相差252B，旧跨环境bytes断言导致失败，不能把失败抹为成功，也暂不宣称raw字节重建一致。完整配方已恢复；进一步直接比较每栋模型的实际ground顶点/高度与原源足迹，原始云端语义指纹核对尚未取得。转换建筑未接入新的运行时。
+
+[cf9ec52阶段复现38045535473](https://github.com/orriduck/chill-window/actions/runs/38045535473) 已读取实际health：0→2212.823m，10次样本均缺块/迟到0，无应用/请求错误；多数样本处于fence等待，最长当前批次33.194秒，完成批次仍推进。原“编译串行回调为主要原因”假设没有得到证据支持，因此没有修改compile队列；这次短复现没有重现一分钟停滞，也不证明全线稳定。新的GPU阶段读数继续用于全线/远地图定位调查。
+
+过黑树冠的采样修正关联`GeoTreeImpostors.ts`：原路径对含透明背景的mip样本再次乘alpha，仅修复角度混色而未恢复mip内的覆盖颜色。现在使用Three.js的premultiplyAlpha上传、直接混合预乘样本再除覆盖alpha；原PNG像素与SHA不变。已核对本地185 [`WebGLTextures`](https://github.com/mrdoob/three.js/blob/r185/src/renderers/webgl/WebGLTextures.js) 对UNPACK_PREMULTIPLY_ALPHA_WEBGL的调用。该修正针对透明边缘/缩小时的颜色损失，不以人为增亮替代实际样本；低透明度SRGB边缘与实际远坡表现仍需同机位云端截图检查。未称视觉目标已通过。
+
+建筑实际二进制的独立源码足迹核对（`verify-source-geometry.py`）覆盖415块/5853对象：114357个结构底部顶点、最大源边界误差0.000699532m、最大源高度误差0.000050068m。4个源building=roof无落地墙，约0.31m厚度明确为converter proxy；Windows材质的315个底边顶点是转换器装饰面，最大边界距离0.050571m，单独报告而不作为源墙体。初次验证错误地要求这两类都满足闭合落地墙契约，实际按源ID和材质定位后修正验证分类；墙体1cm/高度1mm界限没有放宽。当前 [`TexturedWindow`](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/world/modules/building/TexturedWindow.java) / [`Door`](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/world/modules/building/Door.java)源码可见沿墙法线平移装饰面的机制，但并不据master源码声称本次0.4.0的精确偏移常量。完整实际观察报告留在独立配方observations中；原云端raw GLB语义比较尚未取得，不宣称字节相同。

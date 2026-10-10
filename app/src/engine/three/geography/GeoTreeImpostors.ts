@@ -39,6 +39,9 @@ export class GeoTreeImpostors {
       const decoded = texture.image as HTMLImageElement
       if (decoded.width !== 2048 || decoded.height !== 1024) throw new Error('同源树冠图集尺寸不匹配')
       texture.colorSpace = THREE.SRGBColorSpace
+      // Generate filtered mip colors together with coverage. Transparent
+      // pixels must not be interpreted as opaque black canopy albedo.
+      texture.premultiplyAlpha = true
       texture.minFilter = THREE.LinearMipmapLinearFilter; texture.anisotropy = 1
       texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping
       texture.needsUpdate = true
@@ -78,9 +81,11 @@ vec4 geographicTreeCanopy(vec2 localUv, float angle, float species, out float mi
   float frame = floor(view);
   vec4 a = geographicTreeFrame(frame, localUv, gradX, gradY, species);
   vec4 b = geographicTreeFrame(mod(frame + 1.0, 8.0), localUv, gradX, gradY, species);
-  // Blend premultiplied samples so transparent margins cannot darken a
-  // changing crown. The sixteen underlying source frames remain unchanged.
-  vec4 result = mix(vec4(a.rgb * a.a, a.a), vec4(b.rgb * b.a, b.a), fract(view));
+  // Upload/mip filtering already stores premultiplied samples. Multiplying
+  // alpha here again would darken every minified crown. Blend first, then
+  // recover straight color for the material's separate coverage test.
+  // The sixteen underlying source frame files remain unchanged.
+  vec4 result = mix(a, b, fract(view));
   result.rgb /= max(result.a, 0.0001);
   return result;
 }`
