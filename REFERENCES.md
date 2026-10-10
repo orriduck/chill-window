@@ -439,3 +439,10 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 实际 [`dd89df2` 云端检查38046187379](https://github.com/orriduck/chill-window/actions/runs/38046187379) 已结束失败：20个状态和树冠开关均执行，延迟Oak时保持3123.283m，应用/请求错误为空；随后Manitou180秒等待超时，终态48/49、59块待GPU，批次19处于fence等待17.073秒、已完成18批。实际CRC校验取得150m/650m源树冠PNG并查看，远坡仍显著过黑，预乘alpha修正不能称视觉通过。只读颜色调查记录在`impostor-observations/2026-10-10-runtime-color-probe.json`：第一帧不透明像素Ash/Oak绿色通道中位值分别33/32（8-bit）。源帧本身很暗；烘焙光照与运行时Lambert再次打光、sRGB透明采样仍需分别核验，尚未基于该统计自动增亮或声称根因已全部确定。
 
 完整建筑运行时`373dd04`已提交独立`codex/building-visual-review`；[38047928868](https://github.com/orriduck/chill-window/actions/runs/38047928868)真实浏览器检查仍在运行。独立规格及代码审查均通过；源码/资产包装、7个既有GeoData测试、tsc/Vite构建通过。Vercel部署`dpl_EEqdpYT2d5UcsozoZanFWSQoCnQt` READY、commit373dd04；[独立预览](https://chill-window-br40qi270-orriduck.vercel.app/?world=hudson)HTML、`index-B6bS_xCI.js`和catalog实际HTTP200，线上清单SHA与已校验包装一致。文件交付不等于画面/交互验收；PR188仍保持先前9df已检查基线，未将待验收改动推入该head。
+
+
+## 2026-10-10：实际完整建筑运行与车站点云补充
+
+[373dd04 实际运行38047928868](https://github.com/orriduck/chill-window/actions/runs/38047928868) 已失败结束。5853栋、415 GLB、16共享图片Source全部准备，模型/图片各请求一次；故意延迟单GLB时列车不出发，源材质/原体块/隐藏比较执行。实际PBR/原体块与Garrison PNG经ZIP CRC验证后查看：布局能对齐航片，建筑仍有通用体块，远坡树冠仍过黑。Manitou终态36/49、95待GPU，不能将资源门控通过扩大为四站区或整线验收。独立预览保持可用，PR188仍为此前9df基线。
+
+[USGS TNM 官方站区点云查询](https://tnmaccess.nationalmap.gov/api/v1/products?datasets=Lidar+Point+Cloud+%28LPC%29&bbox=-73.9312%2C41.2847%2C-73.9303%2C41.2854&max=30&outputFormat=JSON)（2026-10-10实际读取）返回2022年u_5880057050和2018年e1817n2242等瓦片。2022发布边界不包含东侧站房，2018边界覆盖完整站区，需继续检查实际LAS坐标、点位与分类，不能仅凭包围盒称完整屋面覆盖。`app/scripts/experiments/peekskill-station-source/`保留来源选择、八输入SHA、真实OSM站台/站棚/站房/天桥线几何与云端观察配方。站房Microsoft估高、站棚缺失高度、天桥路径缺失垂直尺寸仍明确；采集年份和发布日分开，class1与拟合平面不自动当屋顶。布局图复用实际EPSG3857 scene PNG，尺寸计算独立使用EPSG26918。新点云下载与几何输出尚待云端实际执行。

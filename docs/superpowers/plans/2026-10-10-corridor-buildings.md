@@ -56,7 +56,7 @@ Files: modify `GeoInspector.ts`, `.github/workflows/cloud-visual-review.yml`, `R
 - [x] Replace 15-building labels with actual total, source_tag/source_estimate/open-roof counts, 415 prepared blocks, 16 shared image files, exact download bytes and alignment statistics; publish machine-readable dataset values.
 - [x] Add a focused `codex/building-visual-review` cloud path. Hold one corridor GLB to prove no departure before all models arrive, then verify all 415 unique model URLs and 16 unique image URLs request once, and no new source requests after scene/control changes.
 - [ ] Capture source/original comparison, four station-area building contexts and held-load state. Preserve actual ready/GPU checks, source diagnostics and health artifact; inspect downloaded PNGs before accepting appearance.
-- [ ] Run `npm run build` from app and meaningful existing projection/source tests. Push the review branch, inspect actual cloud results, and keep PR draft while trees/stations/full-route continuity remain unverified.
+- [x] Run `npm run build` from app and meaningful existing projection/source tests. Push the review branch, inspect actual cloud results, and keep PR draft while trees/stations/full-route continuity remain unverified.
 
 ## Acceptance boundaries
 
@@ -64,4 +64,4 @@ This plan advances building quality and predeparture preparation; it does not by
 
 ## Current execution evidence
 
-Packaging verify-only, 7 existing GeoData tests and production tsc/Vite build passed. Independent spec review and code quality review approved actual changes; they do not establish visual acceptance. Focused cloud building run and downloaded PNG inspection remain pending.
+Packaging verify-only, 7 existing GeoData tests and production tsc/Vite build passed. Independent spec review and code quality review approved actual changes; they do not establish visual acceptance. Actual Actions 38047928868 loaded all 5,853 models across 415 GLBs and 16 shared image Sources; held-model departure gating and source/original/hide controls passed. It FAILED while preparing Manitou (36/49 visible chunks, 95 pending GPU); only Cold Spring and Garrison contexts completed. Downloaded PBR/original and Garrison PNGs were inspected: generic building masses remain and distant crowns are excessively dark. All four contexts and full-route continuity remain unverified; do not mark the capture/acceptance checkbox complete.
