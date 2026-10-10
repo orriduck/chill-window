@@ -451,14 +451,14 @@ export class RealWorld {
       const px = x + (hash01(x, z, 2) - 0.5) * step * 0.7, pz = z + (hash01(x, z, 3) - 0.5) * step * 0.7
       if (!this.sampleLand(px, pz).forest || !this.plantable(px, pz) || hash01(px, pz, 4) < 0.1) continue
       const y = this.groundAt(px, pz, groundStep); if (y === null) continue
-      placements.push({ x: px, y, z: pz, height: 12 + hash01(px, pz, 8) * 6, yaw: hash01(px, pz, 10) * Math.PI * 2, variant: Math.floor(hash01(px, pz, 9) * 3) })
+      placements.push({ x: px, y, z: pz, height: 12 + hash01(px, pz, 8) * 6, yaw: hash01(px, pz, 10) * Math.PI * 2, variant: hash01(px, pz, 9) < 0.6 ? 0 : hash01(px, pz, 9) < 0.9 ? 1 : 2 })
     }
     return placements
   }
   private addVegetation(group: THREE.Group, x0: number, z0: number) {
     const trees = new THREE.Group(); trees.userData.geoLayer = 'vegetation'; group.add(trees)
     const placements = this.treePlacements(x0, z0, TILE, 14, 8)
-    for (const [i, name] of ['tree_oak', 'tree_detailed', 'tree_default'].entries()) this.gameAssets.addBatch(trees, name, placements.filter(p => p.variant === i))
+    for (const [i, name] of ['tree_fat', 'tree_default', 'tree_pineRoundA'].entries()) this.gameAssets.addBatch(trees, name, placements.filter(p => p.variant === i))
     const cover = new THREE.Group(); cover.userData.geoLayer = 'groundcover'; group.add(cover)
     const batches = new Map<string, GamePlacement[]>()
     // A bounded 256m tile lattice supplies low plants. Tile visibility bounds
@@ -480,7 +480,8 @@ export class RealWorld {
     this.distantForestGroup.name = 'hudson-fantasy-distant-canopies'
     for (let x = minX; x < maxX; x += 1024) for (let z = minZ; z < maxZ; z += 1024) {
       const placements = this.treePlacements(x, z, 1024, 40, 64)
-      this.gameAssets.addBatch(this.distantForestGroup, 'tree_oak', placements, true)
+      this.gameAssets.addBatch(this.distantForestGroup, 'tree_fat', placements.filter(p => p.variant === 0), true)
+      this.gameAssets.addBatch(this.distantForestGroup, 'tree_default', placements.filter(p => p.variant !== 0), true)
     }
     this.group.add(this.distantForestGroup)
   }

@@ -536,3 +536,11 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 跟进只使用原CC0资源、真实GIS与本次云端证据，不增加未观察的风格参考。`GeoInspector.ts`按真正OrbitControls变化事件独立输出相机/焦点/距离/revision，避免只等RAF更新读数；新捕获将平移、滚轮与点击分别记录，检查实际canvas hit target和trusted事件，保存前后实际camera/performance/coverage/GPU数据。图片仍须rendered revision与当前地图coverage origin匹配、49/49、GPU idle/待上传0；失败图片也仅在真实ready后冻结，未完成上传不拍图。
 
 静态源计数见 `docs/visual-checks/2026-10-10-hudson-game-style/map-workload-static.json`：Peekskill近景1545村屋约502万三角形；远景距离范围7154村屋约2331万；采用近似区域sphere frustum后4489村屋约1465万。这是候选几何数量，不是实测GPU或性能根因。`GeoGameAssets.ts`为相同三款村屋新增924/1586/1280三角形距离LOD（详细款仍1536/5730/2504）；保留真实锚点矩阵、原palette、前门窗、完整坡顶/烟囱和实际bounds，超过220m及远景使用较少的侧墙模块。对应候选数变为近景约197万、远景距离约912万、近似frustum约572万，约降低61%；近乘客村屋仍详细。GPU门控照常验证全部instance buffers，没有新旧模式或外观比较开关。纯Node18模板/18摆放及6LOD配对审计通过，19原GLB+palette220755B不变；当前只完成静态检查，下一轮实际地图PNG、交互与视觉验收仍待执行。
+
+### 实际平移已证明；后续GPU fence仍未完成
+
+[实际run38074323732](https://github.com/orriduck/chill-window/actions/runs/38074323732)，commit469c80b：两张暂停乘客PNG再次完整strict通过；六次trusted canvas pointermove已实际改变地图焦点与相机。180秒后续ready等待失败，终态当前49/49、列车准确暂停21083.216m、pendingGPU1、fence批次2/完成1、frame158/rendered revision24；实际9,305,464三角形/1198绘制、7636ms帧间隔/11.2ms CPU提交，无应用/请求错误。没有mapPNG，不声称地图已验收；观察支持检查渲染与上传调度，但不能据此断言GPU排队是唯一根因。`Renderer.ts`现在真实compile/upload/fence期间保留上一张canvas帧，不再每个RAF追加完整主场景；RAF/输入/建块/真实离屏上传和clientWaitSync/fence180s均继续。只有实际主draw完成才推进rendered revision，诊断显示held/deferred/submitted次数。捕获49/idle/pending0门槛不放宽。5个轻量renderer调度/pixelratio检查通过，实际driver/fence结果仍待新云端。
+
+### 根据实际源预览修正方块树冠
+
+根任务直接查看469c80b乘客原PNG与[Kenney Nature Kit官方原包](https://kenney.nl/assets/nature-kit)中的 `Isometric/tree_default_NE.png`、`tree_detailed_NE.png`、`tree_fat_NE.png`、`tree_pineRoundA_NE.png`。实际场景oak/detailed堆叠方块冠过强；原fat/default预览具有切面椭圆冠，pineRoundA具有层叠圆锥叶体。采用同一CC0原ZIP的 `Models/GLTF format/tree_fat.glb`（5576B，50triangles，SHA `84b262c5dda3a91ac6c95f9d8b23a0ebbb1951d678c0e1375d3e32623cc43ee2`）与 `tree_pineRoundA.glb`（14488B，204triangles，SHA `7dc9711f31585eafdcb965d0649c30af5e19f2def1955f7a915081d30759ef8e`），保留default（114triangles）；原始字节/manifest/CC0不改造来源，运行时沿用原调色与12–18m美术树高。近景约60%fat/30%default/10%round pine，远景fat/default；分布仍是实际地类范围内美术采样，不是当地逐株/物种调查。旧cube来源不再进入此唯一运行场景，19模型数不变，总原GLB+palette194763B。影响 `GeoGameAssets.ts`、`RealWorld.ts`、原始asset manifest与静态审计；不增加来源对照UI。当前构建与原源校验通过，修正后的实际像素与地图交互仍待云端直接查看。

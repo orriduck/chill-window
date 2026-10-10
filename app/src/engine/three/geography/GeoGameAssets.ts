@@ -8,7 +8,7 @@ import { GeoDetailCoverage, detailCoverageDeclarations, detailCoverageLookup } f
 export interface GamePlacement { x: number; y: number; z: number; height: number; yaw: number; variant: number }
 interface Template { geometry: THREE.BufferGeometry; material: THREE.MeshStandardMaterial }
 const townNames = ['wall', 'wall-wood', 'wall-window-small', 'wall-window-shutters', 'wall-door', 'wall-detail-cross', 'wall-wood-detail-diagonal', 'roof-gable', 'roof-high-gable', 'chimney']
-const natureNames = ['tree_oak', 'tree_detailed', 'tree_default', 'plant_bushDetailed', 'plant_bushSmall', 'grass_large', 'grass_leafs', 'rock_largeA', 'rock_smallA']
+const natureNames = ['tree_fat', 'tree_pineRoundA', 'tree_default', 'plant_bushDetailed', 'plant_bushSmall', 'grass_large', 'grass_leafs', 'rock_largeA', 'rock_smallA']
 /** Original CC0 meshes are retained beside their license and byte hashes. Three
  * assembled houses and recolored vegetation are artist interpretations only. */
 export class GeoGameAssets {

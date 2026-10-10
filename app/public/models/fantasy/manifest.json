@@ -84,16 +84,16 @@
       "sha256": "4aac939dc33195e35caf8c382ee3cb170054da763577f22d3c22692ec6afccdf"
     },
     {
-      "path": "nature/tree_oak.glb",
-      "bytes": 14644,
-      "sha256": "d7fd8773674928c50c11b66d12c636d49bdcc15a8b1c7fbb98e6f63a3439a3f3",
-      "triangles": 196
+      "path": "nature/tree_fat.glb",
+      "bytes": 5576,
+      "sha256": "84b262c5dda3a91ac6c95f9d8b23a0ebbb1951d678c0e1375d3e32623cc43ee2",
+      "triangles": 50
     },
     {
-      "path": "nature/tree_detailed.glb",
-      "bytes": 31412,
-      "sha256": "c041daf2f0fb1d49e4325227cbcd58667adbe51e9b55e8c1f0a94b74cc521b3b",
-      "triangles": 402
+      "path": "nature/tree_pineRoundA.glb",
+      "bytes": 14488,
+      "sha256": "7dc9711f31585eafdcb965d0649c30af5e19f2def1955f7a915081d30759ef8e",
+      "triangles": 204
     },
     {
       "path": "nature/tree_default.glb",
@@ -138,5 +138,5 @@
       "triangles": 16
     }
   ],
-  "interpretation": "Original CC0 meshes preserved byte-for-byte. App assembles three artist-authored houses, normalizes trees to 12\u201318m, recolors foliage/trunks and distributes vegetation inside measured land masks; this is not a real-building or per-tree survey."
+  "interpretation": "Original CC0 meshes preserved byte-for-byte. Three artist-authored village houses, fat/default oval foliage masses with minority round pines, 12\u201318m artist tree heights, authored foliage/trunk palette and vegetation distribution inside measured land masks; not a real-building or per-tree survey."
 }

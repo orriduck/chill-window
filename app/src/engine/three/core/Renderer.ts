@@ -19,6 +19,7 @@ export function renderPixelRatio(
 export class WebGLRenderer {
   renderer: THREE.WebGLRenderer
   warmupMs = 0
+  readonly presentation = { submittedFrames: 0, deferredFrames: 0, held: false, lastSubmittedAt: 0 }
   readonly preparation = { sequence: 0, phase: 'idle', groups: 0, groupIndex: 0, startedAt: 0, elapsedMs: 0, completed: 0 }
   private uploadedVersions = new WeakMap<THREE.BufferAttribute | THREE.InterleavedBuffer, number>()
   private submittedSharedModels = new WeakMap<THREE.BufferGeometry, Set<THREE.Material>>()
@@ -36,7 +37,17 @@ export class WebGLRenderer {
     this.renderer.toneMappingExposure = 1.15
   }
 
-  render(scene: THREE.Scene, camera: THREE.Camera, foreground?: THREE.Scene) {
+  render(scene: THREE.Scene, camera: THREE.Camera, foreground?: THREE.Scene): boolean {
+    // Upload/fence work shares this context with the full canvas draw. Keep
+    // the last canvas frame while genuinely preparing, rather than queueing
+    // another expensive scene each RAF behind/in competition with that work.
+    // The RAF, input, world preparation and asynchronous fence polling stay
+    // live; uploadPreparedObject still submits real buffers directly below.
+    if (this.preparation.phase !== 'idle') {
+      this.presentation.held = true; this.presentation.deferredFrames++
+      return false
+    }
+    this.presentation.held = false
     this.renderer.info.reset()
     this.renderer.render(scene, camera)
     if (foreground) {
@@ -49,6 +60,9 @@ export class WebGLRenderer {
       this.renderer.render(foreground, camera)
       this.renderer.autoClear = autoClear
     }
+    this.presentation.submittedFrames++
+    this.presentation.lastSubmittedAt = performance.now()
+    return true
   }
 
   async warmup(scene: THREE.Scene, camera: THREE.Camera, preparedWorld?: THREE.Object3D) {

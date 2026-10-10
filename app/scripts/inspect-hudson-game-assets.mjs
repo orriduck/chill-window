@@ -71,7 +71,7 @@ for(const distant of [false,true]) for(const footprint of [0.01,1000]) {
  const countBefore=assets.housesPlaced; assets.release(parent);
  if(assets.housesPlaced!==countBefore-features.length) throw new Error('LOD release duplicated geographic house counts');
 }
-const batch = new THREE.Group(); assets.addBatch(batch,'tree_oak',[{x:12,y:7,z:30,height:15,yaw:.3,variant:0}]);
+const batch = new THREE.Group(); assets.addBatch(batch,'tree_fat',[{x:12,y:7,z:30,height:15,yaw:.3,variant:0}]);
 if (batch.children.length!==1 || !batch.children[0].isInstancedMesh || !batch.children[0].userData.sharedGeometry || batch.children[0].instanceMatrix.count!==1) throw new Error('Shared instance batch failed');
 console.log(JSON.stringify({sourceAssets:assets.loadedAssets,bytes:assets.assetBytes,templates,roofChecks,placementChecks,lodChecks,staticBatchVerified:true,textureRasterization:'stubbed; not a visual check'},null,2));
 assets.dispose();`;

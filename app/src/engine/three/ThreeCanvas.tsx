@@ -237,11 +237,14 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       const savedFogNear = fog.near, savedFogFar = fog.far
       if (inspection) { fog.near = 5000; fog.far = 15000; scene.scene.background = new THREE.Color(0xcbd7c5) }
       const renderStart = performance.now()
-      renderer.render(scene.scene, viewCamera, inspection ? undefined : interiorScene)
-      if (inspection) inspector.markMapRendered()
+      const submitted = renderer.render(scene.scene, viewCamera, inspection ? undefined : interiorScene)
+      if (submitted && inspection) inspector.markMapRendered()
       if (inspection) { fog.near = savedFogNear; fog.far = savedFogFar; scene.scene.background = null }
-      perf.update()
-      inspector.setPerformance(perf.currentFps, perf.currentFrameTime, performance.now() - renderStart, renderer.renderer.info)
+      if (submitted) {
+        perf.update()
+        inspector.setPerformance(perf.currentFps, perf.currentFrameTime, performance.now() - renderStart, renderer.renderer.info)
+      }
+      inspector.setPresentation(renderer.presentation, renderer.preparation.phase)
     }
     rafRef.current = requestAnimationFrame(loop)
     const resize = () => { const size = container.getBoundingClientRect(); camera.updateAspect(size.width, size.height); inspector.resize(size.width, size.height); renderer.resize(size.width, size.height) }

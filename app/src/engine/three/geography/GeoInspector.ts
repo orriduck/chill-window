@@ -93,6 +93,11 @@ export class GeoInspector {
     this.updateMapPosition()
   }
   setPerformance(fps: number, frameMs: number, submitMs: number, info: THREE.WebGLInfo) { Object.assign(this.performance.dataset, { fps: String(fps), frameMs: String(frameMs), submitMs: String(submitMs), drawCalls: String(info.render.calls), triangles: String(info.render.triangles), geometries: String(info.memory.geometries), textures: String(info.memory.textures) }); this.performance.textContent = `${fps} FPS · 帧 ${frameMs.toFixed(1)}ms · 提交 ${submitMs.toFixed(1)}ms\n${info.render.calls} 绘制 · ${info.render.triangles} 三角形` }
+  setPresentation(stats: { submittedFrames: number; deferredFrames: number; held: boolean; lastSubmittedAt: number }, phase: string) {
+    Object.assign(this.performance.dataset, { displayHeld: String(stats.held), submittedFrames: String(stats.submittedFrames), deferredFrames: String(stats.deferredFrames), lastSubmittedAt: String(stats.lastSubmittedAt), holdPhase: stats.held ? phase : 'none' })
+    const lastActual = this.performance.textContent?.split('\n保持上一帧')[0] ?? ''
+    this.performance.textContent = lastActual + (stats.held ? `\n保持上一帧 · GPU ${phase} · 已延后 ${stats.deferredFrames} 次提交` : '')
+  }
   setMotionDiagnostic(requested: number, target: number, paused: boolean, inspection: boolean, ready: boolean, covered: boolean, jump: number | null) { this.motion.textContent = `请求/目标 ${requested.toFixed(1)}/${target.toFixed(1)}m/s · 暂停 ${paused} · 俯视 ${inspection}\n预热 ${ready} · 下一步覆盖 ${covered} · 跳转 ${jump ?? '无'}` }
   setGpuPreparation(s: { sequence: number; phase: string; groupIndex: number; groups: number; elapsedMs: number; completed: number }) { Object.assign(this.streaming.dataset, { gpuPhase: s.phase, gpuSequence: String(s.sequence), gpuCompleted: String(s.completed) }); this.streaming.textContent += `\nGPU ${s.phase} · 批次 ${s.sequence} · 完成 ${s.completed}` }
   setWorldPreparation(phase: string, presentable: boolean, elapsedMs: number) { Object.assign(this.streaming.dataset, { preparationPhase: phase, presentable: String(presentable), wholePrepareMs: String(elapsedMs) }) }

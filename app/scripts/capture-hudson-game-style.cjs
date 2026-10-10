@@ -45,9 +45,9 @@ function installCaptureFrameControl() {
 }
 function strictReadyAndMaybeFreeze({ freeze = false, metres, inspection = false } = {}) {
   const get = label => document.querySelector(`[aria-label="${label}"]`);
-  const map = get('地图检查位置');
+  const map = get('地图检查位置'), presentation = get('地理渲染性能');
   const status = get('真实地理加载状态'), coverage = get('地形覆盖诊断'), stream = get('地理区块流式加载诊断'), game = get('游戏场景准备诊断'), motion = get('地理运动门控'), position = get('真实列车位置'), journey = document.querySelector('[data-journey-phase]');
-  const ready = status?.textContent.includes('场景就绪') && status.textContent.includes('49/49') && coverage?.dataset.readyTiles === '49'
+  const ready = presentation?.dataset.displayHeld === 'false' && Number(presentation.dataset.submittedFrames) > 0 && status?.textContent.includes('场景就绪') && status.textContent.includes('49/49') && coverage?.dataset.readyTiles === '49'
     && stream?.dataset.gpuPhase === 'idle' && Number(stream.dataset.gpuCompleted) > 0 && stream.dataset.presentable === 'true'
     && stream.dataset.initialGpuPhase === 'idle' && Number(stream.dataset.initialGpuCompleted) > 0 && stream.dataset.initialReadyTiles === '49'
     && stream.dataset.initialTotalTiles === '49' && stream.dataset.initialPendingGpu === '0' && stream.dataset.pendingGpu === '0' && stream.dataset.visibleMissing === '0'
