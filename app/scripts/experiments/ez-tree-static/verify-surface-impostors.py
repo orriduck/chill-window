@@ -11,6 +11,8 @@ from PIL import Image
 
 COMMIT = "dcf309bd86bd521083d9c70f01f2de45fdc7c457"
 YAWS = list(range(0, 360, 45))
+# Metres only: Float32 mesh/camera arithmetic, never a pixel tolerance.
+DEPTH_TOLERANCE_METRES = 1e-4
 
 
 def sha(path):
@@ -97,6 +99,37 @@ def pixel_diagnostics(albedo, normal):
                                           "max": max(values) if values else None, "count": len(values)} for values in rgb]}
 
 
+def verify_depth_clipping(record, source_vertices, species, yaw):
+    """Derive depth independently from decoded, scaled raw Three vertices."""
+    assert record["species"] == species and record["yawDegrees"] == yaw
+    assert record["actualVertexCount"] == len(source_vertices)
+    assert record["marginMetres"] == 5.0
+    angle = math.radians(yaw)
+    # Source -> Blender: (X,-Z,Y), at (80*cos(yaw),80*sin(yaw),10.5).
+    # For a horizontal orthographic view depth is independent of source Y.
+    depths = [80 - math.cos(angle) * v[0] + math.sin(angle) * v[2] for v in source_vertices]
+    assert depths and all(math.isfinite(depth) for depth in depths)
+    expected_range = [min(depths), max(depths)]
+    expected_clip = [expected_range[0] - 5.0, expected_range[1] + 5.0]
+    for key, expected in (("actualCameraDepthRange", expected_range),
+                          ("requestedClipRange", expected_clip), ("assignedClipRange", expected_clip)):
+        actual = record[key]
+        assert len(actual) == 2 and all(math.isfinite(value) for value in actual)
+        assert all(abs(a - b) <= DEPTH_TOLERANCE_METRES for a, b in zip(actual, expected)), (
+            f"{species}/{yaw}: {key} {actual} differs from independently derived {expected}")
+    near, far = record["assignedClipRange"]
+    assert near > 0 and all(near < depth < far for depth in depths)
+    assert record["containsAllActualVertices"] is True
+    assert record["cameraPoseUnchanged"] is True and record["projectedRootAndBoundsUnchanged"] is True
+    assert set(record["channelAssignedClipRanges"]) == {"albedo", "normal"}
+    assert all(interval == record["assignedClipRange"] for interval in record["channelAssignedClipRanges"].values())
+    return {"species": species, "yawDegrees": yaw, "actualVertexCount": len(depths),
+            "sourceDerivedCameraDepthRange": expected_range, "sourceDerivedClipRange": expected_clip,
+            "actualCameraDepthRange": record["actualCameraDepthRange"],
+            "requestedClipRange": record["requestedClipRange"], "assignedClipRange": record["assignedClipRange"],
+            "allSourceVerticesStrictlyContained": True, "pairedActualIntervalsIdentical": True, "passed": True}
+
+
 def verify(root, output, report):
     manifest_path = output / "tree-surface-impostors.json"
     manifest = json.loads(manifest_path.read_text())
@@ -109,6 +142,18 @@ def verify(root, output, report):
     assert render["frameWorldBoundsMetres"] == [-11, -0.5, 11, 21.5]
     assert render["camera"] == {"projection": "orthographic", "orthoScaleWorldMetres": 22.0,
                                 "distanceWorldMetres": 80.0, "targetWorldMetres": [0.0, 0.0, 10.5]}
+    depth_policy = render["depthClipping"]
+    assert depth_policy["policy"] == "all actual branch and leaf vertices in actual camera space, per tree and yaw"
+    assert depth_policy["formula"] == "depth=-(inverse(camera.matrix_world) @ (object.matrix_world @ vertex.co)).z"
+    assert depth_policy["marginMetres"] == 5.0
+    assert depth_policy["sourceDepthVerificationToleranceMetres"] == DEPTH_TOLERANCE_METRES
+    assert depth_policy["calibrationRequestedClipRange"] == [0.1, 1000.0]
+    depth_records = depth_policy["frames"]
+    assert len(depth_records) == 16
+    depth_by_frame = {(item["species"], item["yawDegrees"]): item for item in depth_records}
+    assert len(depth_by_frame) == 16 and set(depth_by_frame) == {(species, yaw) for species in ("ash", "oak") for yaw in YAWS}
+    report["depthClipping"] = {"passed": False, "toleranceMetres": DEPTH_TOLERANCE_METRES,
+                               "interpretation": "Float32 depth arithmetic tolerance in metres; all original pixel gates unchanged.", "frames": []}
     assert render["leafAlphaCutoff"] == 0.5 and render["exposure"] == 0.0 and render["gamma"] == 1.0
     assert render["look"] == "None" and render["ditherIntensity"] == 0.0
     assert set(manifest["channels"]) == {"albedo", "normal"}
@@ -243,6 +288,10 @@ def verify(root, output, report):
         assert [frame["yawDegrees"] for frame in tree["frames"]] == YAWS
         for frame in tree["frames"]:
             assert frame["camera"] == render["camera"]
+            depth_record = frame["depthClipping"]
+            assert depth_record == depth_by_frame[(short, frame["yawDegrees"])]
+            depth_check = verify_depth_clipping(depth_record, source_vertices, short, frame["yawDegrees"])
+            report["depthClipping"]["frames"].append(depth_check)
             angle = math.radians(frame["yawDegrees"])
             assert all(abs(a - b) < 1e-4 for a, b in zip(frame["cameraPositionBlenderWorldMetres"], [80 * math.cos(angle), 80 * math.sin(angle), 10.5]))
             root_px = frame["rootPixelFromTopLeft"]
@@ -271,12 +320,14 @@ def verify(root, output, report):
             diagnostics = pixel_diagnostics(images["albedo"], images["normal"])
             report["frames"].append({"preset": preset, "seed": tree["seed"], "yawDegrees": frame["yawDegrees"],
                                      "rootPixel": root_px, "alphaBoundsPx": bounds,
-                                     "channels": frame["channels"], **diagnostics})
+                                     "channels": frame["channels"], "depthClipping": depth_check, **diagnostics})
             if not diagnostics["alphaPair"]["identical"]:
                 problems.append(f"{short}/{frame['yawDegrees']}: paired alpha bytes differ")
             if diagnostics["normalDecodedLength"]["above1_02Samples"]:
                 problems.append(f"{short}/{frame['yawDegrees']}: decoded normal lengths exceed 1.02")
             assert diagnostics["normalDecodedLength"]["opaque3x3InteriorPixels"]["count"] > 0
+    assert len(report["depthClipping"]["frames"]) == 16
+    report["depthClipping"]["passed"] = True
     assert len(file_names) == 32
     assert {str(path.relative_to(output)) for path in (output / "frames").rglob("*.png")} == file_names
     report["frameCount"] = len(file_names)

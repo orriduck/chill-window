@@ -39,6 +39,13 @@ UV_POLICY = {
 }
 CAMERA = {"projection": "orthographic", "orthoScaleWorldMetres": 22.0,
           "distanceWorldMetres": 80.0, "targetWorldMetres": [0.0, 0.0, 10.5]}
+DEPTH_CLIPPING = {
+    "policy": "all actual branch and leaf vertices in actual camera space, per tree and yaw",
+    "formula": "depth=-(inverse(camera.matrix_world) @ (object.matrix_world @ vertex.co)).z",
+    "marginMetres": 5.0,
+    "sourceDepthVerificationToleranceMetres": 1e-4,
+    "calibrationRequestedClipRange": [0.1, 1000.0],
+}
 CHANNELS = {
     "albedo": {"colorSpace": "sRGB", "viewTransform": "Standard",
                "formula": "sRGB_decode(source texture RGB) * exact GLB linear baseColorFactor; emission strength 1; sRGB encode",
@@ -255,6 +262,45 @@ def camera_at(camera, direction, target):
     bpy.context.view_layer.update()
 
 
+def tight_depth_clipping(camera, objects, species, yaw):
+    """Assign one conservative interval from every actual mesh vertex."""
+    pose = camera.matrix_world.copy()
+    projection = (camera.data.type, camera.data.ortho_scale)
+    inverse_camera = camera.matrix_world.inverted()
+    depths = [-(inverse_camera @ (obj.matrix_world @ vertex.co)).z
+              for obj in objects for vertex in obj.data.vertices]
+    if not depths or not all(math.isfinite(depth) for depth in depths):
+        raise RuntimeError(f"{species}/{yaw}: empty or nonfinite actual camera depths")
+    extrema = [min(depths), max(depths)]
+    margin = DEPTH_CLIPPING["marginMetres"]
+    requested = [extrema[0] - margin, extrema[1] + margin]
+    if not all(math.isfinite(value) for value in requested) or requested[0] <= 0:
+        raise RuntimeError(f"{species}/{yaw}: tight camera interval must be finite and positive")
+    camera.data.clip_start, camera.data.clip_end = requested
+    assigned = [camera.data.clip_start, camera.data.clip_end]
+    if not all(math.isfinite(value) for value in assigned) or assigned[0] <= 0:
+        raise RuntimeError(f"{species}/{yaw}: assigned camera interval must be finite and positive")
+    contained = all(assigned[0] < depth < assigned[1] for depth in depths)
+    if not contained:
+        raise RuntimeError(f"{species}/{yaw}: assigned camera interval does not strictly enclose every actual vertex")
+    pose_unchanged = camera.matrix_world == pose and projection == (camera.data.type, camera.data.ortho_scale)
+    if not pose_unchanged:
+        raise RuntimeError(f"{species}/{yaw}: clipping changed camera pose or orthographic scale")
+    return {"species": species, "yawDegrees": yaw, "actualVertexCount": len(depths),
+            "actualCameraDepthRange": extrema, "requestedClipRange": requested,
+            "assignedClipRange": assigned, "marginMetres": margin,
+            "containsAllActualVertices": contained, "cameraPoseUnchanged": pose_unchanged,
+            "channelAssignedClipRanges": {}}
+
+
+def require_depth_interval(camera, record, channel):
+    """Check actual readback immediately before each paired-channel render."""
+    assigned = [camera.data.clip_start, camera.data.clip_end]
+    if assigned != record["assignedClipRange"]:
+        raise RuntimeError(f"{record['species']}/{record['yawDegrees']}/{channel}: paired clip interval changed")
+    record["channelAssignedClipRanges"][channel] = assigned
+
+
 def render(scene, channel, path):
     scene.view_settings.view_transform = CHANNELS[channel]["viewTransform"]
     scene.render.filepath = str(path)
@@ -428,8 +474,12 @@ def main():
     camera.data.type = "ORTHO"
     camera.data.ortho_scale = 22.0
     scene.camera = camera
+    # Keep all twenty known-normal probes on their original default interval.
+    # camera_at remains pose-only; production tightening never reaches calibrate.
+    camera.data.clip_start, camera.data.clip_end = DEPTH_CLIPPING["calibrationRequestedClipRange"]
     calibration = calibrate(scene, camera, output)
     trees = []
+    depth_frames = []
     for short, seed in SEEDS.items():
         preset = short.title() + " Large"
         reference = next(item for item in cloud["trees"] if item["preset"] == preset)
@@ -468,18 +518,28 @@ def main():
             camera_at(camera, (math.cos(angle), math.sin(angle), 0), (0, 0, 10.5))
             pixels = [point_px(scene, camera, vertex) for vertex in vertices]
             projected = [min(p[0] for p in pixels), min(p[1] for p in pixels), max(p[0] for p in pixels), max(p[1] for p in pixels)]
+            root_pixel = point_px(scene, camera, (0, 0, 0))
+            depth_clipping = tight_depth_clipping(camera, (branches, leaves), short, yaw)
+            clipped_pixels = [point_px(scene, camera, vertex) for vertex in vertices]
+            root_after = point_px(scene, camera, (0, 0, 0))
+            projection_unchanged = root_after == root_pixel and clipped_pixels == pixels
+            if not projection_unchanged:
+                raise RuntimeError(f"{short}/{yaw}: clipping changed projected root or model bounds")
+            depth_clipping["projectedRootAndBoundsUnchanged"] = projection_unchanged
             frame = {"yawDegrees": yaw, "camera": CAMERA, "cameraPositionBlenderWorldMetres": list(camera.location),
-                     "rootPixelFromTopLeft": point_px(scene, camera, (0, 0, 0)),
-                     "projectedModelBoundsPixelExclusiveMax": projected, "channels": {}}
+                     "rootPixelFromTopLeft": root_pixel,
+                     "projectedModelBoundsPixelExclusiveMax": projected, "depthClipping": depth_clipping, "channels": {}}
             for channel in CHANNELS:
                 for obj, mat in zip((branches, leaves), materials[channel]):
                     obj.data.materials.clear()
                     obj.data.materials.append(mat)
                 path = output / "frames" / short / f"{short}-{channel}-azimuth-{yaw:03d}.png"
                 path.parent.mkdir(parents=True, exist_ok=True)
+                require_depth_interval(camera, depth_clipping, channel)
                 render(scene, channel, path)
                 frame["channels"][channel] = {**file_record(path, output), "sizePx": [SIZE, SIZE]}
             frames.append(frame)
+            depth_frames.append(depth_clipping)
         trees.append({"species": short, "preset": preset, "seed": seed, "sourceCommit": COMMIT,
                       "sourcePreset": file_record(preset_path, root), "sourceRawGeometry": reference["sourceRawGeometry"],
                       "sourceGlb": file_record(glb_path, root), "sourceTextures": reference["sourceTextures"],
@@ -498,6 +558,7 @@ def main():
                            "resolutionPx": [SIZE, SIZE], "horizontalYawDegrees": YAWS, "camera": CAMERA,
                            "frameWorldBoundsMetres": [-11, -0.5, 11, 21.5], "background": "transparent RGBA8",
                            "exposure": 0.0, "gamma": 1.0, "look": "None", "ditherIntensity": 0.0,
+                           "depthClipping": {**DEPTH_CLIPPING, "frames": depth_frames},
                            "leafAlphaCutoff": 0.5, "leafAlphaPolicy": "discard source interpolated alpha < 0.5; same explicit mask in both passes"},
                 "normalCalibration": {"file": "normal-calibration.json", "sha256": sha(output / "normal-calibration.json"), "passed": calibration["passed"]},
                 "sourceVerificationReport": file_record(root / "report.json", root),

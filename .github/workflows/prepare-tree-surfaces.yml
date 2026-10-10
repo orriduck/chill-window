@@ -6,9 +6,7 @@ on:
     paths:
       - 'app/scripts/experiments/ez-tree-static/render_tree_surface_impostors.py'
       - 'app/scripts/experiments/ez-tree-static/verify-surface-impostors.py'
-      - 'app/scripts/experiments/ez-tree-static/pack-surface-impostors.py'
       - 'app/scripts/experiments/ez-tree-static/SURFACE-README.md'
-      - 'app/scripts/experiments/ez-tree-static/.gitignore'
       - '.github/workflows/prepare-tree-surfaces.yml'
   workflow_dispatch:
 
@@ -17,6 +15,7 @@ permissions:
 
 jobs:
   prepare:
+    if: github.ref == 'refs/heads/codex/tree-asset-preparation'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
