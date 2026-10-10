@@ -1,0 +1,4 @@
+*.blend
+*.glb
+textures/
+__pycache__/

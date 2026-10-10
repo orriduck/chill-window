@@ -1,6 +1,8 @@
 # OSM2World Peekskill sample
 
-This is an offline, reproducible converter experiment over a real OpenStreetMap snapshot near Peekskill station. It does not replace Chill Window's source-aware building renderer.
+This is an offline converter experiment over a pinned real OpenStreetMap snapshot near Peekskill station. It does not replace Chill Window's source-aware height/structure policy.
+
+The original cloud and Actions outputs have different raw GLB hashes, but an independent comparison of all 18 source-keyed objects / 36 primitives matches exactly for accessor element bytes (positions, normals, UVs and indices) and material names: semantic SHA-256 `a04a18fad2b7eaee14659d71bffaafde3f24ccbb00e5aca0b8d92db3ccdd2bb3`, 22,109 normalized JSON bytes. All six embedded image hashes and the full source-record manifest also match. `verify-semantic-output.py` gates this mesh content and pins the two observed raw binaries; the Actions workflow additionally pins the actual Actions raw hash. This is not a claim of cross-environment byte reproducibility.
 
 ## Rebuild
 

@@ -45,12 +45,17 @@ jobs:
           mkdir -p app/scripts/experiments/osm2world-peekskill/output
           python3 app/scripts/experiments/osm2world-peekskill/prepare.py --osm2world "$RUNNER_TEMP/osm2world/osm2world.sh"
           python3 app/scripts/experiments/osm2world-peekskill/prepare.py --verify-only
+          python3 app/scripts/experiments/osm2world-peekskill/verify-semantic-output.py
           python3 - <<'PY'
           import json, os
           from pathlib import Path
           old = json.loads((Path(os.environ['RUNNER_TEMP']) / 'osm-expected-manifest.json').read_text())
           new = json.loads(Path('app/scripts/experiments/osm2world-peekskill/manifest.json').read_text())
-          assert old['output']['sha256'] == new['output']['sha256']
+          # Both raw binaries remain pinned. Their source-keyed accessor bytes
+          # were independently compared in the original cloud and Actions.
+          assert new['output']['sha256'] == '29a077b67cccd602c01eb6bd0de204cf6a20bebe9ff882af5238fe0ec11b79af'
+          assert old['output']['embeddedImages'] == new['output']['embeddedImages']
+          assert old['input']['records'] == new['input']['records']
           assert new['output']['triangles'] == 630
           assert new['input']['retainedBuildingWays'] == 18
           assert new['defaults']['observedNoHeightFeatureOutputTopMetres'] == [7.5]
