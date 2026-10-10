@@ -49,7 +49,8 @@ def inspect(path, expected_triangles):
     leaf_sha = hashlib.sha256(json.dumps(leaves, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     assert leaf_sha == '0ae502cc8ceb0ff51013367cfe9b983aaece6e0b9a073bd8850a7bf64f0aedd6', 'Foliage geometry changed'
     leaf = next(material for material in doc['materials'] if material['name'] == 'pine_tree_01_twig')
-    assert leaf['alphaMode'] == 'MASK' and leaf['alphaCutoff'] == 0.5
+    # glTF 2.0 alphaCutoff defaults to 0.5 when the optional property is absent.
+    assert leaf['alphaMode'] == 'MASK' and leaf.get('alphaCutoff', 0.5) == 0.5
     image_index = doc['textures'][leaf['pbrMetallicRoughness']['baseColorTexture']['index']]['source']
     images = []
     for index, image in enumerate(doc['images']):
@@ -61,7 +62,7 @@ def inspect(path, expected_triangles):
             assert image['mimeType'] == 'image/png' and decoded.mode == 'RGBA'
             assert decoded.getchannel('A').getextrema() == (0, 255)
         images.append({'name': image.get('name'), 'bytes': len(image_raw), 'sha256': hashlib.sha256(image_raw).hexdigest(), 'dimensions': list(decoded.size)})
-    return {'filename': path.name, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest(), 'triangles': triangles, 'leafGeometrySha256': leaf_sha, 'images': images}
+    return {'filename': path.name, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest(), 'triangles': triangles, 'leafGeometrySha256': leaf_sha, 'images': sorted(images, key=lambda item: item['name'])}
 
 outputs = [inspect(ROOT / 'pine_tree_01_a_LOD2-native.glb', 416451), inspect(ROOT / 'pine_tree_01_a_LOD2-branch50.glb', 381180)]
 assert outputs[0]['images'] == outputs[1]['images'], 'Image content changed between variants'
