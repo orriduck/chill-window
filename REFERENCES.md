@@ -362,3 +362,12 @@ Debug折叠面板增加真实影像开关、定位裁片和来源/加载状态�
 [完整交互38016848039](https://github.com/orriduck/chill-window/actions/runs/38016848039) 的2ca6f07实际health已读取：790m连续行驶6次采样缺块/延迟均0，四个车站经行画面、五个树版本、15栋建筑对照、远地图片区返回、390×844移动视口均执行，应用错误和请求失败为空。根任务查看Peekskill和移动截图仍见粗糙平面/树木表现，因此这只是运行与加载验证，不能当成视觉目标已达成。
 
 [整段连续行驶38017383186](https://github.com/orriduck/chill-window/actions/runs/38017383186) 的48507e0运行时代码与2ca6f07相同：实际从0连续到22837.381661575448m终点，78次采样缺块和延迟均0，终点49/49、待上传0、应用错误和请求失败为空。640×360 SwiftShader，不验证硬件FPS或离线体验；以上结果早于本次航片接入。
+
+
+## 2026-10-09：成熟阔叶树静态模型候选
+
+[EZ-Tree 作者仓库](https://github.com/dgreenheck/ez-tree/tree/dcf309bd86bd521083d9c70f01f2de45fdc7c457) 与[作者建模说明](https://tympanus.net/codrops/2025/01/27/fractals-to-forests-creating-realistic-3d-trees-with-three-js/)用于研究完整树冠、细枝和透明叶片。源代码/随附叶片为MIT，树皮Bark001按上游notice为AmbientCG CC0。固定Ash Large种子29919、Oak Large种子23399，离线导出同骨架LOD，不在运行时生成新地形、位置或树形。20m为LOD0展示比例，低级别保留作者扩大叶片的覆盖策略，实际高度约19.93–20.40m；这不是Hudson树种或树高测量。
+
+[实际静态资产重建38020479988](https://github.com/orriduck/chill-window/actions/runs/38020479988) 已成功：全部6个输出的原始云端GLB在还原标准roughness字段修正后SHA完全相同，验证完整几何、索引、嵌入图片与材质布局。源叶片1024×1024透明PNG SHA保持不变。Ash LOD1/2分别8,968/4,346三角形，Oak LOD1/2为9,240/5,364。实际GLB与report在根任务独立核对bytes/SHA后，四个LOD1/2作为同机位候选加入`GeoCloseTrees.ts`、`RealWorld.ts`和`GeoInspector.ts`。
+
+第一次准备工作流38020394215验证器误要求每个LOD外包高度精确20m；实际Ash LOD1为20.3969m。修正为验证统一缩放基准与原始云端完整内容，记录实际外包尺寸，没有改小叶片去通过检查。当前仍待应用内实际画面验收，主森林仍使用原有表示；不能据静态资产导出成功宣称树木视觉目标完成。

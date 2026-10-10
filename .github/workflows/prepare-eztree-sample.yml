@@ -1,0 +1,34 @@
+name: Prepare static mature canopy candidates
+on:
+  push:
+    branches: ['codex/tree-asset-preparation']
+    paths: ['app/scripts/experiments/ez-tree-static/**', '.github/workflows/prepare-eztree-sample.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Rebuild pinned source presets as static GLBs
+        run: bash app/scripts/experiments/ez-tree-static/rebuild-assets.sh
+      - name: Verify full source geometry and texture content
+        run: python3 app/scripts/experiments/ez-tree-static/verify-report.py
+      - name: Preserve upstream source and texture license notices
+        run: |
+          cp app/scripts/experiments/ez-tree-static/.work/upstream/LICENSE app/scripts/experiments/ez-tree-static/glb/EZ-TREE-LICENSE.txt
+          cp app/scripts/experiments/ez-tree-static/.work/upstream/src/app/public/textures/LICENSE.md app/scripts/experiments/ez-tree-static/glb/SOURCE-TEXTURE-LICENSE.md
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: real-canopy-candidates-${{ github.sha }}
+          path: |
+            app/scripts/experiments/ez-tree-static/glb/**
+            app/scripts/experiments/ez-tree-static/report.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -38,7 +38,8 @@ jobs:
       - name: Capture ride, geography, station positions and movement
         env:
           CW_CAPTURE_SHA: ${{ github.sha }}
-          CW_TREE_REVIEW_ONLY: ${{ (github.ref_name == 'codex/near-tree-visual-review' || github.ref_name == 'codex/broadleaf-tree-visual-review') && '1' || '0' }}
+          CW_TREE_REVIEW_ONLY: ${{ (github.ref_name == 'codex/near-tree-visual-review' || github.ref_name == 'codex/broadleaf-tree-visual-review' || github.ref_name == 'codex/canopy-visual-review') && '1' || '0' }}
+          CW_CANOPY_REVIEW_ONLY: ${{ github.ref_name == 'codex/canopy-visual-review' && '1' || '0' }}
           CW_BUILDING_REVIEW_ONLY: ${{ github.ref_name == 'codex/converted-building-review' && '1' || '0' }}
           CW_AERIAL_REVIEW_ONLY: ${{ github.ref_name == 'codex/aerial-visual-review' && '1' || '0' }}
         run: |
@@ -114,7 +115,7 @@ jobs:
             await page.getByRole('button', { name: '定位树模型对照', exact: true }).click();
             await ready();
             health.treeModels = await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent();
-            if (!health.treeModels.includes('来源尺度对照 已准备 · 5 实例 · 53,790,996 B')) throw new Error(`Tree assets were not prepared: ${health.treeModels}`);
+            if (!health.treeModels.includes('来源尺度对照 已准备 · 9 实例 · 66,203,204 B')) throw new Error(`Tree assets were not prepared: ${health.treeModels}`);
             health.treeAssetsPreparedVerified = true;
             await page.getByLabel('真实地理林木', { exact: true }).uncheck();
             await page.getByLabel('真实地理建筑', { exact: true }).uncheck();
@@ -122,7 +123,9 @@ jobs:
             await snapshot('03i-tree-source-models');
             const comparison = page.getByLabel('树模型材质对照版本', { exact: true });
             health.phototexturedTreeCases = [];
-            for (const [mode, image, triangles] of [['old-pine', '03i1-old-pine-matched-view', '6,588'], ['native', '03i2-phototextured-pine-native', '416,451'], ['branch50', '03i3-phototextured-pine-branch50', '381,180'], ['birch', '03i5-silver-birch-source-scale', '52,476']]) {
+            const canopyCases = [['ash-lod1', '03i6-canopy-ash-lod1', '8,968'], ['ash-lod2', '03i7-canopy-ash-lod2', '4,346'], ['oak-lod1', '03i8-canopy-oak-lod1', '9,240'], ['oak-lod2', '03i9-canopy-oak-lod2', '5,364']];
+            const sourceCases = [['old-pine', '03i1-old-pine-matched-view', '6,588'], ['native', '03i2-phototextured-pine-native', '416,451'], ['branch50', '03i3-phototextured-pine-branch50', '381,180'], ['birch', '03i5-silver-birch-source-scale', '52,476']];
+            for (const [mode, image, triangles] of process.env.CW_CANOPY_REVIEW_ONLY === '1' ? canopyCases : [...sourceCases, ...canopyCases]) {
               await comparison.selectOption(mode);
               await ready();
               const diagnostic = await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent();

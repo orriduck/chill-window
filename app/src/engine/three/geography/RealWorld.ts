@@ -193,6 +193,8 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       { ...first, asset: 'scots-pine' as const }, { ...second, asset: 'oak-street-tree' as const },
       { ...first, asset: 'phototextured-pine-native' as const }, { ...first, asset: 'phototextured-pine-branch50' as const },
       { ...first, asset: 'silver-birch' as const },
+      { ...first, asset: 'canopy-ash-lod1' as const }, { ...first, asset: 'canopy-ash-lod2' as const },
+      { ...first, asset: 'canopy-oak-lod1' as const }, { ...first, asset: 'canopy-oak-lod2' as const },
     ] : []
     this.treeComparison = new GeoCloseTrees(comparison)
     this.treeComparison.setAssetFilter(['scots-pine', 'oak-street-tree'])

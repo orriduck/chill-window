@@ -9,6 +9,10 @@ const ASSETS = {
   'phototextured-pine-native': { url: '/models/trees/polyhaven-pine-native.glb', radiusMetres: 4.2, bytes: 24328860, sha256: '5b3b8c30cf28937e5e5193602e76e48878a24f81b58377dbbf3d2587d60a3ee8' },
   'phototextured-pine-branch50': { url: '/models/trees/polyhaven-pine-branch50.glb', radiusMetres: 4.2, bytes: 23313556, sha256: '6d6dbf39b0f2d0099df6cb12bea32e0d4f43de19a76bbce9b0188eeb2d5bf6db' },
   'silver-birch': { url: '/models/trees/mature-silver-birch.glb', radiusMetres: 5, bytes: 4902236, sha256: 'd1832a237f9e5d3728c7c6dc6e8e8243ac2984e51abe102cdf12bb996ca3dcc7' },
+  'canopy-ash-lod1': { url: '/models/trees/ash-large-lod1-20m.glb', radiusMetres: 13, bytes: 3172184, sha256: 'e942ff58523e3833b87fdb1d3fa3d04cd797a85e09434aef90881bee38d1d9eb' },
+  'canopy-ash-lod2': { url: '/models/trees/ash-large-lod2-20m.glb', radiusMetres: 13, bytes: 2942720, sha256: '3441ea08b563c5d0f6c15432770420b0128caf79115afa5235a7f9429e012580' },
+  'canopy-oak-lod1': { url: '/models/trees/oak-large-lod1-20m.glb', radiusMetres: 13, bytes: 3257564, sha256: '20443ef8c9d66adaaf92bc8fef48e7fc401dd747e220b79804da1f2f6704da79' },
+  'canopy-oak-lod2': { url: '/models/trees/oak-large-lod2-20m.glb', radiusMetres: 13, bytes: 3039740, sha256: '5af0126c0e021da4c928c14da11ebe9409f63a943cd088810737d5f9158c0b06' },
 } as const
 const DEFAULT_CLOSE_RANGE_METRES = 115
 const CELL_METRES = 40
@@ -172,7 +176,7 @@ export class GeoCloseTrees {
       for (const prototype of prototypes.filter(item => item.asset === species)) {
         const mesh = new THREE.InstancedMesh(prototype.geometry, prototype.material, items.length)
         mesh.castShadow = true; mesh.receiveShadow = true
-        mesh.name = `cc0-${species}-instances`
+        mesh.name = `source-${species}-instances`
         mesh.userData.individualTreeLocationsEstimated = true
         mesh.userData.asset = species
         for (let index = 0; index < items.length; index++) {
