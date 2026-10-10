@@ -454,3 +454,8 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 ## 2026-10-10：Sites 发布迁移
 
 用户要求将后续成品发布到 Sites。首次实际发布 `appgdep_6aca3b596b2c8191bbc98079b9269b89` 被32,522,230B建筑JSON的单文件25MiB上限拒绝，保留同一Site身份继续修复。`GeoData.ts`改用确定性gzip传输，解压后固定SHA `0d5bd68c040b42f99138fbdb768167ef22e8c48b5442fe0bf7d889f7347bd54f`，再解析完整34,326分量/3构件；原JSON与源几何不改。gzip3,530,151B，SHA `1876443e558a69661464f10101f96a646b2f89406810ad4fc217a0e919a3dadc`。Node实际Web DecompressionStream对完整资产回读字节一致，tsc/Vite构建通过。Sites部署包只省略超限原始JSON，保留无损压缩传输文件、模型与航片；完整原JSON仍在源仓库。浏览器与最终Sites发布状态尚待验证。
+
+
+修复后同一Site实际发布成功：`appgdep_6aca3cbbb58c81918a74371280d0f819`，version `appgprj_6aca3a96ba5c8191b105b38792d2b43c~appgver_fe4dd48e89c4819183da790f6427a9ad`，Sites source commit `a0522c03e911f86f8ae4d98cb952962da2a30719`，canonical应用commit `825d5c02cc201e7e010ab07e3cdc6a92e85f387e`。原生Sites工具2026-10-10返回succeeded、无failure：[固定站点](https://chill-window-hudson.ruyyi0323.chatgpt.site/?world=hudson)。558个实际发布文件均与最新构建SHA一致，最大24,328,860B；32MB源覆盖数据改为3.53MB无损gzip，数量/字节解压校验一致。新站点默认owner-private，用户可用本人登录访问。旧Vercel项目设置已原生更新并CLI回读确认 `commandForIgnoringBuildStep=exit 0`、`previewDeploymentsDisabled=true`。发布结果验证托管，不替代Sites内实际游戏画面与整线预加载验收；未操作本机浏览器。
+
+树木独立云端surface run38054922441（0b6f8fb）实际失败：20个法线校准均通过，全部源几何/图片校验通过；后续Blender UV loop哈希与独立源重建不一致，未打包或接入运行时。修复待审查：设置自定义法线后重新获取UVMap，避免CustomData层变动留下旧RNA引用；实际复验尚未运行。失败不得记为新树冠已完成。
