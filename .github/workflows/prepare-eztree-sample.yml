@@ -22,7 +22,7 @@ jobs:
       - name: Prepare the same Blender 4.0.2 rendering engine
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends blender=4.0.2+dfsg-1ubuntu8 blender-data=4.0.2+dfsg-1ubuntu8 python3-pil
+          sudo apt-get install -y --no-install-recommends blender=4.0.2+dfsg-1ubuntu8 blender-data=4.0.2+dfsg-1ubuntu8 python3-pil libegl1 libegl-mesa0 libgl1-mesa-dri libglx-mesa0
           blender --version | head -1
       - name: Bake eight source-model views without geographic synthesis
         env:

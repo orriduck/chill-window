@@ -14,9 +14,13 @@ assert manifest['render']['resolutionPx'] == [512, 512]
 assert manifest['render']['horizontalYawDegrees'] == list(range(0, 360, 45))
 assert manifest['render']['sharedCameraBounds'] == {'worldWidthMetres': 22.0, 'worldHeightMetres': 22.0, 'worldBottomMetres': -0.5, 'worldTopMetres': 21.5}
 report = {'manifestSha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(), 'blenderVersion': manifest['render']['blenderVersion'], 'frames': []}
+cloud = json.loads((root / 'cloud-impostors.json').read_text())
 for tree in manifest['trees']:
     expected_seed = {'Ash Large': 29919, 'Oak Large': 23399}[tree['preset']]
     assert tree['seed'] == expected_seed
+    cloud_tree = next(item for item in cloud['trees'] if item['preset'] == tree['preset'])
+    assert tree['sourceRawGeometry'] == cloud_tree['sourceRawGeometry']
+    assert tree['sourceTextures'] == cloud_tree['sourceTextures']
     raw = root / tree['sourceRawGeometry']['file']
     assert hashlib.sha256(raw.read_bytes()).hexdigest() == tree['sourceRawGeometry']['sha256']
     assert raw.stat().st_size == tree['sourceRawGeometry']['bytes']
@@ -37,7 +41,8 @@ for tree in manifest['trees']:
         assert abs(bbox[3] - root_px[1]) < 2
         projected = frame['projectedModelBoundsPixelExclusiveMax']
         assert all(0 < value < 512 for value in projected)
-        report['frames'].append({'preset': tree['preset'], 'yawDegrees': frame['yawDegrees'], 'bytes': len(data), 'sha256': frame['sha256'], 'alphaBoundsPx': bbox, 'alphaExtrema': alpha.getextrema(), 'rootPixel': root_px})
+        cloud_frame = next(item for item in cloud_tree['frames'] if item['yawDegrees'] == frame['yawDegrees'])
+        report['frames'].append({'preset': tree['preset'], 'yawDegrees': frame['yawDegrees'], 'bytes': len(data), 'sha256': frame['sha256'], 'alphaBoundsPx': bbox, 'alphaExtrema': alpha.getextrema(), 'rootPixel': root_px, 'matchesOriginalCloudFrameSha256': frame['sha256'] == cloud_frame['sha256']})
 assert len(report['frames']) == 16
 (root / 'impostors/verified-report.json').write_text(json.dumps(report, indent=2) + '\n')
 print(f'Verified {len(report["frames"])} real RGBA frames, source geometry bytes, roots and padding')
