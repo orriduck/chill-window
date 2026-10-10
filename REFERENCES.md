@@ -314,3 +314,9 @@ OSM2World云端实验已完成转换：官方0.4.0、18个building way与209个�
 [d7c7b2a完整交互运行38009280167](https://github.com/orriduck/chill-window/actions/runs/38009280167)已通过：另有700m连续六次缺块/迟到0，建筑原/PBR/隐藏、树模型、远地图返回、四站和移动视图保留，无请求失败。已读取health并看Peekskill图；站台/遮棚视觉仍需进一步完善，绿色地表和基础体块不能视为全部视觉完成。
 
 [b97483f颜色修正版38010134905](https://github.com/orriduck/chill-window/actions/runs/38010134905)已通过，实际查看PBR及原体块图：默认红色被移除，源/中性颜色保留，通用表面细节仍可见；15栋/586tri/2合批、足迹误差0.0009m，定位/显隐/返回均49/49且缺块/迟到0，无请求或运行错误。初始GPU预热14292ms。此运行只覆盖初次准备和隔离建筑/返回，不包含全线连续行驶；全线证据是上述150f076基于d7c7b2a的运行。[b97483f预览](https://chill-window-pokr0r9f4-orriduck.vercel.app/?world=hudson)已READY并核对提交与HTTP200。真正的立面/窗口、主要阔叶林与整段建筑视觉升级仍需继续。
+
+### 2026-10-10：原生纹理松树配方与阔叶候选实际文件
+
+原生松树 Actions 配方保留实际源 .blend 与18张贴图的 SHA/大小，固定官方下载 Blender4.4.3 的363,316,148B归档及SHA。原生416,451tri与只减枝干的381,180tri版本保持叶片accessor hash `0ae502cc8ceb0ff51013367cfe9b983aaece6e0b9a073bd8850a7bf64f0aedd6`，待实际输出校验完成；此内容尚未成为默认运行模型。首次[38014145361](https://github.com/orriduck/chill-window/actions/runs/38014145361)下载Blender遇到403；标准curl下载后已成功验证归档并导出两版。第二次[38014301825](https://github.com/orriduck/chill-window/actions/runs/38014301825)因验证器要求显式alphaCutoff而失败，实际glTF允许省略该属性，默认0.5；按[Khronos glTF2.0规范](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#_material_alphacutoff)修正，并按源名称比较纹理，未改变叶片hash要求。
+
+核对[Innerscene Mature silver birch](https://www.innerscene.com/tools/library/3d-parts/mature-silver-birch-tree-8e297753)作者页及其公开Download GLB链接，root实际取得4,902,236B文件，SHA `d1832a237f9e5d3728c7c6dc6e8e8243ac2984e51abe102cdf12bb996ca3dcc7`。源文件103mesh、52,476tri、5材质/5张64×64内嵌PNG，实际顶点及节点变换后的尺度8.185×14.000×7.791m，CC0 original_design。作者页的textured标记不能写成真实摄影纹理；尚未检查应用内树冠自然程度、未接入或替换主要阔叶林。下载临时原件为 `/tmp/chill-silver-birch-source.glb`，尚无运行代码引用。
