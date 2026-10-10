@@ -2,8 +2,9 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { treeNearTex, treeNearBTex } from '../textures'
 import { detailCoverageDeclarations, detailCoverageLookup, type GeoDetailCoverage } from './GeoDetailCoverage'
+import { treeScreenThreshold } from './GeoCloseTrees'
 
-export interface ForestPlacement { x: number; y: number; z: number; height: number; yaw: number; variant: number; close3D?: boolean }
+export interface ForestPlacement { x: number; y: number; z: number; height: number; yaw: number; variant: number; close3D?: boolean | number }
 
 /** Existing textured tree silhouettes replace untextured polygon crowns.
  * The forest boundary is OSM data; individual trees remain visual samples,
@@ -39,9 +40,9 @@ export class GeoForest {
           .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoTreeCloseModel = treeCloseModel;')
         const fade = mode === 'near' ? 'geoDetailReady * (1.0 - smoothstep(500.0, 650.0, geoTreeDistance))' : 'mix(1.0, smoothstep(500.0, 650.0, geoTreeDistance), geoDetailReady) * (1.0 - smoothstep(3000.0, 4500.0, geoTreeDistance))'
         shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\nuniform float geoCloseEnabled;\nvarying float geoTreeCloseModel;\nvarying float geoTreeDistance;\nvarying vec2 geoTreeCenter;\n${coverage ? detailCoverageDeclarations : ''}`)
-          .replace('#include <alphatest_fragment>', `${coverage ? detailCoverageLookup('geoTreeCenter') : 'float geoDetailReady = 1.0;'}\ndiffuseColor.a *= (${fade}) * mix(1.0, smoothstep(80.0, 115.0, geoTreeDistance), geoCloseEnabled * geoTreeCloseModel);\n#include <alphatest_fragment>`)
+          .replace('#include <alphatest_fragment>', `${coverage ? detailCoverageLookup('geoTreeCenter') : 'float geoDetailReady = 1.0;'}\ndiffuseColor.a *= (${fade});\nif (geoCloseEnabled > 0.5 && geoTreeCloseModel > 0.5 && ${treeScreenThreshold} < 1.0 - smoothstep(geoTreeCloseModel - 35.0, geoTreeCloseModel, geoTreeDistance)) discard;\n#include <alphatest_fragment>`)
       }
-      material.customProgramCacheKey = () => `geographic-forest-coverage-v5-${mode}-${!!coverage}`
+      material.customProgramCacheKey = () => `geographic-forest-coverage-v6-${mode}-${!!coverage}`
     }
   }
   setFocus(x: number, z: number) { this.focus.set(x, z) }
@@ -57,7 +58,7 @@ export class GeoForest {
       mesh.userData.individualTreeLocationsEstimated = true
       for (let index = 0; index < batch.length; index++) {
         const p = batch[index]
-        close[index] = p.close3D ? 1 : 0
+        close[index] = typeof p.close3D === 'number' ? p.close3D : p.close3D ? 115 : 0
         const variant = p.variant % 8
         cells[index * 2] = (variant % 4) / 4; cells[index * 2 + 1] = 1 - (Math.floor(variant / 4) + 1) / 2
         transform.position.set(p.x, p.y, p.z); transform.rotation.set(0, p.yaw, 0)

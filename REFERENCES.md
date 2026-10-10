@@ -381,6 +381,10 @@ Debug折叠面板增加真实影像开关、定位裁片和来源/加载状态�
 
 [阔叶对照38020892177](https://github.com/orriduck/chill-window/actions/runs/38020892177) 的cc9896a actual health已读取：9个实例66,203,204B在初始准备中加载，四个Ash/Oak LOD1/2同机位切换、隐藏和返回列车均完成，所有状态49/49、缺块/延迟0、无应用错误或失败请求。根任务查看四张实际模型图：LOD1树冠更连贯、细枝/叶片可辨，比旧桦树孤立的三层叶丛更适合沿线阔叶林；LOD2保留较少枝叶，更适合距离更远的配对表达。这是下一轮主森林替换的外观候选验证，当前主森林尚未替换。
 
+2026-10-10 主森林接入：`GeoCanopy.ts`把上述固定Ash/Oak LOD1/2用于既有16m林地样本，不修改OSM/NLCD边界、DEM或树木位置。模型源字节在出发前校验并加载一次，各区块实例随原有1536m前方队列建立；GPU缓冲上传回调与fence完成后才允许进入视野。35–60m两级模型、80–115m模型与旧轮廓使用互补屏幕阈值，避免先降低叶片alpha再截断导致树冠缩小。源常绿分类改用已核对的Poly Haven枝干版，范围60m；远景旧轮廓尚未替换。新增调试定位、40/90/150m观察和同机位模型开关；本段记录接入机制，实际外观与连续运行待云端检查，不据构建结果宣称完成。
+
+GPU准备参考当前Three.js185源代码 [`WebGLObjects`](https://github.com/mrdoob/three.js/blob/r185/src/renderers/webgl/WebGLObjects.js) 和 [`WebGLIndexedBufferRenderer`](https://github.com/mrdoob/three.js/blob/r185/src/renderers/webgl/WebGLIndexedBufferRenderer.js)：实例属性在绘制前上传，零实例不发起绘制。`Renderer.ts`对同几何/材质仅首次提交一个实例，其他批次提交零实例并逐属性观察实际上传；未观察到对应版本即报错，完成GPU同步前不发布准备标记。实际浏览器运行必须进一步验证，不能仅据代码推断上传成功。
+
 ### 全线真实 NAIP 图幅与静态atlas准备
 
 [实际全线重建38023192477](https://github.com/orriduck/chill-window/actions/runs/38023192477) 以当前world.json为准，在EPSG26918对443点路线两侧各缓冲1200m；官方图幅索引有7个相交候选，其中6个各有不可替代独占面积，六幅联合完全覆盖缓冲带。原图总2,531,739,152B，仅云端下载，逐幅SHA记录于`hudson-naip-corridor/observations/corridor-manifest.json`。不是完整纽约州下载。

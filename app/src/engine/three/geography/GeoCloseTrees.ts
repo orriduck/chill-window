@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { ForestPlacement } from './GeoForest'
 
-const ASSETS = {
+export const TREE_ASSETS = {
   'scots-pine': { url: '/models/trees/mature-scots-pine-lod.glb', radiusMetres: 5.8, bytes: 537348, sha256: '133a9653917dd511ab0af062f997946cfd966dc09b4d9b8c381c671866c962b6' },
   'oak-street-tree': { url: '/models/trees/oak-street-tree-lod.glb', radiusMetres: 4.0, bytes: 708996, sha256: 'd65f2515da582174c0321cb9a349f119496ded36633454e29f3666ac3c0fdc02' },
   'phototextured-pine-native': { url: '/models/trees/polyhaven-pine-native.glb', radiusMetres: 4.2, bytes: 24328860, sha256: '5b3b8c30cf28937e5e5193602e76e48878a24f81b58377dbbf3d2587d60a3ee8' },
@@ -17,8 +17,35 @@ const ASSETS = {
 const DEFAULT_CLOSE_RANGE_METRES = 115
 const CELL_METRES = 40
 
-export type CloseTreeAssetId = keyof typeof ASSETS
+const ASSETS = TREE_ASSETS
+export type CloseTreeAssetId = keyof typeof TREE_ASSETS
 export type CloseTreePlacement = ForestPlacement & { asset: CloseTreeAssetId }
+
+// Immutable source bytes are shared by production and Debug Mode consumers.
+// Each consumer parses its own materials/uniforms; neither can mutate the
+// other's focus or dispose its model resources.
+const assetBytes = new Map<CloseTreeAssetId, Promise<ArrayBuffer>>()
+export function verifiedTreeBytes(asset: CloseTreeAssetId): Promise<ArrayBuffer> {
+  const existing = assetBytes.get(asset)
+  if (existing) return existing
+  const pending = (async () => {
+    const specification = TREE_ASSETS[asset]
+    const response = await fetch(specification.url)
+    if (!response.ok) throw new Error(`Tree asset ${asset}: HTTP ${response.status}`)
+    const buffer = await response.arrayBuffer()
+    const digest = await crypto.subtle.digest('SHA-256', buffer)
+    const sha256 = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')
+    if (buffer.byteLength !== specification.bytes || sha256 !== specification.sha256) throw new Error(`Tree asset ${asset}: source checksum mismatch`)
+    return buffer
+  })()
+  assetBytes.set(asset, pending)
+  return pending
+}
+
+// This same screen threshold is used by source models and their forest cards.
+// Distance changes pixel coverage without multiplying source alpha before its
+// cutoff, which would shrink crowns and leave a gap during the transition.
+export const treeScreenThreshold = 'fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453)'
 
 export interface CloseTreeStats {
   ready: boolean
@@ -97,13 +124,7 @@ export class GeoCloseTrees {
     const loader = new GLTFLoader()
     const prototypes: Prototype[] = []
     await Promise.all(requestedAssets.map(async asset => {
-      const specification = ASSETS[asset]
-      const response = await fetch(specification.url)
-      if (!response.ok) throw new Error(`Tree asset ${asset}: HTTP ${response.status}`)
-      const buffer = await response.arrayBuffer()
-      const digest = await crypto.subtle.digest('SHA-256', buffer)
-      const sha256 = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')
-      if (buffer.byteLength !== specification.bytes || sha256 !== specification.sha256) throw new Error(`Tree asset ${asset}: source checksum mismatch`)
+      const buffer = await verifiedTreeBytes(asset)
       const gltf = await loader.parseAsync(buffer, '')
       const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>()
       gltf.scene.updateMatrixWorld(true)
@@ -126,9 +147,9 @@ export class GeoCloseTrees {
           shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform vec2 closeTreeFocus;\nvarying float closeTreeDistance;')
             .replace('#include <begin_vertex>', '#include <begin_vertex>\ncloseTreeDistance = length(instanceMatrix[3].xz - closeTreeFocus);')
           shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nuniform float closeTreeLimit;\nvarying float closeTreeDistance;')
-            .replace('#include <alphahash_fragment>', 'diffuseColor.a *= 1.0 - smoothstep(closeTreeLimit - 35.0, closeTreeLimit, closeTreeDistance);\n#include <alphahash_fragment>')
+            .replace('#include <alphahash_fragment>', `if (${treeScreenThreshold} >= 1.0 - smoothstep(closeTreeLimit - 35.0, closeTreeLimit, closeTreeDistance)) discard;\n#include <alphahash_fragment>`)
         }
-        object.material.customProgramCacheKey = () => 'geographic-close-trees-v1'
+        object.material.customProgramCacheKey = () => 'geographic-close-trees-v2'
         for (const value of Object.values(object.material)) {
           if (value instanceof THREE.Texture) this.textures.add(value)
         }
@@ -179,6 +200,7 @@ export class GeoCloseTrees {
         mesh.name = `source-${species}-instances`
         mesh.userData.individualTreeLocationsEstimated = true
         mesh.userData.asset = species
+        mesh.userData.sharedGeometry = true
         for (let index = 0; index < items.length; index++) {
           const tree = items[index]
           transform.position.set(tree.x, tree.y, tree.z)

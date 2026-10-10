@@ -44,6 +44,9 @@ export class GeoInspector {
   private treeStats = document.createElement('output')
   private treeCase: HTMLButtonElement
   private treeModel = document.createElement('select')
+  private forestStats = document.createElement('output')
+  private forestCase: HTMLButtonElement
+  private forestDistance = document.createElement('select')
   private convertedStats = document.createElement('output')
   private convertedCase: HTMLButtonElement
   private aerialStats = document.createElement('output')
@@ -139,12 +142,46 @@ export class GeoInspector {
     const aerialCredit = document.createElement('a'); aerialCredit.textContent = 'USDA-FSA APFO 航片 · NOAA 来源'; aerialCredit.href = 'https://www.fisheries.noaa.gov/inport/item/71609'; aerialCredit.target = '_blank'; aerialCredit.rel = 'noopener noreferrer'; aerialCredit.style.cssText = 'font-size:11px;color:#506b51;'
     this.treeStats.setAttribute('aria-label', '三维树模型准备诊断'); this.treeStats.style.cssText = this.streamingStats.style.cssText
     const treeLayers = document.createElement('div'); treeLayers.style.cssText = layers.style.cssText
-    for (const [key, name] of [['closeTrees', '常绿林近景三维树'], ['treeSamples', '树模型来源尺度对照']] as const) {
+    for (const [key, name] of [['closeTrees', '沿线近景三维森林'], ['treeSamples', '树模型来源尺度对照']] as const) {
       const label = document.createElement('label'), input = document.createElement('input')
       input.type = 'checkbox'; input.checked = this.layers[key]; input.setAttribute('aria-label', name)
       input.onchange = () => { this.layers[key] = input.checked }
       label.append(input, document.createTextNode(name)); treeLayers.append(label)
     }
+    this.forestStats.setAttribute('aria-label', '沿线三维森林准备诊断'); this.forestStats.style.cssText = this.streamingStats.style.cssText
+    this.forestCase = this.button('定位沿线森林近景', () => {
+      if (!this.world || !this.data) return
+      const pose = this.data.pose(Number(this.progress.value))
+      // Select an existing woodland sample near the inspected route position;
+      // the camera moves, never the train or source tree lattice.
+      const candidates: THREE.Vector3[] = []
+      for (let dx = -112; dx <= 112; dx += 16) for (let dz = -112; dz <= 112; dz += 16) {
+        const x = pose.x + dx, z = pose.z + dz
+        const code = this.data.landCover?.sample(x, z)
+        if (![41, 43].includes(code ?? 0) && !this.data.landAt(x, z, 'forest')) continue
+        if (this.data.landAt(x, z, 'water') || this.data.landAt(x, z, 'building') || this.data.railProximity(x, z).distance < 16) continue
+        const y = this.world.terrainHeight(x, z)
+        if (y !== null) candidates.push(new THREE.Vector3(x, y, z))
+      }
+      const routePoint = new THREE.Vector3(pose.x, this.data.railHeight(pose.s), pose.z)
+      const point = candidates.sort((a, b) => a.distanceTo(routePoint) - b.distanceTo(routePoint))[0]
+      if (!point) return
+      this.layers.treeSamples = false
+      const input = treeLayers.querySelector<HTMLInputElement>('[aria-label="树模型来源尺度对照"]'); if (input) input.checked = false
+      const damping = this.controls.enableDamping; this.controls.enableDamping = false; this.controls.update()
+      this.controls.target.copy(point); this.controls.target.y += 10
+      const distance = Number(this.forestDistance.value)
+      const x = point.x + distance * 0.8, z = point.z + distance * 0.6, ground = this.world.terrainHeight(x, z) ?? point.y
+      this.camera.position.set(x, Math.max(point.y + 12, ground + 3), z)
+      this.controls.update(); this.controls.enableDamping = damping
+    })
+    this.forestCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
+    this.forestDistance.setAttribute('aria-label', '沿线森林观察距离')
+    this.forestDistance.style.cssText = this.source.style.cssText + 'width:100%;'
+    for (const [value, text] of [['40', '40m · 近景树冠'], ['90', '90m · 模型与轮廓过渡'], ['150', '150m · 远景轮廓']] as const) {
+      const option = document.createElement('option'); option.value = value; option.textContent = text; this.forestDistance.append(option)
+    }
+    this.forestDistance.onchange = () => this.forestCase.click()
     this.treeCase = this.button('定位树模型对照', () => {
       if (!this.world || this.world.treeComparison.stats.preparedTrees < 2) return
       const mode = this.treeModel.value
@@ -173,7 +210,7 @@ export class GeoInspector {
     }
     this.treeModel.onchange = () => this.treeCase.click()
     const treeNotice = document.createElement('p')
-    treeNotice.textContent = '来源模型均保留作者尺度：现有松树18m、橡树约8.6m；Poly Haven松树约20.4m，原生416,451 / 减枝干381,180三角形，叶片与照片纹理相同。桦树14m、52,476三角形、64px贴图，不能据此标为摄影纹理。新模型只用于此对照，尚未铺满森林；地理分类不识别逐株树种。所有版本在出发前预加载和GPU准备，切换只改变显隐。'
+    treeNotice.textContent = '沿线阔叶林采用固定Ash/Oak模型，近35m用LOD1，35–60m过渡至LOD2，80–115m过渡至远景轮廓。源常绿分类使用Poly Haven照片纹理松树，25–60m过渡；远景轮廓仍待改进。每个前方区块的实例缓冲必须完成实际GPU上传与同步才可进入视野。地理分类不识别逐株位置或树种。模型对照保留现有松树18m、橡树约8.6m、桦树14m与两个照片纹理松树版本。'
     treeNotice.textContent += ' Ash/Oak为EZ-Tree固定预设离线建模，树叶1024px透明贴图，树皮为CC0 PBR；同一骨架的LOD1/2分别约9千/5千三角形。20m为展示比例，实际林冠约19.93–20.40m，不是当地树高或树种测量。运行时只读取静态模型，不重新生成地形或树模型。'
     treeNotice.style.cssText = notes.style.cssText
     this.convertedStats.setAttribute('aria-label', '转换建筑准备诊断'); this.convertedStats.style.cssText = this.streamingStats.style.cssText
@@ -193,7 +230,7 @@ export class GeoInspector {
     const convertedNotice = document.createElement('p')
     convertedNotice.textContent = 'Peekskill 15栋有源高度建筑，OSM2World离线转换并对齐当前DEM。勾选对比PBR通用材质；取消显示原来的源足迹体块。未导入3个默认补高对象。墙面/屋顶贴图及无标签屋顶形态为转换器的表现假设，不是当地照片。'
     convertedNotice.style.cssText = notes.style.cssText
-    diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
+    diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.forestDistance, this.forestCase, this.forestStats, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
@@ -256,6 +293,14 @@ export class GeoInspector {
     this.convertedCase.disabled = !converted.ready
     this.convertedStats.textContent = `转换建筑 ${converted.ready ? '已准备' : '加载中'} · ${converted.buildings}/15 栋 · ${converted.meshes} 合批 · ${converted.triangles} 三角形\n源高度匹配 · 足迹最大误差 ${converted.maxAlignmentErrorMetres.toFixed(4)}m · 排除 ${converted.rejectedDefaults} 个默认补高对象\n原体块与PBR模型都在初始GPU预热中提交；切换只改变可见性。`
     const trees = world.closeTrees.stats, samples = world.treeComparison.stats
+    const canopy = world.canopy.stats
+    this.forestCase.disabled = !canopy.ready
+    this.forestStats.dataset.gpuPreparedTrees = String(canopy.gpuPreparedTrees)
+    this.forestStats.dataset.preparedTrees = String(canopy.preparedTrees)
+    this.forestStats.dataset.visibleTrees = String(canopy.visibleTrees)
+    this.forestStats.dataset.unpreparedVisibleTrees = String(canopy.unpreparedVisibleTrees)
+    this.forestStats.dataset.enabled = String(this.layers.closeTrees && this.layers.vegetation && !this.layers.treeSamples)
+    this.forestStats.textContent = `阔叶模型 ${canopy.ready ? '已准备' : '加载中'} · ${canopy.assetBytes.toLocaleString()} B\n缓存 ${canopy.preparedTrees.toLocaleString()} 样本 / ${canopy.preparedChunks} 区块 · GPU已准备 ${canopy.gpuPreparedTrees.toLocaleString()}\n距离筛选 ${canopy.visibleTrees} LOD实例 / ${canopy.visibleDrawCalls} 合批 · ${canopy.visibleTriangles.toLocaleString()} 三角形\n视野未上传样本 ${canopy.unpreparedVisibleTrees} · 位置沿用16m林地样本；LOD统计可能含两级过渡，不是逐株调查。`
     this.treeCase.disabled = !samples.ready || samples.preparedTrees < 2
     this.treeStats.textContent = `常绿林3D ${trees.ready ? '已准备' : '加载中'} · ${trees.preparedTrees} 位置样本\n局部显示 ${trees.visibleTrees} 株 / ${trees.visibleDrawCalls} 合批 · ${trees.visibleTriangles.toLocaleString()} 三角形\n来源尺度对照 ${samples.ready ? '已准备' : '加载中'} · ${samples.preparedTrees} 实例 · ${samples.processedAssetBytes.toLocaleString()} B\n对照当前显示 ${samples.visibleTrees} 实例 / ${samples.visibleTriangles.toLocaleString()} 三角形 · ${this.treeModel.selectedOptions[0]?.textContent}\n模型在初始GPU离屏预热中提交；当前显示统计是距离筛选上界，不是实际frustum绘制次数。`
     if (this.editing) this.controls.update()
