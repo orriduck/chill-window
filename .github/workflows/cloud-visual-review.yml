@@ -38,6 +38,7 @@ jobs:
         env:
           CW_CAPTURE_SHA: ${{ github.sha }}
           CW_TREE_REVIEW_ONLY: ${{ github.ref_name == 'codex/near-tree-visual-review' && '1' || '0' }}
+          CW_BUILDING_REVIEW_ONLY: ${{ github.ref_name == 'codex/converted-building-review' && '1' || '0' }}
         run: |
           mkdir -p "$RUNNER_TEMP/chill-visual"
           npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-visual/server.log" 2>&1 &
@@ -73,6 +74,7 @@ jobs:
               landCover: await page.getByLabel('真实土地覆盖来源', { exact: true }).textContent(),
               buildingSource: await page.getByLabel('建筑来源记录详情', { exact: true }).textContent(),
               treeModels: await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent(),
+              convertedBuildings: await page.getByLabel('转换建筑准备诊断', { exact: true }).textContent(),
               capturedAt: new Date().toISOString(),
               viewport: page.viewportSize() });
             await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
@@ -122,6 +124,23 @@ jobs:
             await page.getByLabel('真实地理建筑', { exact: true }).check();
             await page.getByLabel('真实地理道路', { exact: true }).check();
           }
+          async function reviewConvertedBuildings() {
+            await page.getByRole('button', { name: '定位转换建筑', exact: true }).click();
+            await ready();
+            health.convertedBuildings = await page.getByLabel('转换建筑准备诊断', { exact: true }).textContent();
+            if (!health.convertedBuildings.includes('已准备 · 15/15 栋 · 2 合批')) throw new Error(`Imported source buildings not prepared: ${health.convertedBuildings}`);
+            await page.getByLabel('真实地理林木', { exact: true }).uncheck();
+            await page.getByLabel('OSM2World 建筑材质', { exact: true }).check();
+            await snapshot('03k-converted-buildings-pbr');
+            await page.getByLabel('OSM2World 建筑材质', { exact: true }).uncheck();
+            await snapshot('03l-converted-buildings-original');
+            await page.getByLabel('OSM2World 建筑材质', { exact: true }).check();
+            await page.getByLabel('真实地理建筑', { exact: true }).uncheck();
+            await snapshot('03m-converted-buildings-hidden');
+            await page.getByLabel('真实地理建筑', { exact: true }).check();
+            await page.getByLabel('真实地理林木', { exact: true }).check();
+            health.convertedBuildingControlsVerified = true;
+          }
           (async () => {
             try {
               browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
@@ -159,6 +178,18 @@ jobs:
               await page.waitForFunction(initial => document.querySelector('[aria-label="真实列车位置"]')?.textContent !== initial, initialPosition, { timeout: 90000 });
               health.movementVerified = true;
               await snapshot('02-cold-spring-ride-moving');
+              if (process.env.CW_BUILDING_REVIEW_ONLY === '1') {
+                health.scope = 'Initial GPU preparation, source-aligned converted buildings, visibility comparison and return to train; continuous whole-route coverage is not included';
+                await page.keyboard.press('F5');
+                await page.getByText('数据来源与加载诊断', { exact: true }).click();
+                await reviewConvertedBuildings();
+                await page.keyboard.press('Escape');
+                await ready();
+                await snapshot('03n-converted-buildings-return-to-train');
+                health.runtimePassed = !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
+                if (!health.runtimePassed) process.exitCode = 1;
+                return;
+              }
               if (process.env.CW_TREE_REVIEW_ONLY === '1') {
                 health.scope = 'Initial GPU preparation and isolated source-tree controls/screenshots; continuous route and station checks are not included';
                 await page.keyboard.press('F5');
@@ -193,6 +224,7 @@ jobs:
               await page.getByLabel('真实地理林木', { exact: true }).check();
               await page.getByText('数据来源与加载诊断', { exact: true }).click();
               await reviewTreeModels();
+              await reviewConvertedBuildings();
               await page.getByRole('button', { name: '定位 Peekskill 源建筑案例', exact: true }).click();
               await ready();
               health.buildingCaseSource = await page.getByLabel('建筑来源记录详情', { exact: true }).textContent();

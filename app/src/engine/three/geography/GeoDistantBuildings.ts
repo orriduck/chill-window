@@ -73,6 +73,8 @@ ${controller.role === 'far' ? 'if (geoBuildingThreshold >= geoBuildingBlend) dis
 }
 
 export interface DistantBuildingOptions {
+  /** Source buildings already prepared as static imported/fallback batches. */
+  replacedIds?: ReadonlySet<string>
   /** DEM/terrain elevation in the same geographic coordinate system as data. */
   groundAt(x: number, z: number): number | null
   /** Optional water exclusion matches the near renderer's policy. */
@@ -268,7 +270,7 @@ export function prepareDistantBuildings(data: Pick<GeoData, 'features' | 'buildi
   const buildings = data.features.filter(feature => feature.kind === 'building')
   stats.components = buildings.length
   const isWater = options.isWater ?? (() => false)
-  for (const feature of buildings) appendFeature(buckets, feature, options.groundAt, isWater, regionSize, stats)
+  for (const feature of buildings) if (!options.replacedIds?.has(String(feature.id))) appendFeature(buckets, feature, options.groundAt, isWater, regionSize, stats)
   for (const part of data.buildingParts) appendPart(buckets, part, options.groundAt, isWater, regionSize, stats)
 
   const group = new THREE.Group()

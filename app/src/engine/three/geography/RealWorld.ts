@@ -4,6 +4,7 @@ import { buildingHeight, buildingStructureKind, platformRise, GeoData, type GeoP
 import { applyBuildingAppearance, buildingAppearance } from './GeoBuilding'
 import { GeoForest, type ForestPlacement } from './GeoForest'
 import { GeoCloseTrees, type CloseTreePlacement } from './GeoCloseTrees'
+import { GeoConvertedBuildings } from './GeoConvertedBuildings'
 import { pyramidalRoof } from './GeoRoof'
 import { LAND_COVER } from './GeoLandCover'
 import { GeoDetailCoverage } from './GeoDetailCoverage'
@@ -75,6 +76,7 @@ export class RealWorld {
   readonly closeTrees: GeoCloseTrees
   readonly treeComparison: GeoCloseTrees
   readonly treeComparisonPoint: THREE.Vector3
+  readonly convertedBuildings: GeoConvertedBuildings
   private nearBuildingFade = createBuildingFadeController('near', this.detailCoverage)
   private distantBuildings: DistantBuildingSet
   private textureFailures = 0
@@ -107,7 +109,7 @@ export class RealWorld {
   private rails: { a: GeoPoint; b: GeoPoint; s: number; end: number }[] = []
   pending = 0
   get chunkCount() { return this.chunks.size }
-  get assetStatus() { return this.textureFailures ? `纹理 ${this.textureFailures} 失败` : this.assetsReady ? '地表 / 树木纹理就绪' : '加载地表 / 树木纹理' }
+  get assetStatus() { return this.textureFailures ? `纹理 ${this.textureFailures} 失败` : this.assetsReady ? '地表 / 树木纹理就绪 · 转换建筑就绪' : '加载地表 / 树木 / 转换建筑' }
   private nearestMissingMetres = PRELOAD_METRES
   private lastBuildMs = 0
   private maxBuildMs = 0
@@ -185,13 +187,15 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.treeComparison = new GeoCloseTrees(comparison)
     this.treeComparisonPoint = first && second ? new THREE.Vector3((first.x + second.x) / 2, (first.y + second.y) / 2, (first.z + second.z) / 2) : new THREE.Vector3()
     this.group.add(this.closeTrees.root, this.treeComparison.root)
+    this.convertedBuildings = new GeoConvertedBuildings(data, (x, z) => this.terrainHeight(x, z))
+    this.group.add(this.convertedBuildings.group)
     for (const material of [this.roofMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial]) installBuildingDistanceFade(material, this.nearBuildingFade)
-    this.distantBuildings = prepareDistantBuildings(data, { fade: createBuildingFadeController('far', this.detailCoverage), groundAt: (x, z) => this.terrainHeight(x, z), isWater: (x, z) => this.data.landAt(x, z, 'water') })
+    this.distantBuildings = prepareDistantBuildings(data, { fade: createBuildingFadeController('far', this.detailCoverage), groundAt: (x, z) => this.terrainHeight(x, z), isWater: (x, z) => this.data.landAt(x, z, 'water'), replacedIds: this.convertedBuildings.replacedIds })
     this.group.add(this.distantBuildings.group)
     this.initialKeys = this.initialPreloadKeys(initialS)
     // Shared assets are loaded before any chunks are meshed. Asset completion
     // never clears an already visible tile or triggers a second rebuild.
-    void Promise.all([geographicTexturesReady, this.closeTrees.ready, this.treeComparison.ready]).then(([results]) => {
+    void Promise.all([geographicTexturesReady, this.closeTrees.ready, this.treeComparison.ready, this.convertedBuildings.ready]).then(([results]) => {
       if (this.disposed) return
       this.textureFailures = results.filter(loaded => !loaded).length
       this.assetsReady = this.textureFailures === 0
@@ -262,7 +266,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     }
     return raw
   }
-  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; closeTrees?: boolean; treeSamples?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
+  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; convertedBuildings?: boolean; closeTrees?: boolean; treeSamples?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
     const pose = this.data.pose(s)
     this.group.visible = this.presentable || inspection
     if (inspection) { this.group.position.set(0, 0, 0); this.group.rotation.y = 0 }
@@ -281,6 +285,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     const useClose = layers.vegetation && (layers.closeTrees ?? true) && this.presentable
     this.closeTrees.setVisible(useClose)
     this.treeComparison.setVisible(inspection && (layers.treeSamples ?? false) && this.presentable)
+    this.convertedBuildings.setVisible((layers.buildings ?? true) && this.presentable, layers.convertedBuildings ?? true)
     this.closeTrees.setFocus(point.x, point.z); this.treeComparison.setFocus(point.x, point.z)
     this.forest.setCloseTreesEnabled(useClose); this.distantForest.setCloseTreesEnabled(useClose)
     this.distantForestGroup.visible = layers.vegetation
@@ -421,6 +426,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     const roofGeometry = new Map<BuildingHeightStatus, THREE.BufferGeometry[]>([['source-tag', []], ['source-estimate', []]])
     const missingFootprints: THREE.BufferGeometry[] = []
     for (const feature of buildings) {
+      if (this.convertedBuildings.replacedIds.has(String(feature.id))) continue
       const x = (feature.bounds[0] + feature.bounds[2]) / 2, z = (feature.bounds[1] + feature.bounds[3]) / 2
       const base = this.terrainHeight(x, z)
       if (base === null || this.data.landAt(x, z, 'water')) continue
@@ -831,7 +837,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
   }
   private clearChunks() { for (const chunk of this.chunks.values()) this.disposeChunk(chunk); this.chunks.clear() }
   dispose() {
-    this.disposed = true; this.clearChunks(); this.distantBuildings.dispose(); this.detailCoverage.dispose(); this.forest.dispose(); this.distantForest.dispose(); this.closeTrees.dispose(); this.treeComparison.dispose()
+    this.disposed = true; this.clearChunks(); this.distantBuildings.dispose(); this.convertedBuildings.dispose(); this.detailCoverage.dispose(); this.forest.dispose(); this.distantForest.dispose(); this.closeTrees.dispose(); this.treeComparison.dispose()
     this.distantForestGroup.traverse(object => { if (object instanceof THREE.InstancedMesh) { object.dispose(); object.geometry.dispose() } })
     this.background?.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose() }); this.routeLine.geometry.dispose(); (this.routeLine.material as THREE.Material).dispose()
     this.marker.geometry.dispose(); (this.marker.material as THREE.Material).dispose()

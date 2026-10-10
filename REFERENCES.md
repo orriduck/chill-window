@@ -288,3 +288,15 @@ run37997465057 实际行驶710m、六次missing/late均0；已查看截图确认
 已核查安装的Three.js `WebGLObjects.js`对整份instanceMatrix/instanceColor attributes.update的调用及`WebGLRenderer.js`以object.count作renderInstances的实现。`core/Renderer.ts`仅在同步离屏提交中将每个实例批次draw count暂设为最多1，仍提交完整原属性缓冲，结束立即恢复原count/显隐/渲染目标，然后等待fence；减少整段实例森林预热的额外绘制。是否实际减少软件GPU耗时仍待该版本云端运行，不以源码推断称性能通过。
 
 OSM2World云端实验已完成转换：官方0.4.0、18个building way与209个引用节点、输出约3.28MB/630tri，但把3个缺高站房/遮棚补为7.5m体块，输入没有DEM且通用默认贴图不是本地立面照片。root已取得完整准备脚本的可检索记录，实际输入/manifest文本转交中；GLB尚未接入。该实验支持先隔离对比的决定，不覆盖当前缺高状态与开放结构规则。
+
+### 2026-10-09：当前 GPU 队列和树模型云端画面核查
+
+`6fd400c` 的 [云端运行](https://github.com/orriduck/chill-window/actions/runs/38005612742) 连续行驶880m、六次采样缺块/迟到均为0；实际查看 Peekskill 远城建筑、关闭远景和源教堂三张截图，定位与返回均49/49，修复了旧版可视区上传排在队尾导致空白的问题。远景仍主要是源足迹体块，不能写成真实逐栋立面完成。
+
+`503222f` 的 [完整云端运行](https://github.com/orriduck/chill-window/actions/runs/38006740292) 连续1040m、六次采样缺块/迟到均0，初次GPU预热7881ms；源树模型及显隐、远景地图返回、Cold Spring/Garrison/Manitou/Peekskill采样通过。实际查看 `02b-continuous-ride.png` 和 `03i-tree-source-models.png`：大部分林地仍呈交叉树卡，18m松树对照树冠过疏，阔叶/混合林尚未改成三维模型，不能作为“树木不动漫化”验收。源码尺度与准备成功不等于视觉合格。SwiftShader软件渲染检查不证明用户硬件帧率；全22.84km连续覆盖尚未验收。
+
+### 2026-10-09：OSM2World 建筑输出接入
+
+主要来源：[OSM2World](https://github.com/tordanik/OSM2World)、[默认样式/材质](https://github.com/tordanik/OSM2World-default-style)、[MetricMapProjection](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/math/geo/MetricMapProjection.java)、[MercatorProjection](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/math/geo/MercatorProjection.java)。投影公式从作者源码核对，实际binary投影后地面顶点与现有OSM源足迹最大偏差0.0006442m。
+
+已取得 [Actions诊断运行](https://github.com/orriduck/chill-window/actions/runs/38008413794) 的实际GLB；该运行因跨环境原始SHA不同而失败，输出保留用于核对。历史原始SHA和交付SHA均保存在provenance，不宣称字节重建一致。当前导入15个有源height的建筑/586tri，排除3个默认补高对象。模型逐栋加当前DEM中心点地面高度并翻转Z及三角绕序，合并为两组PBR材质；同时预建原始体块作为对照，Debug Mode可定位和显隐。材质为CC0通用Plaster002/RoofingTiles010，没有取得当地立面照片，默认屋顶不标成实测。受影响代码：`GeoConvertedBuildings.ts`、`GeoConvertedBuildingRecords.ts`、`RealWorld.ts`、`GeoDistantBuildings.ts`、`GeoInspector.ts`；素材与具体SHA在 `public/models/osm2world/peekskill/provenance.json`。新版实际画面核查待云端artifact。

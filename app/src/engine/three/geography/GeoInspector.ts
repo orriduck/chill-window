@@ -24,7 +24,7 @@ export class GeoInspector {
   private jump: HTMLButtonElement
   private time = document.createElement('select')
   private weather = document.createElement('select')
-  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, closeTrees: true, treeSamples: false, water: true, farmland: true, stations: true, sourceLandCover: false }
+  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, convertedBuildings: true, closeTrees: true, treeSamples: false, water: true, farmland: true, stations: true, sourceLandCover: false }
   private pending: GeoCommand = {}
   private data: GeoData | null = null
   private real = true
@@ -42,6 +42,8 @@ export class GeoInspector {
   private buildingCase: HTMLButtonElement
   private treeStats = document.createElement('output')
   private treeCase: HTMLButtonElement
+  private convertedStats = document.createElement('output')
+  private convertedCase: HTMLButtonElement
   private world: RealWorld | null = null
   private lastPointer: [number, number] = [0, 0]
   private canvas: HTMLCanvasElement
@@ -136,7 +138,23 @@ export class GeoInspector {
     const treeNotice = document.createElement('p')
     treeNotice.textContent = '来源模型：18m Scots pine / 约8.6m橡树街树，保留作者尺度。近景松树只用于NLCD常绿林的外观样本；地理分类不识别逐株树种。橡树仅在此对照显示。模型和内嵌纹理随应用预加载，不表示当地实测树木。'
     treeNotice.style.cssText = notes.style.cssText
-    diagnostics.append(summary, this.buildingStats, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, treeLayers, this.treeCase, this.treeStats, treeNotice, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
+    this.convertedStats.setAttribute('aria-label', '转换建筑准备诊断'); this.convertedStats.style.cssText = this.streamingStats.style.cssText
+    const convertedLabel = document.createElement('label'), convertedInput = document.createElement('input')
+    convertedInput.type = 'checkbox'; convertedInput.checked = true; convertedInput.setAttribute('aria-label', 'OSM2World 建筑材质')
+    convertedInput.onchange = () => { this.layers.convertedBuildings = convertedInput.checked }
+    convertedLabel.append(convertedInput, document.createTextNode('OSM2World 建筑材质'))
+    this.convertedCase = this.button('定位转换建筑', () => {
+      if (!this.world?.convertedBuildings.stats.ready) return
+      const point = this.world.convertedBuildings.focusPoint
+      const damping = this.controls.enableDamping; this.controls.enableDamping = false; this.controls.update()
+      this.controls.target.copy(point); this.camera.position.set(point.x + 60, point.y + 45, point.z + 65)
+      this.controls.update(); this.controls.enableDamping = damping
+    })
+    this.convertedCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
+    const convertedNotice = document.createElement('p')
+    convertedNotice.textContent = 'Peekskill 15栋有源高度建筑，OSM2World离线转换并对齐当前DEM。勾选对比PBR通用材质；取消显示原来的源足迹体块。未导入3个默认补高对象。墙面/屋顶贴图及无标签屋顶形态为转换器的表现假设，不是当地照片。'
+    convertedNotice.style.cssText = notes.style.cssText
+    diagnostics.append(summary, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, treeLayers, this.treeCase, this.treeStats, treeNotice, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
@@ -189,6 +207,9 @@ export class GeoInspector {
   update(s: number, world: RealWorld | null) {
     if (!this.real || !this.data || !world) return
     this.world = world
+    const converted = world.convertedBuildings.stats
+    this.convertedCase.disabled = !converted.ready
+    this.convertedStats.textContent = `转换建筑 ${converted.ready ? '已准备' : '加载中'} · ${converted.buildings}/15 栋 · ${converted.meshes} 合批 · ${converted.triangles} 三角形\n源高度匹配 · 足迹最大误差 ${converted.maxAlignmentErrorMetres.toFixed(4)}m · 排除 ${converted.rejectedDefaults} 个默认补高对象\n原体块与PBR模型都在初始GPU预热中提交；切换只改变可见性。`
     const trees = world.closeTrees.stats, samples = world.treeComparison.stats
     this.treeCase.disabled = !samples.ready || samples.preparedTrees < 2
     this.treeStats.textContent = `常绿林3D ${trees.ready ? '已准备' : '加载中'} · ${trees.preparedTrees} 位置样本\n局部显示 ${trees.visibleTrees} 株 / ${trees.visibleDrawCalls} 合批 · ${trees.visibleTriangles.toLocaleString()} 三角形\n来源尺度对照 ${samples.ready ? '已准备' : '加载中'} · ${samples.preparedTrees} 株 · ${samples.processedAssetBytes.toLocaleString()} B\n模型在初始GPU离屏预热中提交；当前显示统计是距离筛选上界，不是实际frustum绘制次数。`
