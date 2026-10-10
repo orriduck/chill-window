@@ -10,29 +10,115 @@ const health = {
 };
 let browser, context, page;
 const read = label => page.getByLabel(label, { exact: true }).evaluate(element => ({ text: element.textContent, ...element.dataset }));
+// Installed before any app module. Native callbacks already submitted after
+// freeze are deferred too; cancellation retains normal one-shot RAF semantics.
+function installCaptureFrameControl() {
+  const nativeRequest = window.requestAnimationFrame.bind(window);
+  const nativeCancel = window.cancelAnimationFrame.bind(window);
+  const callbacks = new Map();
+  let nextId = 1, frozen = false, executedCallbacks = 0;
+  const schedule = (id, entry) => {
+    entry.nativeId = nativeRequest(timestamp => {
+      entry.nativeId = null;
+      if (!callbacks.has(id)) return;
+      if (frozen) return;
+      callbacks.delete(id); executedCallbacks++;
+      entry.callback(timestamp);
+    });
+  };
+  window.requestAnimationFrame = callback => {
+    const id = nextId++, entry = { callback, nativeId: null };
+    callbacks.set(id, entry);
+    if (!frozen) schedule(id, entry);
+    return id;
+  };
+  window.cancelAnimationFrame = id => {
+    const entry = callbacks.get(id);
+    if (!entry) return;
+    if (entry.nativeId !== null) nativeCancel(entry.nativeId);
+    callbacks.delete(id);
+  };
+  const status = () => ({ frozen, executedCallbacks, queuedCallbacks: callbacks.size });
+  window.__cwCaptureFrameControl = {
+    status,
+    freeze() { frozen = true; return status(); },
+    resume() {
+      frozen = false;
+      for (const [id, entry] of callbacks) if (entry.nativeId === null) schedule(id, entry);
+      return status();
+    },
+  };
+}
 const frames = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 async function ready() {
   await page.waitForFunction(() => {
     const status = document.querySelector('[aria-label="真实地理加载状态"]')?.textContent ?? '';
     const coverage = document.querySelector('[aria-label="地形覆盖诊断"]')?.dataset.readyTiles;
-    return status.includes('49/49') && status.includes('场景就绪') && coverage === '49';
+    const stream = document.querySelector('[aria-label="地理区块流式加载诊断"]');
+    return status.includes('49/49') && status.includes('场景就绪') && coverage === '49'
+      && stream?.dataset.gpuPhase === 'idle' && stream.textContent.includes('后续待上传 0');
   }, null, { timeout: 240000 });
   await frames();
   if (await page.locator('[data-webgl="unavailable"], vite-error-overlay').count()) throw new Error('WebGL or app unavailable');
 }
 async function snapshot(name, metres) {
-  const state = {
-    name, capturedAt: new Date().toISOString(), url: page.url(), viewport: page.viewportSize(),
-    position: await read('真实列车位置'), coverage: await read('地形覆盖诊断'), status: await read('真实地理加载状态'),
-    streaming: await read('地理区块流式加载诊断'), motion: await read('地理运动门控'), aerial: await read('真实航片准备诊断'),
-  };
-  if (Math.abs(Number(state.position.routeMetres) - metres) > 0.01) throw new Error(`Camera moved away from exact paused position: ${JSON.stringify(state)}`);
-  if (state.coverage.readyTiles !== '49' || !state.status.text.includes('49/49') || !state.status.text.includes('场景就绪')) throw new Error(`Incomplete capture: ${JSON.stringify(state)}`);
-  if (!state.motion.text.includes('暂停 true') || !state.motion.text.includes('俯视 false')) throw new Error(`Not paused default passenger view: ${JSON.stringify(state)}`);
-  if (!state.streaming.text.includes('视野缺块 0')) throw new Error(`Visible terrain not ready: ${JSON.stringify(state)}`);
+  const state = { name, imageCaptured: false, captureStatus: 'pending', captureStartedAt: new Date().toISOString() };
   health.states.push(state);
+  console.log(`[terrain capture] ${name}: awaiting fonts and stable frame`);
   await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
-  await page.screenshot({ path: path.join(output, `${name}.png`), timeout: 90000 });
+  try {
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      window.__cwCaptureFrameControl.freeze();
+    });
+    state.freezeBefore = await page.evaluate(() => ({
+      ...window.__cwCaptureFrameControl.status(),
+      sceneFrame: document.querySelector('[aria-label="真实地理加载状态"]')?.dataset.sceneFrame,
+      fontsStatus: document.fonts.status,
+    }));
+    Object.assign(state, {
+      url: page.url(), viewport: page.viewportSize(),
+      position: await read('真实列车位置'), coverage: await read('地形覆盖诊断'), status: await read('真实地理加载状态'),
+      streaming: await read('地理区块流式加载诊断'), motion: await read('地理运动门控'), aerial: await read('真实航片准备诊断'),
+    });
+    if (Math.abs(Number(state.position.routeMetres) - metres) > 0.01) throw new Error(`Camera moved away from exact paused position: ${JSON.stringify(state)}`);
+    if (state.coverage.readyTiles !== '49' || !state.status.text.includes('49/49') || !state.status.text.includes('场景就绪')) throw new Error(`Incomplete capture: ${JSON.stringify(state)}`);
+    if (!state.motion.text.includes('暂停 true') || !state.motion.text.includes('俯视 false')) throw new Error(`Not paused default passenger view: ${JSON.stringify(state)}`);
+    if (!state.streaming.text.includes('视野缺块 0') || state.streaming.gpuPhase !== 'idle' || !state.streaming.text.includes('后续待上传 0')) throw new Error(`GPU terrain not idle and ready: ${JSON.stringify(state)}`);
+    console.log(`[terrain capture] ${name}: frozen scene frame ${state.freezeBefore.sceneFrame}, GPU idle, coverage 49/49`);
+    await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
+    const pngPath = path.join(output, `${name}.png`);
+    await page.screenshot({ path: pngPath, timeout: 90000 });
+    state.imageCaptured = true;
+    state.png = { filename: `${name}.png`, bytes: (await fs.stat(pngPath)).size };
+    state.freezeAfter = await page.evaluate(() => ({
+      ...window.__cwCaptureFrameControl.status(),
+      sceneFrame: document.querySelector('[aria-label="真实地理加载状态"]')?.dataset.sceneFrame,
+    }));
+    if (!state.freezeBefore.frozen || !state.freezeAfter.frozen
+      || state.freezeBefore.sceneFrame !== state.freezeAfter.sceneFrame
+      || state.freezeBefore.executedCallbacks !== state.freezeAfter.executedCallbacks) throw new Error(`Application advanced during screenshot: ${JSON.stringify(state)}`);
+    state.captureStatus = 'captured'; state.capturedAt = new Date().toISOString();
+    console.log(`[terrain capture] ${name}: PNG saved (${state.png.bytes} bytes), scene frame unchanged`);
+  } catch (error) {
+    state.captureStatus = 'failed'; state.captureFailure = String(error.stack ?? error);
+    throw error;
+  } finally {
+    let resumeError;
+    try {
+      state.resume = await page.evaluate(() => window.__cwCaptureFrameControl.resume());
+      if (state.resume?.error || state.resume?.frozen !== false) throw new Error(`RAF did not resume: ${JSON.stringify(state.resume)}`);
+    } catch (error) {
+      resumeError = error;
+      state.resumeFailure = String(error.stack ?? error);
+      state.captureStatus = 'failed'; health.runtimePassed = false;
+    }
+    await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
+    // Retain a pending original capture exception; otherwise propagate the
+    // resume failure, including after the final PNG of the final case.
+    if (resumeError && !Object.hasOwn(state, 'captureFailure')) throw resumeError;
+  }
 }
 async function debugChange(change) {
   await page.keyboard.press('F5');
@@ -51,6 +137,7 @@ async function debugChange(change) {
     page.on('console', message => { if (['error', 'warning'].includes(message.type())) health.console.push({ level: message.type(), text: message.text() }); });
     page.on('pageerror', error => health.console.push({ level: 'pageerror', text: error.message }));
     page.on('requestfailed', request => { if (!request.url().endsWith('/favicon.ico')) health.requestFailures.push({ url: request.url(), error: request.failure()?.errorText }); });
+    await page.addInitScript(installCaptureFrameControl);
     await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=2790', { waitUntil: 'domcontentloaded' });
     await page.getByText('Advanced settings', { exact: true }).click();
     await page.getByRole('button', { name: 'Daylight', exact: true }).click();
@@ -84,7 +171,7 @@ async function debugChange(change) {
       if ((await read('真实航片准备诊断')).enabled !== 'false') throw new Error('Imagery debug toggle did not disable imagery');
       await snapshot(`${label}-04-ground-water-no-imagery`, metres);
     }
-    health.runtimePassed = !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
+    health.runtimePassed = health.states.length === 28 && health.states.every(state => state.imageCaptured && state.captureStatus === 'captured' && !state.resumeFailure && !state.resume?.error && state.resume?.frozen === false) && !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
     if (!health.runtimePassed) process.exitCode = 1;
   } catch (error) {
     health.runtimePassed = false; health.failure = String(error.stack ?? error); process.exitCode = 1;

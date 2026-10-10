@@ -469,3 +469,9 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 已读本机Three.js185 `Material.js`的clone/copy与shader hooks，对照[同版Material源文件](https://github.com/mrdoob/three.js/blob/r185/src/materials/Material.js)：clone不保留自定义onBeforeCompile/cache回调。`GeoBackgroundTerrain.ts`因此显式保留原地表/水域mask、NLCD与`GeoAerial.install`组合链，增加独立program key和背景片元覆盖判断；仅当前7×7实际显示范围内gpuReady区块覆盖背景。视野外缓存或CPU已创建但未上传的区块不能裁背景。`RealWorld.ts`完整背景几何、DEM、窄轨床修正、近景材质、源影像和相机保持原逻辑，新增背景材质独立销毁。
 
 先扩展`GeoInspector.ts`“远处地形”开关及地形覆盖诊断；随后准备`terrain-overlap-review.yml`/`capture-terrain-overlap.cjs`：七处准确里程（六个指定位置及15920m额外粗面遮挡案例）、白天晴天、暂停默认乘客视角、严格场景/GPU覆盖49/49；同机位背景开启/关闭与地表/水域/影像隔离PNG，保留health、运行错误及来源读数。详细计划与接受标准见`docs/superpowers/plans/2026-10-10-terrain-overlap.md`。当前只有候选与静态检查；云端新PNG及人工画面核验仍未执行，构建/单元检查不能宣称遮挡已经视觉验收。
+
+### 首轮真实截图失败与限定的捕获器改进
+
+[Actions run 38056889707](https://github.com/orriduck/chill-window/actions/runs/38056889707)，候选commit `2306b53be8011eecb4f87f6a11fde37aaebee09b`，2026-10-10实际失败。下载artifact的`health.json`及唯一`2790m-01-default-background-on.png`（本轮直接查看原PNG，路径`/tmp/chill-terrain-overlap-2306b53/`）：第一张巨大平滑坡仍遮住近中景，不能称修复有效。背景关闭的第二条健康状态为2790m、49/49、暂停默认视角、GPU idle且无应用/请求错误；但page.screenshot在字体加载完成后90秒超时，第二张PNG不存在，无法据此比较土坡来源。
+
+`capture-terrain-overlap.cjs`限定截图阶段的RAF冻结候选：导航前包装原生RAF，保留一次性/取消语义；原49/49门控另外要求真实GPU idle/待上传0，字体完成和两个真实帧后冻结新与待执行应用回调，让SwiftShader提交帧完成合成，截图finally恢复。源几何/影像/相机/shader与准备状态均不修改。每次捕获写实际PNG成功/失败标志、字节、冻结前后sceneFrame/回调计数，要求没有场景推进；仍七处28张图，不把状态读数算作已取得图片。只有脚本语法、队列小型验证与差异检查，浏览器结果仍待下一轮云端运行。
