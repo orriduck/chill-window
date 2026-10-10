@@ -1,0 +1,923 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Eight-view static tree impostor appearance assets; no in-app placement and no claim of surveyed Hudson species.",
+  "source": {
+    "repository": "https://github.com/dgreenheck/ez-tree",
+    "commit": "dcf309bd86bd521083d9c70f01f2de45fdc7c457",
+    "sourceLicense": "MIT; include upstream LICENSE with redistributed outputs",
+    "treeTypeCaveat": "Ash Large and Oak Large are author-defined procedural presets, not botanical surveys or Hudson-specific species models.",
+    "generatorBehavior": "The author source creates a deterministic skeleton per preset seed; generateLODs/createGeometry mesh alternate levels from that same skeleton.",
+    "threeJs": {
+      "version": "0.167.1 (r167 source build)",
+      "url": "https://raw.githubusercontent.com/mrdoob/three.js/r167/build/three.module.js",
+      "sha256": "5289ca2dfde8572bd7715b9fa2ca929db12bae87e9a2cb53e431662df7039506"
+    }
+  },
+  "render": {
+    "blenderVersion": "4.0.2",
+    "engine": "BLENDER_EEVEE",
+    "samples": 48,
+    "background": "transparent RGBA",
+    "resolutionPx": [
+      512,
+      512
+    ],
+    "horizontalYawDegrees": [
+      0,
+      45,
+      90,
+      135,
+      180,
+      225,
+      270,
+      315
+    ],
+    "camera": {
+      "projection": "orthographic",
+      "orthoScaleWorldMetres": 22.0,
+      "distanceWorldMetres": 80.0,
+      "targetWorldMetres": [
+        0.0,
+        0.0,
+        10.5
+      ]
+    },
+    "sharedCameraBounds": {
+      "worldWidthMetres": 22.0,
+      "worldHeightMetres": 22.0,
+      "worldBottomMetres": -0.5,
+      "worldTopMetres": 21.5
+    },
+    "lighting": "fixed three-area-light studio rig, identical for all species and yaw views",
+    "colorManagement": {
+      "viewTransform": "Standard",
+      "exposure": 0.0,
+      "gamma": 1.0
+    }
+  },
+  "trees": [
+    {
+      "preset": "Ash Large",
+      "seed": 29919,
+      "sourcePresetSha256": "fb630c9f4ae0e344c884f0380d23b35bd93af8924dc0244190b83811634d4f50",
+      "sourceRawGeometry": {
+        "file": "raw/ash-large-lod0.json",
+        "bytes": 1371265,
+        "sha256": "b9bbc0d2070d0a14946fb77380d6959073a73a43b2064d9fc8162fd69235b902",
+        "lod": 0,
+        "triangles": {
+          "branches": 11832,
+          "leaves": 9680,
+          "total": 21512
+        }
+      },
+      "sourceLicense": "EZ-Tree MIT; author preset geometry is an appearance proxy, not a local tree survey.",
+      "sourceCommit": "dcf309bd86bd521083d9c70f01f2de45fdc7c457",
+      "sourceTextures": {
+        "ezTreeLeafLicense": "MIT (bundled with EZ-Tree)",
+        "barkLicense": "AmbientCG Bark001 CC0 1.0",
+        "files": [
+          {
+            "file": "leaves/ash.png",
+            "bytes": 181423,
+            "sha256": "5ec987db3829a839856c32c79b18a33a78f209e911cad55c65abfb77f30e2d29"
+          },
+          {
+            "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_Color.jpg",
+            "bytes": 831490,
+            "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+          },
+          {
+            "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_NormalGL.jpg",
+            "bytes": 1270807,
+            "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+          },
+          {
+            "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_Roughness.jpg",
+            "bytes": 397062,
+            "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+          }
+        ],
+        "leafAlphaMode": "MASK, source PNG alpha retained in material; cutoff 0.5"
+      },
+      "modelScale": {
+        "policy": "uniform scale to 20m source-geometry vertical extent",
+        "sourceUnitsDefinedByPreset": false,
+        "scale": 0.2087363766835454,
+        "rootWorldMetres": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "actualModelBoundsWorldMetresXYZ": [
+          [
+            -8.423902761259681,
+            6.45607605169232
+          ],
+          [
+            -9.391556362580081,
+            7.744981612623556
+          ],
+          [
+            0.0,
+            20.0
+          ]
+        ]
+      },
+      "frames": [
+        {
+          "yawDegrees": 0,
+          "file": "frames/ash/ash-azimuth-000.png",
+          "bytes": 291288,
+          "sha256": "c6190e29ce687dd701bb853a71b15bcebbb9750743b5e05e1f5cddcc6a7db183",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            255.99986267089844,
+            500.3635034561157
+          ],
+          "rootUvFromTopLeft": [
+            0.4999997317790985,
+            0.977272467687726
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            37.4327278137207,
+            34.908966064453125,
+            436.2467041015625,
+            500.3635034561157
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.07311079651117325,
+            0.06818157434463501,
+            0.8520443439483643,
+            0.977272467687726
+          ]
+        },
+        {
+          "yawDegrees": 45,
+          "file": "frames/ash/ash-azimuth-045.png",
+          "bytes": 312217,
+          "sha256": "4458d3440cf668c6d6955c1f47ce19264c5885122521d01119e60043a63bef90",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            256.0000305175781,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.5000000596046448,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            70.88524627685547,
+            34.9091796875,
+            453.8188781738281,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.13844774663448334,
+            0.06818199157714844,
+            0.8863649964332581,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 90,
+          "file": "frames/ash/ash-azimuth-090.png",
+          "bytes": 306004,
+          "sha256": "d7b6770367ede58d5cbd4d5437867085f3ec2c1bb50500cc1216a3d038f6c3ad",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            256.0001525878906,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.5000002980232239,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            105.74967956542969,
+            34.9091796875,
+            452.0473327636719,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.20654234290122986,
+            0.06818199157714844,
+            0.8829049468040466,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 135,
+          "file": "frames/ash/ash-azimuth-135.png",
+          "bytes": 295207,
+          "sha256": "7403dcf05eabf54240722a0fb8df89922ad40854922ccc4d07f586708629721b",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            255.99996948242188,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.4999999403953552,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            79.1908950805664,
+            34.9091796875,
+            439.4930419921875,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.15466971695423126,
+            0.06818199157714844,
+            0.8583848476409912,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 180,
+          "file": "frames/ash/ash-azimuth-180.png",
+          "bytes": 298297,
+          "sha256": "724282b7efc000033fb4c89fa118d5dd2365678aedad51898e2428def5491206",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            255.99989318847656,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.4999997913837433,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            75.75308227539062,
+            34.9091796875,
+            474.5670471191406,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.14795523881912231,
+            0.06818199157714844,
+            0.9268887639045715,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 225,
+          "file": "frames/ash/ash-azimuth-225.png",
+          "bytes": 313935,
+          "sha256": "7719eaea1520bbb41db721e745992a0a60cc3f26682b88c2ea80f93282208bf7",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            255.99984741210938,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.4999997019767761,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            58.180931091308594,
+            34.9091796875,
+            441.11456298828125,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.1136346310377121,
+            0.06818199157714844,
+            0.8615518808364868,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 270,
+          "file": "frames/ash/ash-azimuth-270.png",
+          "bytes": 304575,
+          "sha256": "a6324fd7ea1901d24f95fc968a2c7afc61790b504a178c248b505392cba16412",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            256.0,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.5,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            59.952816009521484,
+            34.9091796875,
+            406.25048828125,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.11709534376859665,
+            0.06818199157714844,
+            0.7934579849243164,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 315,
+          "file": "frames/ash/ash-azimuth-315.png",
+          "bytes": 291684,
+          "sha256": "30c4c3a416a1c89befa2c6403a8c86d2d4a503b9c1738fc65c97954d1326925f",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            256.0001525878906,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.5000002980232239,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            72.50712585449219,
+            34.9091796875,
+            432.8092956542969,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.14161548018455505,
+            0.06818199157714844,
+            0.8453306555747986,
+            0.9772728998214006
+          ]
+        }
+      ]
+    },
+    {
+      "preset": "Oak Large",
+      "seed": 23399,
+      "sourcePresetSha256": "da60d7104796e5dc099effe778f22e055a8365549e2eb6cfa6fb0bb6a8190d6b",
+      "sourceRawGeometry": {
+        "file": "raw/oak-large-lod0.json",
+        "bytes": 1465287,
+        "sha256": "eb96d0d5c58d8491ef04b39f1ed9c47ef7439bdb9d3c7b2dcca623f6fbc99e16",
+        "lod": 0,
+        "triangles": {
+          "branches": 12006,
+          "leaves": 10560,
+          "total": 22566
+        }
+      },
+      "sourceLicense": "EZ-Tree MIT; author preset geometry is an appearance proxy, not a local tree survey.",
+      "sourceCommit": "dcf309bd86bd521083d9c70f01f2de45fdc7c457",
+      "sourceTextures": {
+        "ezTreeLeafLicense": "MIT (bundled with EZ-Tree)",
+        "barkLicense": "AmbientCG Bark001 CC0 1.0",
+        "files": [
+          {
+            "file": "leaves/oak.png",
+            "bytes": 238115,
+            "sha256": "24451223cf396d22910a4932b8bb996a7274e63d81e24128c96a430ab67822b1"
+          },
+          {
+            "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_Color.jpg",
+            "bytes": 831490,
+            "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+          },
+          {
+            "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_NormalGL.jpg",
+            "bytes": 1270807,
+            "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+          },
+          {
+            "file": "bark/Bark001_1K-JPG/Bark001_1K-JPG_Roughness.jpg",
+            "bytes": 397062,
+            "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+          }
+        ],
+        "leafAlphaMode": "MASK, source PNG alpha retained in material; cutoff 0.5"
+      },
+      "modelScale": {
+        "policy": "uniform scale to 20m source-geometry vertical extent",
+        "sourceUnitsDefinedByPreset": false,
+        "scale": 0.18505649593875878,
+        "rootWorldMetres": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "actualModelBoundsWorldMetresXYZ": [
+          [
+            -8.394068173507408,
+            8.726749693977391
+          ],
+          [
+            -6.526716091494761,
+            7.609374669093199
+          ],
+          [
+            0.0,
+            20.0
+          ]
+        ]
+      },
+      "frames": [
+        {
+          "yawDegrees": 0,
+          "file": "frames/oak/oak-azimuth-000.png",
+          "bytes": 282942,
+          "sha256": "0176840e77327be03feeeb64126911093a385655bed4e1aedf6500ee7d858118",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            255.99986267089844,
+            500.3635034561157
+          ],
+          "rootUvFromTopLeft": [
+            0.4999997317790985,
+            0.977272467687726
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            104.10537719726562,
+            34.908966064453125,
+            433.09075927734375,
+            500.3635034561157
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.20333081483840942,
+            0.06818157434463501,
+            0.845880389213562,
+            0.977272467687726
+          ]
+        },
+        {
+          "yawDegrees": 45,
+          "file": "frames/oak/oak-azimuth-045.png",
+          "bytes": 301621,
+          "sha256": "21f6df1c71e33efc5ebe03b46aee5a8cac9527dbca49a402552007652238b1bf",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            256.0000305175781,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.5000000596046448,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            73.4117660522461,
+            34.9091796875,
+            447.5170593261719,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.14338235557079315,
+            0.06818199157714844,
+            0.8740567564964294,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 90,
+          "file": "frames/oak/oak-azimuth-090.png",
+          "bytes": 308250,
+          "sha256": "e7a8ac5970c63060f3f09e536976f9bb46344271cca623f552a0c438c5353481",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            256.0001525878906,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.5000002980232239,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            52.9049186706543,
+            34.9091796875,
+            451.3529968261719,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.10332991927862167,
+            0.06818199157714844,
+            0.8815488219261169,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 135,
+          "file": "frames/oak/oak-azimuth-135.png",
+          "bytes": 281958,
+          "sha256": "0c75170876598e5550180dfcb6cd983bb63d86f89ba5434634ff67529583b0d1",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            255.99996948242188,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.4999999403953552,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            86.78388977050781,
+            34.9091796875,
+            431.8742370605469,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.16949978470802307,
+            0.06818199157714844,
+            0.8435043692588806,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 180,
+          "file": "frames/oak/oak-azimuth-180.png",
+          "bytes": 286749,
+          "sha256": "17f19485309f398361e0d26a964b27ecc168e870dc6461bee7fd5a34a4b62e48",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            255.99989318847656,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.4999997913837433,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            78.90902709960938,
+            34.9091796875,
+            407.8944091796875,
+            500.3635034561157
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.15411919355392456,
+            0.06818199157714844,
+            0.7966687679290771,
+            0.977272467687726
+          ]
+        },
+        {
+          "yawDegrees": 225,
+          "file": "frames/oak/oak-azimuth-225.png",
+          "bytes": 304172,
+          "sha256": "d7ae5ad6b8f53e002214329f2842522805d08137bb9b4634a903696486845534",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            255.99984741210938,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.4999997019767761,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            64.48275756835938,
+            34.9091796875,
+            438.5880432128906,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.1259428858757019,
+            0.06818199157714844,
+            0.856617271900177,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 270,
+          "file": "frames/oak/oak-azimuth-270.png",
+          "bytes": 304897,
+          "sha256": "3328226b193bf4d4d91639e351f260fc9395505061aafe583eef320548b86a1c",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            256.0,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.5,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            60.647151947021484,
+            34.9091796875,
+            459.0952453613281,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.11845146864652634,
+            0.06818199157714844,
+            0.896670401096344,
+            0.9772728998214006
+          ]
+        },
+        {
+          "yawDegrees": 315,
+          "file": "frames/oak/oak-azimuth-315.png",
+          "bytes": 279914,
+          "sha256": "484130a713c4e6b4c3cb62260dfc992e0598903b0acb6aa0f86e31a9ccf20455",
+          "sizePx": [
+            512,
+            512
+          ],
+          "camera": {
+            "projection": "orthographic",
+            "orthoScaleWorldMetres": 22.0,
+            "distanceWorldMetres": 80.0,
+            "targetWorldMetres": [
+              0.0,
+              0.0,
+              10.5
+            ]
+          },
+          "rootWorldMetres": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rootPixelFromTopLeft": [
+            256.0001525878906,
+            500.36372470855713
+          ],
+          "rootUvFromTopLeft": [
+            0.5000002980232239,
+            0.9772728998214006
+          ],
+          "projectedModelBoundsPixelExclusiveMax": [
+            80.12594604492188,
+            34.9091796875,
+            425.21630859375,
+            500.36372470855713
+          ],
+          "projectedModelBoundsUvFromTopLeft": [
+            0.15649598836898804,
+            0.06818199157714844,
+            0.830500602722168,
+            0.9772728998214006
+          ]
+        }
+      ]
+    }
+  ],
+  "heightAndSpeciesCaveat": "EZ-Tree author presets do not specify physical units or represent a Hudson field survey. Uniform 20m vertical scaling is a presentation choice; any dimensions and bounds here describe these rendered source meshes only."
+}

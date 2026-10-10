@@ -41,7 +41,8 @@ jobs:
           CW_TREE_REVIEW_ONLY: ${{ (github.ref_name == 'codex/near-tree-visual-review' || github.ref_name == 'codex/broadleaf-tree-visual-review' || github.ref_name == 'codex/canopy-visual-review') && '1' || '0' }}
           CW_CANOPY_REVIEW_ONLY: ${{ github.ref_name == 'codex/canopy-visual-review' && '1' || '0' }}
           CW_BUILDING_REVIEW_ONLY: ${{ github.ref_name == 'codex/converted-building-review' && '1' || '0' }}
-          CW_AERIAL_REVIEW_ONLY: ${{ github.ref_name == 'codex/aerial-visual-review' && '1' || '0' }}
+          CW_AERIAL_REVIEW_ONLY: ${{ (github.ref_name == 'codex/aerial-visual-review' || github.ref_name == 'codex/corridor-visual-review') && '1' || '0' }}
+          CW_CORRIDOR_REVIEW_ONLY: ${{ github.ref_name == 'codex/corridor-visual-review' && '1' || '0' }}
           CW_FOREST_REVIEW_ONLY: ${{ github.ref_name == 'codex/forest-visual-review' && '1' || '0' }}
         run: |
           mkdir -p "$RUNNER_TEMP/chill-visual"
@@ -241,6 +242,29 @@ jobs:
             if (JSON.stringify(loadedBeforeToggle) !== JSON.stringify(health.aerialRequests)) throw new Error('Aerial toggle downloaded new assets');
             health.aerialControlsVerified = true;
           }
+          async function reviewCorridorImagery() {
+            const diagnostic = page.getByLabel('真实航片准备诊断', { exact: true });
+            const source = await diagnostic.evaluate(element => ({ text: element.textContent, ...element.dataset }));
+            if (source.corridorReady !== 'true' || source.corridorBlocks !== '141' || source.corridorBytes !== '35723083') throw new Error(`Whole source imagery is incomplete: ${JSON.stringify(source)}`);
+            health.corridorSource = source;
+            const before = [...health.aerialRequests];
+            const train = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
+            for (const name of ['Cold Spring', 'Garrison', 'Manitou']) {
+              const preset = page.getByLabel('真实路线片段', { exact: true });
+              const value = await preset.locator('option').filter({ hasText: name }).getAttribute('value');
+              await preset.selectOption(value); await ready();
+              await page.getByLabel('真实地理林木', { exact: true }).uncheck();
+              await page.getByLabel('真实地表影像', { exact: true }).check();
+              await snapshot(`corridor-${name.replaceAll(' ', '-')}-source`);
+              await page.getByLabel('真实地表影像', { exact: true }).uncheck();
+              await snapshot(`corridor-${name.replaceAll(' ', '-')}-off`);
+              await page.getByLabel('真实地表影像', { exact: true }).check();
+              await page.getByLabel('真实地理林木', { exact: true }).check();
+            }
+            if (train !== await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres')) throw new Error('Imagery inspection moved the train');
+            if (JSON.stringify(before) !== JSON.stringify(health.aerialRequests)) throw new Error('Whole imagery inspection fetched new assets');
+            health.corridorControlsVerified = true;
+          }
           (async () => {
             try {
               browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
@@ -256,7 +280,7 @@ jobs:
               });
               let releaseRaster;
               const rasterHold = new Promise(resolve => { releaseRaster = resolve; });
-              const heldRaster = process.env.CW_FOREST_REVIEW_ONLY === '1' ? '**/models/trees/ash-large-lod1-20m.glb' : process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
+              const heldRaster = process.env.CW_CORRIDOR_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/corridor/scene-atlas-02.png' : process.env.CW_FOREST_REVIEW_ONLY === '1' ? '**/models/trees/ash-large-lod1-20m.glb' : process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
               health.aerialRequests = [];
               health.treeRequests = [];
               page.on('request', request => { if (request.url().includes('/geodata/hudson/imagery/')) health.aerialRequests.push(request.url()); });
@@ -325,6 +349,7 @@ jobs:
                 await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
                 await page.getByText('数据来源与加载诊断', { exact: true }).click();
                 await reviewRealImagery();
+                if (process.env.CW_CORRIDOR_REVIEW_ONLY === '1') await reviewCorridorImagery();
                 await page.keyboard.press('Escape');
                 await ready();
                 await snapshot('03u-real-imagery-return-to-train');

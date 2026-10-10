@@ -125,7 +125,7 @@ export class GeoInspector {
     const aerialLabel = document.createElement('label'), aerialInput = document.createElement('input')
     aerialInput.type = 'checkbox'; aerialInput.checked = true; aerialInput.setAttribute('aria-label', '真实地表影像')
     aerialInput.onchange = () => { this.layers.realImagery = aerialInput.checked }
-    aerialLabel.append(aerialInput, document.createTextNode('真实地表影像 · Peekskill'))
+    aerialLabel.append(aerialInput, document.createTextNode('真实地表影像 · 全线 / Peekskill高清'))
     this.aerialCase = this.button('定位真实航片片区', () => {
       if (!this.world?.aerial.stats.ready) return
       const point = this.world.aerial.focusPoint
@@ -137,7 +137,7 @@ export class GeoInspector {
     this.aerialCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
     this.aerialStats.setAttribute('aria-label', '真实航片准备诊断'); this.aerialStats.style.cssText = this.streamingStats.style.cssText
     const aerialNotice = document.createElement('p')
-    aerialNotice.textContent = 'USDA-FSA APFO / NOAA Digital Coast，2022 NAIP原始RGB。Peekskill局部航片贴合真实DEM，并按地理坐标覆盖朝上的屋顶；不提供建筑立面或逐株树模型。影像含拍摄时的树冠、阴影和屋顶，不能当作裸土地表。原图0.6m，2022-10-22日期来自瓦片文件名。出发前完成下载、校验与GPU准备；切换只改变显示。'
+    aerialNotice.textContent = 'USDA-FSA APFO / NOAA Digital Coast，2022 NAIP。6个原始瓦片覆盖全线两侧1200m，重投影后2.4m采样、JPEG压缩RGB与原覆盖mask打包为3个图集；Peekskill局部0.6m高分辨率覆盖其上。地表和朝上屋顶按同一地理坐标采样，不提供立面或逐株树模型。影像含拍摄时的树冠、阴影和屋顶。2022-10-22日期来自源文件名。出发前完成下载、校验与GPU准备；切换只改变显示。'
     aerialNotice.style.cssText = notes.style.cssText
     const aerialCredit = document.createElement('a'); aerialCredit.textContent = 'USDA-FSA APFO 航片 · NOAA 来源'; aerialCredit.href = 'https://www.fisheries.noaa.gov/inport/item/71609'; aerialCredit.target = '_blank'; aerialCredit.rel = 'noopener noreferrer'; aerialCredit.style.cssText = 'font-size:11px;color:#506b51;'
     this.treeStats.setAttribute('aria-label', '三维树模型准备诊断'); this.treeStats.style.cssText = this.streamingStats.style.cssText
@@ -288,7 +288,12 @@ export class GeoInspector {
     this.aerialStats.dataset.enabled = String(aerial.enabled)
     this.aerialStats.dataset.bytes = String(aerial.bytes)
     this.aerialStats.dataset.worldBounds = world.aerial.uniforms.geoAerialBounds.value.toArray().join(',')
+    const corridor = world.aerial.corridor.stats
+    this.aerialStats.dataset.corridorReady = String(corridor.ready)
+    this.aerialStats.dataset.corridorBytes = String(corridor.bytes)
+    this.aerialStats.dataset.corridorBlocks = String(corridor.blocks)
     this.aerialStats.textContent = `真实航片 ${aerial.ready ? '已准备' : '加载中'} · ${aerial.enabled ? '显示' : '关闭 / NLCD对照'}\n${aerial.width} × ${aerial.height} 像素 · ${aerial.bytes.toLocaleString()} B · ${(aerial.areaMetresSquared / 1000000).toFixed(3)}km²\n2022 NAIP RGB · 原像素0.6m · 日期${aerial.date}（瓦片文件名）\n地表 / 朝上屋顶共享同一地理配准；图片和来源记录均已校验，参与初始GPU准备。`
+    this.aerialStats.textContent += `\n全线 ${corridor.ready ? '已准备' : '加载中'} · ${corridor.blocks} 区块 / ${corridor.atlases} 图集 · ${corridor.bytes.toLocaleString()} B\n覆盖mask约 ${(corridor.areaMetresSquared / 1000000).toFixed(2)}km² · 2.4m Mercator采样；远处缩小与拼接仍需画面检查。`
     const converted = world.convertedBuildings.stats
     this.convertedCase.disabled = !converted.ready
     this.convertedStats.textContent = `转换建筑 ${converted.ready ? '已准备' : '加载中'} · ${converted.buildings}/15 栋 · ${converted.meshes} 合批 · ${converted.triangles} 三角形\n源高度匹配 · 足迹最大误差 ${converted.maxAlignmentErrorMetres.toFixed(4)}m · 排除 ${converted.rejectedDefaults} 个默认补高对象\n原体块与PBR模型都在初始GPU预热中提交；切换只改变可见性。`

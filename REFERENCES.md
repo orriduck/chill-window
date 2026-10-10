@@ -385,6 +385,12 @@ Debug折叠面板增加真实影像开关、定位裁片和来源/加载状态�
 
 GPU准备参考当前Three.js185源代码 [`WebGLObjects`](https://github.com/mrdoob/three.js/blob/r185/src/renderers/webgl/WebGLObjects.js) 和 [`WebGLIndexedBufferRenderer`](https://github.com/mrdoob/three.js/blob/r185/src/renderers/webgl/WebGLIndexedBufferRenderer.js)：实例属性在绘制前上传，零实例不发起绘制。`Renderer.ts`对同几何/材质仅首次提交一个实例，其他批次提交零实例并逐属性观察实际上传；未观察到对应版本即报错，完成GPU同步前不发布准备标记。实际浏览器运行必须进一步验证，不能仅据代码推断上传成功。
 
+[主森林实际检查38024825045](https://github.com/orriduck/chill-window/actions/runs/38024825045)，运行代码1165006：故意延迟Ash LOD1下载时列车保持3123.283m；资源就绪后出发。40m同机位三维树/旧轮廓切换、90/150m观察、返回车窗与390×844视图均完成，9个模型文件各下载一次。连续608.17m的6次检查均49/49可视块、缺块/迟现0、视野未上传森林样本0，无应用错误和失败请求。已查看40m模型/旧轮廓、90m以及连续车窗四张真实截图：近处可见细枝、叶片与树皮，旧轮廓明显平面；远坡仍有旧轮廓点阵、地表单色与简化建筑，整体目标尚未完成。SwiftShader仅0–1FPS，不能据此宣称硬件流畅度或整段路线已验收。
+
+[八方向树模型重建38025151601](https://github.com/orriduck/chill-window/actions/runs/38025151601) 已成功。前两次失败分别为来源清单文件名、缺EGL库；修复环境与失败退出码后，读取同一固定源几何/纹理并由Blender4.0.2 Eevee输出16张512²透明PNG。根任务核对全部PNG实际bytes/SHA，查看两张8方向联系表：根部无悬空留白、冠形随角度连续变化。原始raw几何SHA和所有纹理完全相同，但16张PNG与原云端渲染的SHA均不同；不宣称跨渲染环境像素完全重现。保留完整配方、原云端记录以及本次实际manifest/report；还未接入远景森林。
+
+全线真实航片接入 `GeoCorridorImagery.ts` / `GeoAerial.ts`：采用上一轮已验证的141区块、3×4096²图集，元数据SHA `6c7f48d7...`及三PNG完整SHA均固定校验。按源Mercator栅格和GeoData原点映射，末行/列保留真实有效像素尺寸，alpha=0区域不补图；三张图集总35,723,083B。根任务读取实际PNG，443个源路线点均映射到alpha=255的源像素。连续坐标导数控制采样，避免跨图集偏移造成错误mip；2px边缘保护限制到mip1，远距离缩小/运动质量仍需云端画面检查。源图片含树冠和阴影，朝上屋顶为航片覆盖，不能据此称为真实立面或新测绘三维模型。当前构建通过，实际全线影像渲染尚待验证。
+
 ### 全线真实 NAIP 图幅与静态atlas准备
 
 [实际全线重建38023192477](https://github.com/orriduck/chill-window/actions/runs/38023192477) 以当前world.json为准，在EPSG26918对443点路线两侧各缓冲1200m；官方图幅索引有7个相交候选，其中6个各有不可替代独占面积，六幅联合完全覆盖缓冲带。原图总2,531,739,152B，仅云端下载，逐幅SHA记录于`hudson-naip-corridor/observations/corridor-manifest.json`。不是完整纽约州下载。

@@ -1,0 +1,342 @@
+{
+  "manifestSha256": "fbdb0c72ddf42ca010f0bb2b0885ae9fa494f28205ba5f0d1736b48a03c11233",
+  "blenderVersion": "4.0.2",
+  "frames": [
+    {
+      "preset": "Ash Large",
+      "yawDegrees": 0,
+      "bytes": 291288,
+      "sha256": "e99ebc73b426d5fc022e400329e0274d260a4a5805ac24aa22b94542d7bd668c",
+      "alphaBoundsPx": [
+        49,
+        40,
+        430,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        255.99986267089844,
+        500.3635034561157
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Ash Large",
+      "yawDegrees": 45,
+      "bytes": 312217,
+      "sha256": "84d68715c4bc2c5139e36676474f14b4a6f8a7d43c49809b4b19322c38cbb12b",
+      "alphaBoundsPx": [
+        76,
+        40,
+        445,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        256.0000305175781,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Ash Large",
+      "yawDegrees": 90,
+      "bytes": 306004,
+      "sha256": "7e1af95af720bfeb1a293cfc07d28286d2c47a80ad326805ea03dc6ebce7bb8d",
+      "alphaBoundsPx": [
+        111,
+        40,
+        446,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        256.0001525878906,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Ash Large",
+      "yawDegrees": 135,
+      "bytes": 295207,
+      "sha256": "d34a49b419b7a685303283cd989a08f79cb2676e356089aec07adcdbbeb52027",
+      "alphaBoundsPx": [
+        84,
+        40,
+        438,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        255.99996948242188,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Ash Large",
+      "yawDegrees": 180,
+      "bytes": 298297,
+      "sha256": "b4f168915e68d326fe816345c093027760711624e9cd05c935a4086a2c7b0552",
+      "alphaBoundsPx": [
+        82,
+        39,
+        463,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        255.99989318847656,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Ash Large",
+      "yawDegrees": 225,
+      "bytes": 313935,
+      "sha256": "214c40cc4a02af96189ff6d497106a79c9b709ec18db9375b82a0cb3882ead30",
+      "alphaBoundsPx": [
+        66,
+        40,
+        435,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        255.99984741210938,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Ash Large",
+      "yawDegrees": 270,
+      "bytes": 304575,
+      "sha256": "7f715723ee494577e3966b9b23ed4539a4078784d7bad6d9fc87290523a000f8",
+      "alphaBoundsPx": [
+        66,
+        39,
+        400,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        256.0,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Ash Large",
+      "yawDegrees": 315,
+      "bytes": 291684,
+      "sha256": "86aa43a2dcadda251186c38579f4117ef1a172161d19b1dd138207b8570a1ae1",
+      "alphaBoundsPx": [
+        74,
+        40,
+        428,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        256.0001525878906,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Oak Large",
+      "yawDegrees": 0,
+      "bytes": 282942,
+      "sha256": "64e5a308239303a7e424ec94856a9d3204537c099c566d80663567c35cfba4cf",
+      "alphaBoundsPx": [
+        108,
+        43,
+        431,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        255.99986267089844,
+        500.3635034561157
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Oak Large",
+      "yawDegrees": 45,
+      "bytes": 301621,
+      "sha256": "042d9731e8ce83ccc73c6098af1af67e0e5ac1a71ac84f5e8b79f7a5c62b8f68",
+      "alphaBoundsPx": [
+        75,
+        43,
+        443,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        256.0000305175781,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Oak Large",
+      "yawDegrees": 90,
+      "bytes": 308250,
+      "sha256": "034d84d48f0399d75d51d6c6320e3cce97a5688b6b1ec4b112d4181ce31dcc06",
+      "alphaBoundsPx": [
+        58,
+        44,
+        446,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        256.0001525878906,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Oak Large",
+      "yawDegrees": 135,
+      "bytes": 281958,
+      "sha256": "0415246ca11b83208370b965b85684aafc40383003036d8f7270539aea0a2bb6",
+      "alphaBoundsPx": [
+        90,
+        43,
+        430,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        255.99996948242188,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Oak Large",
+      "yawDegrees": 180,
+      "bytes": 286749,
+      "sha256": "ebbfa38190f3a2296742151f7c90dab40b93b13c1b76491bca3c59d06e25c42d",
+      "alphaBoundsPx": [
+        81,
+        43,
+        404,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        255.99989318847656,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Oak Large",
+      "yawDegrees": 225,
+      "bytes": 304172,
+      "sha256": "059242797d680da4b1c748efe500fedbf5959404b5c3711c629de3f28e33e5b6",
+      "alphaBoundsPx": [
+        69,
+        43,
+        437,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        255.99984741210938,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Oak Large",
+      "yawDegrees": 270,
+      "bytes": 304897,
+      "sha256": "e2afc68c1316f6dda45ae56100f40881ed24596f4be6fbffb300c34485780553",
+      "alphaBoundsPx": [
+        66,
+        43,
+        454,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        256.0,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    },
+    {
+      "preset": "Oak Large",
+      "yawDegrees": 315,
+      "bytes": 279914,
+      "sha256": "1bdad738a811e03a7c10fdb3e1bf04d6e1f678d2326db10519d08c5c0a5d58aa",
+      "alphaBoundsPx": [
+        82,
+        43,
+        422,
+        501
+      ],
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "rootPixel": [
+        256.0001525878906,
+        500.36372470855713
+      ],
+      "matchesOriginalCloudFrameSha256": false
+    }
+  ]
+}
