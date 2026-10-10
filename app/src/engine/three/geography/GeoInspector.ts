@@ -215,6 +215,8 @@ export class GeoInspector {
     this.treeStats.textContent = `常绿林3D ${trees.ready ? '已准备' : '加载中'} · ${trees.preparedTrees} 位置样本\n局部显示 ${trees.visibleTrees} 株 / ${trees.visibleDrawCalls} 合批 · ${trees.visibleTriangles.toLocaleString()} 三角形\n来源尺度对照 ${samples.ready ? '已准备' : '加载中'} · ${samples.preparedTrees} 株 · ${samples.processedAssetBytes.toLocaleString()} B\n模型在初始GPU离屏预热中提交；当前显示统计是距离筛选上界，不是实际frustum绘制次数。`
     if (this.editing) this.controls.update()
     const pose = this.data.pose(s)
+    this.position.dataset.routeMetres = String(pose.s)
+    this.position.dataset.routeLengthMetres = String(this.data.length)
     const focus = this.editing ? this.controls.target : pose
     const cover = this.data.landCover, code = cover?.sample(focus.x, focus.z) ?? null
     this.landCoverReadout.textContent = cover
