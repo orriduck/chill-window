@@ -19,6 +19,8 @@ export function renderPixelRatio(
 export class WebGLRenderer {
   renderer: THREE.WebGLRenderer
   warmupMs = 0
+  private uploadedVersions = new WeakMap<THREE.BufferAttribute | THREE.InterleavedBuffer, number>()
+  private submittedSharedModels = new WeakMap<THREE.BufferGeometry, Set<THREE.Material>>()
 
   constructor() {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
@@ -86,21 +88,50 @@ export class WebGLRenderer {
     const target = new THREE.WebGLRenderTarget(16, 16)
     const previousTarget = this.renderer.getRenderTarget()
     const shadowAutoUpdate = this.renderer.shadowMap.autoUpdate
+    const buffers = new Map<THREE.BufferAttribute | THREE.InterleavedBuffer, () => void>()
+    const sharedSubmissions: Array<{ geometry: THREE.BufferGeometry; material: THREE.Material }> = []
+    const observe = (attribute: THREE.BufferAttribute | THREE.InterleavedBufferAttribute) => {
+      const buffer = attribute instanceof THREE.InterleavedBufferAttribute ? attribute.data : attribute
+      if (buffers.has(buffer)) return
+      const callback = buffer.onUploadCallback
+      buffers.set(buffer, callback)
+      buffer.onUploadCallback = () => { callback.call(buffer); this.uploadedVersions.set(buffer, buffer.version) }
+    }
+    for (const object of scope) if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points) {
+      for (const attribute of Object.values(object.geometry.attributes) as Array<THREE.BufferAttribute | THREE.InterleavedBufferAttribute>) observe(attribute)
+      if (object.geometry.index) observe(object.geometry.index)
+      if (object instanceof THREE.InstancedMesh) {
+        observe(object.instanceMatrix)
+        if (object.instanceColor) observe(object.instanceColor)
+      }
+    }
     try {
       for (const state of states) {
         state.object.visible = state.upload
         if (state.upload) {
           state.object.frustumCulled = false
-          // Three uploads the entire instance attribute array independently
-          // of draw count. One instance submits every buffer without drawing
-          // the full forest during the tiny preparation pass.
-          if (state.object instanceof THREE.InstancedMesh) state.object.count = Math.min(1, state.object.count)
+          if (state.object instanceof THREE.InstancedMesh) {
+            const mesh = state.object
+            const material = Array.isArray(mesh.material) ? null : mesh.material
+            const submitted = this.submittedSharedModels.get(mesh.geometry)
+            // WebGLObjects uploads each instance attribute before rendering.
+            // Draw one instance for the first shared model/material, then
+            // submit zero-count siblings to upload their individual buffers
+            // without repeatedly rasterizing the same source crown.
+            const alreadySubmitted = material && mesh.userData.sharedGeometry && (submitted?.has(material)
+              || sharedSubmissions.some(item => item.geometry === mesh.geometry && item.material === material))
+            mesh.count = alreadySubmitted ? 0 : Math.min(1, mesh.count)
+            if (material && mesh.userData.sharedGeometry && !alreadySubmitted) sharedSubmissions.push({ geometry: mesh.geometry, material })
+          }
         }
       }
       this.renderer.shadowMap.autoUpdate = false
       this.renderer.setRenderTarget(target)
       this.renderer.render(scene, camera)
+      const missing = [...buffers.keys()].filter(buffer => this.uploadedVersions.get(buffer) !== buffer.version)
+      if (missing.length) throw new Error(`场景 GPU 预热有 ${missing.length} 个未证实上传的缓冲`)
     } finally {
+      for (const [buffer, callback] of buffers) buffer.onUploadCallback = callback
       for (const state of states) {
         state.object.visible = state.visible; state.object.frustumCulled = state.culled
         if (state.object instanceof THREE.InstancedMesh && state.instanceCount !== undefined) state.object.count = state.instanceCount
@@ -127,6 +158,15 @@ export class WebGLRenderer {
         poll()
       })
     } finally { gl.deleteSync(fence) }
+    for (const { geometry, material } of sharedSubmissions) {
+      const submitted = this.submittedSharedModels.get(geometry) ?? new Set<THREE.Material>()
+      submitted.add(material); this.submittedSharedModels.set(geometry, submitted)
+    }
+    // Publish proof only after both observed buffer upload and GPU fence.
+    // A future-chunk gate cannot pass from compileAsync or metadata alone.
+    for (const object of scope) if (object instanceof THREE.InstancedMesh) {
+      object.userData.preparedInstanceBufferVersion = object.instanceMatrix.version
+    }
   }
 
   resize(width: number, height: number) {

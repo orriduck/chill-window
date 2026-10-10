@@ -3,18 +3,49 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { ForestPlacement } from './GeoForest'
 
-const ASSETS = {
+export const TREE_ASSETS = {
   'scots-pine': { url: '/models/trees/mature-scots-pine-lod.glb', radiusMetres: 5.8, bytes: 537348, sha256: '133a9653917dd511ab0af062f997946cfd966dc09b4d9b8c381c671866c962b6' },
   'oak-street-tree': { url: '/models/trees/oak-street-tree-lod.glb', radiusMetres: 4.0, bytes: 708996, sha256: 'd65f2515da582174c0321cb9a349f119496ded36633454e29f3666ac3c0fdc02' },
   'phototextured-pine-native': { url: '/models/trees/polyhaven-pine-native.glb', radiusMetres: 4.2, bytes: 24328860, sha256: '5b3b8c30cf28937e5e5193602e76e48878a24f81b58377dbbf3d2587d60a3ee8' },
   'phototextured-pine-branch50': { url: '/models/trees/polyhaven-pine-branch50.glb', radiusMetres: 4.2, bytes: 23313556, sha256: '6d6dbf39b0f2d0099df6cb12bea32e0d4f43de19a76bbce9b0188eeb2d5bf6db' },
   'silver-birch': { url: '/models/trees/mature-silver-birch.glb', radiusMetres: 5, bytes: 4902236, sha256: 'd1832a237f9e5d3728c7c6dc6e8e8243ac2984e51abe102cdf12bb996ca3dcc7' },
+  'canopy-ash-lod1': { url: '/models/trees/ash-large-lod1-20m.glb', radiusMetres: 13, bytes: 3172184, sha256: 'e942ff58523e3833b87fdb1d3fa3d04cd797a85e09434aef90881bee38d1d9eb' },
+  'canopy-ash-lod2': { url: '/models/trees/ash-large-lod2-20m.glb', radiusMetres: 13, bytes: 2942720, sha256: '3441ea08b563c5d0f6c15432770420b0128caf79115afa5235a7f9429e012580' },
+  'canopy-oak-lod1': { url: '/models/trees/oak-large-lod1-20m.glb', radiusMetres: 13, bytes: 3257564, sha256: '20443ef8c9d66adaaf92bc8fef48e7fc401dd747e220b79804da1f2f6704da79' },
+  'canopy-oak-lod2': { url: '/models/trees/oak-large-lod2-20m.glb', radiusMetres: 13, bytes: 3039740, sha256: '5af0126c0e021da4c928c14da11ebe9409f63a943cd088810737d5f9158c0b06' },
 } as const
 const DEFAULT_CLOSE_RANGE_METRES = 115
 const CELL_METRES = 40
 
-export type CloseTreeAssetId = keyof typeof ASSETS
+const ASSETS = TREE_ASSETS
+export type CloseTreeAssetId = keyof typeof TREE_ASSETS
 export type CloseTreePlacement = ForestPlacement & { asset: CloseTreeAssetId }
+
+// Immutable source bytes are shared by production and Debug Mode consumers.
+// Each consumer parses its own materials/uniforms; neither can mutate the
+// other's focus or dispose its model resources.
+const assetBytes = new Map<CloseTreeAssetId, Promise<ArrayBuffer>>()
+export function verifiedTreeBytes(asset: CloseTreeAssetId): Promise<ArrayBuffer> {
+  const existing = assetBytes.get(asset)
+  if (existing) return existing
+  const pending = (async () => {
+    const specification = TREE_ASSETS[asset]
+    const response = await fetch(specification.url)
+    if (!response.ok) throw new Error(`Tree asset ${asset}: HTTP ${response.status}`)
+    const buffer = await response.arrayBuffer()
+    const digest = await crypto.subtle.digest('SHA-256', buffer)
+    const sha256 = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')
+    if (buffer.byteLength !== specification.bytes || sha256 !== specification.sha256) throw new Error(`Tree asset ${asset}: source checksum mismatch`)
+    return buffer
+  })()
+  assetBytes.set(asset, pending)
+  return pending
+}
+
+// This same screen threshold is used by source models and their forest cards.
+// Distance changes pixel coverage without multiplying source alpha before its
+// cutoff, which would shrink crowns and leave a gap during the transition.
+export const treeScreenThreshold = 'fract(sin(dot(floor(gl_FragCoord.xy), vec2(12.9898, 78.233))) * 43758.5453)'
 
 export interface CloseTreeStats {
   ready: boolean
@@ -93,13 +124,7 @@ export class GeoCloseTrees {
     const loader = new GLTFLoader()
     const prototypes: Prototype[] = []
     await Promise.all(requestedAssets.map(async asset => {
-      const specification = ASSETS[asset]
-      const response = await fetch(specification.url)
-      if (!response.ok) throw new Error(`Tree asset ${asset}: HTTP ${response.status}`)
-      const buffer = await response.arrayBuffer()
-      const digest = await crypto.subtle.digest('SHA-256', buffer)
-      const sha256 = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')
-      if (buffer.byteLength !== specification.bytes || sha256 !== specification.sha256) throw new Error(`Tree asset ${asset}: source checksum mismatch`)
+      const buffer = await verifiedTreeBytes(asset)
       const gltf = await loader.parseAsync(buffer, '')
       const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>()
       gltf.scene.updateMatrixWorld(true)
@@ -122,9 +147,9 @@ export class GeoCloseTrees {
           shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nuniform vec2 closeTreeFocus;\nvarying float closeTreeDistance;')
             .replace('#include <begin_vertex>', '#include <begin_vertex>\ncloseTreeDistance = length(instanceMatrix[3].xz - closeTreeFocus);')
           shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nuniform float closeTreeLimit;\nvarying float closeTreeDistance;')
-            .replace('#include <alphahash_fragment>', 'diffuseColor.a *= 1.0 - smoothstep(closeTreeLimit - 35.0, closeTreeLimit, closeTreeDistance);\n#include <alphahash_fragment>')
+            .replace('#include <alphahash_fragment>', `if (${treeScreenThreshold} >= 1.0 - smoothstep(closeTreeLimit - 35.0, closeTreeLimit, closeTreeDistance)) discard;\n#include <alphahash_fragment>`)
         }
-        object.material.customProgramCacheKey = () => 'geographic-close-trees-v1'
+        object.material.customProgramCacheKey = () => 'geographic-close-trees-v2'
         for (const value of Object.values(object.material)) {
           if (value instanceof THREE.Texture) this.textures.add(value)
         }
@@ -172,9 +197,10 @@ export class GeoCloseTrees {
       for (const prototype of prototypes.filter(item => item.asset === species)) {
         const mesh = new THREE.InstancedMesh(prototype.geometry, prototype.material, items.length)
         mesh.castShadow = true; mesh.receiveShadow = true
-        mesh.name = `cc0-${species}-instances`
+        mesh.name = `source-${species}-instances`
         mesh.userData.individualTreeLocationsEstimated = true
         mesh.userData.asset = species
+        mesh.userData.sharedGeometry = true
         for (let index = 0; index < items.length; index++) {
           const tree = items[index]
           transform.position.set(tree.x, tree.y, tree.z)

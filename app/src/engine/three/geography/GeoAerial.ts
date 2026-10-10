@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { GeoData } from './GeoData'
+import { GeoCorridorImagery, corridorShader } from './GeoCorridorImagery'
 
 const ROOT = '/geodata/hudson/imagery/'
 const MANIFEST_SHA = 'a67507523459ee79658d46ba7e8c659c105b78ce72fdf4068145007b810c08aa'
@@ -17,6 +18,7 @@ const inverseMercator = (x: number, y: number): [number, number] => [x / 6378137
  * Later toggles change a uniform; they never replace geographic geometry. */
 export class GeoAerial {
   readonly ready: Promise<void>
+  readonly corridor: GeoCorridorImagery
   readonly focusPoint = new THREE.Vector3()
   readonly stats = { ready: false, enabled: true, bytes: 0, width: 0, height: 0, areaMetresSquared: 0, date: '2022-10-22' }
   readonly uniforms = {
@@ -28,7 +30,11 @@ export class GeoAerial {
   private disposed = false
   constructor(data: GeoData, groundAt: (x: number, z: number) => number | null) {
     this.uniforms.geoAerial.value.needsUpdate = true
-    this.ready = this.prepare(data, groundAt)
+    this.corridor = new GeoCorridorImagery(data)
+    this.ready = Promise.all([this.prepare(data, groundAt), this.corridor.ready]).then(() => {
+      if (this.disposed) return
+      this.stats.ready = true; this.setEnabled(this.stats.enabled)
+    })
   }
   private async prepare(data: GeoData, groundAt: (x: number, z: number) => number | null) {
     const response = await fetch(`${ROOT}scene-raster.json`)
@@ -61,11 +67,10 @@ export class GeoAerial {
     this.uniforms.geoAerialBounds.value.set(low.x, low.z, high.x, high.z)
     const x = (low.x + high.x) / 2, z = (low.z + high.z) / 2
     this.focusPoint.set(x, groundAt(x, z) ?? 0, z)
-    this.stats.ready = true; this.stats.bytes = imageBytes.byteLength
+    this.stats.bytes = imageBytes.byteLength
     this.stats.width = raster.sizePixels[0]; this.stats.height = raster.sizePixels[1]
     this.stats.areaMetresSquared = (high.x - low.x) * (high.z - low.z)
     this.stats.date = snapshot.source.acquisitionDateFromTileName
-    this.setEnabled(this.stats.enabled)
   }
   setEnabled(enabled: boolean) { this.stats.enabled = enabled; this.uniforms.geoAerialEnabled.value = this.stats.ready && enabled ? 1 : 0 }
   install(material: THREE.MeshStandardMaterial, roofOnly = false) {
@@ -76,12 +81,17 @@ export class GeoAerial {
     material.onBeforeCompile = (shader, renderer) => {
       previous.call(material, shader, renderer)
       Object.assign(shader.uniforms, this.uniforms)
+      Object.assign(shader.uniforms, this.corridor.uniforms)
       shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 geoAerialPosition;\nvarying float geoAerialUp;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoAerialPosition = position; geoAerialUp = normal.y;')
-      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D geoAerial;\nuniform vec4 geoAerialBounds;\nuniform float geoAerialEnabled;\nvarying vec3 geoAerialPosition;\nvarying float geoAerialUp;')
+      shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\nuniform sampler2D geoAerial;\nuniform vec4 geoAerialBounds;\nuniform float geoAerialEnabled;\nvarying vec3 geoAerialPosition;\nvarying float geoAerialUp;\n${corridorShader}`)
         .replace('#include <roughnessmap_fragment>', `
+if (geoAerialEnabled > 0.5${roofOnly ? ' && geoAerialUp > 0.55 && gl_FrontFacing' : ''}) {
+  vec4 source = geographicCorridorSample(geoAerialPosition.xz);
+  diffuseColor.rgb = mix(diffuseColor.rgb, source.rgb, source.a);
+}
 vec2 aerialUv = (geoAerialPosition.xz - geoAerialBounds.xy) / (geoAerialBounds.zw - geoAerialBounds.xy);
-if (geoAerialEnabled > 0.5 && all(greaterThanEqual(aerialUv, vec2(0.0))) && all(lessThanEqual(aerialUv, vec2(1.0)))${roofOnly ? ' && geoAerialUp > 0.55' : ''}) {
+if (geoAerialEnabled > 0.5 && all(greaterThanEqual(aerialUv, vec2(0.0))) && all(lessThanEqual(aerialUv, vec2(1.0)))${roofOnly ? ' && geoAerialUp > 0.55 && gl_FrontFacing' : ''}) {
   vec3 aerialRgb = texture2D(geoAerial, aerialUv).rgb;
   vec2 edgeMetres = min(aerialUv, vec2(1.0) - aerialUv) * (geoAerialBounds.zw - geoAerialBounds.xy);
   // The RGB warp's out-of-crop pixels are zero. Keep their original terrain
@@ -91,8 +101,8 @@ if (geoAerialEnabled > 0.5 && all(greaterThanEqual(aerialUv, vec2(0.0))) && all(
 }
 #include <roughnessmap_fragment>`)
     }
-    material.customProgramCacheKey = () => `${key}-real-naip-${roofOnly ? 'roof' : 'ground'}-v1`
+    material.customProgramCacheKey = () => `${key}-real-naip-${roofOnly ? 'roof' : 'ground'}-v3-corridor`
     material.needsUpdate = true
   }
-  dispose() { this.disposed = true; this.uniforms.geoAerial.value.dispose() }
+  dispose() { this.disposed = true; this.uniforms.geoAerial.value.dispose(); this.corridor.dispose() }
 }

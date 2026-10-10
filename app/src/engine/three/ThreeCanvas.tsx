@@ -183,7 +183,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       ambient.color.copy(state.ambientColor); ambient.intensity = state.ambientIntensity * (1 - tunnel * 0.8)
       sun.color.copy(state.dirColor); sun.intensity = state.dirIntensity * (1 - tunnel * 0.92); sun.position.copy(state.dirPosition).add(viewPosition); sun.target.position.copy(viewPosition)
       const fog = scene.scene.fog as THREE.Fog; fog.color.copy(state.fogColor); fog.near = THREE.MathUtils.lerp(1100, 8, tunnel); fog.far = THREE.MathUtils.lerp(6000, 130, tunnel)
-      if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers)
+      if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers, inspector.camera.position)
       if (worldReady && world && !gpuChunkInFlight) {
         const prepared = world.takeGpuChunks()
         if (prepared.length) {

@@ -38,9 +38,13 @@ jobs:
       - name: Capture ride, geography, station positions and movement
         env:
           CW_CAPTURE_SHA: ${{ github.sha }}
-          CW_TREE_REVIEW_ONLY: ${{ (github.ref_name == 'codex/near-tree-visual-review' || github.ref_name == 'codex/broadleaf-tree-visual-review') && '1' || '0' }}
+          CW_TREE_REVIEW_ONLY: ${{ (github.ref_name == 'codex/near-tree-visual-review' || github.ref_name == 'codex/broadleaf-tree-visual-review' || github.ref_name == 'codex/canopy-visual-review') && '1' || '0' }}
+          CW_CANOPY_REVIEW_ONLY: ${{ github.ref_name == 'codex/canopy-visual-review' && '1' || '0' }}
           CW_BUILDING_REVIEW_ONLY: ${{ github.ref_name == 'codex/converted-building-review' && '1' || '0' }}
-          CW_AERIAL_REVIEW_ONLY: ${{ github.ref_name == 'codex/aerial-visual-review' && '1' || '0' }}
+          CW_AERIAL_REVIEW_ONLY: ${{ (github.ref_name == 'codex/aerial-visual-review' || github.ref_name == 'codex/corridor-visual-review') && '1' || '0' }}
+          CW_CORRIDOR_REVIEW_ONLY: ${{ github.ref_name == 'codex/corridor-visual-review' && '1' || '0' }}
+          CW_FOREST_REVIEW_ONLY: ${{ (github.ref_name == 'codex/forest-visual-review' || github.ref_name == 'codex/forest-impostor-review') && '1' || '0' }}
+          CW_IMPOSTOR_REVIEW_ONLY: ${{ github.ref_name == 'codex/forest-impostor-review' && '1' || '0' }}
         run: |
           mkdir -p "$RUNNER_TEMP/chill-visual"
           npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-visual/server.log" 2>&1 &
@@ -76,6 +80,7 @@ jobs:
               landCover: await page.getByLabel('真实土地覆盖来源', { exact: true }).textContent(),
               buildingSource: await page.getByLabel('建筑来源记录详情', { exact: true }).textContent(),
               treeModels: await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent(),
+              forest: await page.getByLabel('沿线三维森林准备诊断', { exact: true }).textContent(),
               convertedBuildings: await page.getByLabel('转换建筑准备诊断', { exact: true }).textContent(),
               aerial: await page.getByLabel('真实航片准备诊断', { exact: true }).textContent(),
               capturedAt: new Date().toISOString(),
@@ -114,7 +119,7 @@ jobs:
             await page.getByRole('button', { name: '定位树模型对照', exact: true }).click();
             await ready();
             health.treeModels = await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent();
-            if (!health.treeModels.includes('来源尺度对照 已准备 · 5 实例 · 53,790,996 B')) throw new Error(`Tree assets were not prepared: ${health.treeModels}`);
+            if (!health.treeModels.includes('来源尺度对照 已准备 · 9 实例 · 66,203,204 B')) throw new Error(`Tree assets were not prepared: ${health.treeModels}`);
             health.treeAssetsPreparedVerified = true;
             await page.getByLabel('真实地理林木', { exact: true }).uncheck();
             await page.getByLabel('真实地理建筑', { exact: true }).uncheck();
@@ -122,7 +127,9 @@ jobs:
             await snapshot('03i-tree-source-models');
             const comparison = page.getByLabel('树模型材质对照版本', { exact: true });
             health.phototexturedTreeCases = [];
-            for (const [mode, image, triangles] of [['old-pine', '03i1-old-pine-matched-view', '6,588'], ['native', '03i2-phototextured-pine-native', '416,451'], ['branch50', '03i3-phototextured-pine-branch50', '381,180'], ['birch', '03i5-silver-birch-source-scale', '52,476']]) {
+            const canopyCases = [['ash-lod1', '03i6-canopy-ash-lod1', '8,968'], ['ash-lod2', '03i7-canopy-ash-lod2', '4,346'], ['oak-lod1', '03i8-canopy-oak-lod1', '9,240'], ['oak-lod2', '03i9-canopy-oak-lod2', '5,364']];
+            const sourceCases = [['old-pine', '03i1-old-pine-matched-view', '6,588'], ['native', '03i2-phototextured-pine-native', '416,451'], ['branch50', '03i3-phototextured-pine-branch50', '381,180'], ['birch', '03i5-silver-birch-source-scale', '52,476']];
+            for (const [mode, image, triangles] of process.env.CW_CANOPY_REVIEW_ONLY === '1' ? canopyCases : [...sourceCases, ...canopyCases]) {
               await comparison.selectOption(mode);
               await ready();
               const diagnostic = await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent();
@@ -159,6 +166,74 @@ jobs:
             await page.getByLabel('真实地理建筑', { exact: true }).check();
             await page.getByLabel('真实地理林木', { exact: true }).check();
             health.convertedBuildingControlsVerified = true;
+          }
+          async function reviewPreparedForest() {
+            const readForest = () => page.getByLabel('沿线三维森林准备诊断', { exact: true }).evaluate(element => ({
+              text: element.textContent, ...element.dataset,
+            }));
+            await page.getByRole('button', { name: '定位沿线森林近景', exact: true }).click();
+            await ready();
+            const prepared = await readForest();
+            if (!(Number(prepared.preparedTrees) > 0 && Number(prepared.gpuPreparedTrees) > 0 && Number(prepared.visibleTrees) > 0)
+              || Number(prepared.unpreparedVisibleTrees) !== 0) throw new Error(`Main woodland not GPU prepared: ${JSON.stringify(prepared)}`);
+            health.mainForestPreparation = prepared;
+            const requestsBefore = [...health.treeRequests];
+            await snapshot('03w-main-forest-40m');
+            await page.getByLabel('沿线近景三维森林', { exact: true }).uncheck();
+            await ready();
+            const oldCards = await readForest();
+            if (Number(oldCards.visibleTrees) !== 0 || oldCards.enabled !== 'false') throw new Error(`Forest model toggle failed: ${JSON.stringify(oldCards)}`);
+            await snapshot('03x-main-forest-original-cards');
+            await page.getByLabel('沿线近景三维森林', { exact: true }).check();
+            await ready();
+            await snapshot('03y-main-forest-models-restored');
+            health.forestTransitions = [];
+            for (const distance of ['90', '150', '40']) {
+              await page.getByLabel('沿线森林观察距离', { exact: true }).selectOption(distance);
+              await ready();
+              const diagnostic = await readForest();
+              if (Number(diagnostic.unpreparedVisibleTrees) !== 0) throw new Error(`Unuploaded forest during distance change: ${JSON.stringify(diagnostic)}`);
+              health.forestTransitions.push({ distance, diagnostic });
+              await snapshot(`03z-main-forest-${distance}m`);
+            }
+            if (JSON.stringify(requestsBefore) !== JSON.stringify(health.treeRequests)) throw new Error('Forest controls fetched new tree models');
+            const duplicates = health.treeRequests.filter((url, i, items) => items.indexOf(url) !== i);
+            if (duplicates.length) throw new Error(`Source tree bytes fetched more than once: ${duplicates.join(', ')}`);
+            health.mainForestControlsVerified = true;
+          }
+          async function reviewForestImpostors() {
+            const diagnostic = page.getByLabel('沿线三维森林准备诊断', { exact: true });
+            const read = () => diagnostic.evaluate(element => ({ text: element.textContent, ...element.dataset }));
+            const initial = await read();
+            if (initial.impostorsReady !== 'true' || initial.impostorsBytes !== '3071815') throw new Error(`Source canopy images not ready: ${JSON.stringify(initial)}`);
+            const requests = [...health.treeImageRequests];
+            const train = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
+            health.impostorViews = [];
+            for (const distance of ['150', '650']) {
+              await page.getByLabel('沿线森林观察距离', { exact: true }).selectOption(distance);
+              await page.getByLabel('同源远景树冠', { exact: true }).check();
+              await ready();
+              const enabled = await read();
+              if (enabled.impostorsEnabled !== 'true') throw new Error('Source canopy toggle not enabled');
+              await snapshot(`forest-source-${distance}m`);
+              await page.getByLabel('同源远景树冠', { exact: true }).uncheck();
+              await ready();
+              const disabled = await read();
+              if (disabled.impostorsEnabled !== 'false') throw new Error('Source canopy toggle not disabled');
+              await snapshot(`forest-old-cards-${distance}m`);
+              health.impostorViews.push({ distance, enabled, disabled });
+              await page.getByLabel('同源远景树冠', { exact: true }).check();
+            }
+            await page.getByLabel('沿线森林观察距离', { exact: true }).selectOption('150');
+            for (const direction of ['135', '225', '315', '45']) {
+              await page.getByLabel('沿线森林观察方向', { exact: true }).selectOption(direction);
+              await ready();
+              await snapshot(`forest-source-direction-${direction}`);
+            }
+            if (train !== await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres')) throw new Error('Forest inspection moved train');
+            if (JSON.stringify(requests) !== JSON.stringify(health.treeImageRequests)) throw new Error('Forest camera/toggles downloaded images');
+            if (health.treeImageRequests.length !== 3 || new Set(health.treeImageRequests).size !== 3) throw new Error(`Unexpected canopy image requests: ${JSON.stringify(health.treeImageRequests)}`);
+            health.impostorControlsVerified = true;
           }
           async function reviewRealImagery() {
             const initialPosition = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
@@ -202,10 +277,37 @@ jobs:
             if (JSON.stringify(loadedBeforeToggle) !== JSON.stringify(health.aerialRequests)) throw new Error('Aerial toggle downloaded new assets');
             health.aerialControlsVerified = true;
           }
+          async function reviewCorridorImagery() {
+            const diagnostic = page.getByLabel('真实航片准备诊断', { exact: true });
+            const source = await diagnostic.evaluate(element => ({ text: element.textContent, ...element.dataset }));
+            if (source.corridorReady !== 'true' || source.corridorBlocks !== '141' || source.corridorBytes !== '35723083') throw new Error(`Whole source imagery is incomplete: ${JSON.stringify(source)}`);
+            health.corridorSource = source;
+            const before = [...health.aerialRequests];
+            const train = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
+            for (const name of ['Cold Spring', 'Garrison', 'Manitou']) {
+              const preset = page.getByLabel('真实路线片段', { exact: true });
+              const value = await preset.locator('option').filter({ hasText: name }).getAttribute('value');
+              await preset.selectOption(value); await ready();
+              await page.getByLabel('真实地理林木', { exact: true }).uncheck();
+              await page.getByLabel('真实地表影像', { exact: true }).check();
+              await ready();
+              if (await diagnostic.getAttribute('data-enabled') !== 'true') throw new Error('Corridor imagery was not enabled');
+              await snapshot(`corridor-${name.replaceAll(' ', '-')}-source`);
+              await page.getByLabel('真实地表影像', { exact: true }).uncheck();
+              await ready();
+              if (await diagnostic.getAttribute('data-enabled') !== 'false') throw new Error('Corridor imagery was not disabled');
+              await snapshot(`corridor-${name.replaceAll(' ', '-')}-off`);
+              await page.getByLabel('真实地表影像', { exact: true }).check();
+              await page.getByLabel('真实地理林木', { exact: true }).check();
+            }
+            if (train !== await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres')) throw new Error('Imagery inspection moved the train');
+            if (JSON.stringify(before) !== JSON.stringify(health.aerialRequests)) throw new Error('Whole imagery inspection fetched new assets');
+            health.corridorControlsVerified = true;
+          }
           (async () => {
             try {
               browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
-              context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1280, height: 720 }, recordVideo: { dir: output, size: { width: 1280, height: 720 } } });
+              context = await browser.newContext({ serviceWorkers: 'block', viewport: process.env.CW_FOREST_REVIEW_ONLY === '1' ? { width: 960, height: 540 } : { width: 1280, height: 720 }, recordVideo: { dir: output, size: { width: 1280, height: 720 } } });
               page = await context.newPage();
               page.setDefaultTimeout(30000);
               page.on('console', message => {
@@ -217,21 +319,26 @@ jobs:
               });
               let releaseRaster;
               const rasterHold = new Promise(resolve => { releaseRaster = resolve; });
-              const heldRaster = process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
+              const heldRaster = process.env.CW_IMPOSTOR_REVIEW_ONLY === '1' ? '**/models/trees/impostors/oak-8-view-atlas.png' : process.env.CW_CORRIDOR_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/corridor/scene-atlas-02.png' : process.env.CW_FOREST_REVIEW_ONLY === '1' ? '**/models/trees/ash-large-lod1-20m.glb' : process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
               health.aerialRequests = [];
+              health.treeRequests = [];
+              health.treeImageRequests = [];
               page.on('request', request => { if (request.url().includes('/geodata/hudson/imagery/')) health.aerialRequests.push(request.url()); });
+              page.on('request', request => { if (request.url().includes('/models/trees/') && request.url().endsWith('.glb')) health.treeRequests.push(request.url()); });
+              page.on('request', request => { if (request.url().includes('/models/trees/impostors/')) health.treeImageRequests.push(request.url()); });
               await page.route(heldRaster, async route => { await rasterHold; await route.continue(); });
               await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=3123.283', { waitUntil: 'domcontentloaded' });
               await boardInDaylight(async () => {
                 health.earlyBoardStatus = await page.getByLabel('真实地理加载状态', { exact: true }).textContent();
                 if (health.earlyBoardStatus.includes('场景就绪')) throw new Error('Early boarding did not precede required source loading');
-                if (process.env.CW_AERIAL_REVIEW_ONLY === '1') {
+                if (process.env.CW_AERIAL_REVIEW_ONLY === '1' || process.env.CW_FOREST_REVIEW_ONLY === '1') {
                   await page.waitForFunction(() => Number.isFinite(Number(document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres)) && !!document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres, null, { timeout: 180000 });
                   const before = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
                   await page.waitForTimeout(3000);
                   const after = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
-                  if (before !== after) throw new Error('Train moved before real aerial image loaded');
-                  health.departureWaitedForRealImagery = { before, after, heldRaster };
+                  if (before !== after) throw new Error('Train moved before held source asset loaded');
+                  health.departureWaitedForSourceAsset = { before, after, heldRaster };
+                  if (process.env.CW_AERIAL_REVIEW_ONLY === '1') health.departureWaitedForRealImagery = { before, after, heldRaster };
                 }
                 releaseRaster();
               });
@@ -250,15 +357,52 @@ jobs:
               await page.waitForFunction(initial => document.querySelector('[aria-label="真实列车位置"]')?.textContent !== initial, initialPosition, { timeout: 90000 });
               health.movementVerified = true;
               await snapshot('02-cold-spring-ride-moving');
+              if (process.env.CW_FOREST_REVIEW_ONLY === '1') {
+                health.scope = 'Production woodland models, initial source/GPU preparation, near/card controls, 40/90/150m views, and continuous tile-boundary movement. Whole-route and hardware performance are not assessed';
+                await page.keyboard.press('F5');
+                await page.getByText('数据来源与加载诊断', { exact: true }).click();
+                await reviewPreparedForest();
+                if (process.env.CW_IMPOSTOR_REVIEW_ONLY === '1') {
+                  health.scope = 'Main woodland and source multi-view distant canopy, initial asset/GPU preparation, 40/90/150/650m controls, four camera directions, real imagery on/off and continuous tile-boundary ride. Whole-route and hardware performance are not assessed';
+                  await reviewForestImpostors();
+                  await reviewCorridorImagery();
+                }
+                await page.keyboard.press('Escape');
+                await ready();
+                const start = Number(await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres'));
+                health.forestContinuity = [];
+                for (let sample = 0; sample < 6; sample++) {
+                  await page.waitForTimeout(10000);
+                  const stream = await page.getByLabel('地理区块流式加载诊断', { exact: true }).textContent();
+                  const forest = await page.getByLabel('沿线三维森林准备诊断', { exact: true }).evaluate(element => ({ text: element.textContent, ...element.dataset }));
+                  const metres = Number(await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres'));
+                  health.forestContinuity.push({ metres, stream, forest });
+                  if (!stream.includes('视野缺块 0') || !stream.includes('行驶缺块帧 0') || Number(forest.unpreparedVisibleTrees) !== 0) throw new Error(`Forest revealed before preparation: ${stream} ${forest.text}`);
+                }
+                const end = Number(await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres'));
+                health.forestContinuousDistanceMetres = end - start;
+                if (end - start < 512) throw new Error(`Forest ride did not cross enough source tiles: ${end - start}m`);
+                await snapshot('04-main-forest-continuous-ride');
+                await page.setViewportSize({ width: 390, height: 844 });
+                await snapshot('05-main-forest-mobile-ride');
+                health.runtimePassed = !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
+                if (!health.runtimePassed) process.exitCode = 1;
+                return;
+              }
               if (process.env.CW_AERIAL_REVIEW_ONLY === '1') {
                 health.scope = 'Real NAIP ground/roof alignment, source-toggle and initial preparation. Whole-route continuity and hardware performance are not assessed';
                 await page.keyboard.press('F5');
                 await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
                 await page.getByText('数据来源与加载诊断', { exact: true }).click();
                 await reviewRealImagery();
+                if (process.env.CW_CORRIDOR_REVIEW_ONLY === '1') await reviewCorridorImagery();
                 await page.keyboard.press('Escape');
                 await ready();
                 await snapshot('03u-real-imagery-return-to-train');
+                // Release the active software-WebGL world before preparing
+                // another station. Two simultaneous 3D pages can starve UI
+                // startup on a runner and obscure the flow under review.
+                await page.close();
                 const checkpoint = await context.newPage();
                 page = checkpoint;
                 page.on('console', message => health.console.push({ level: message.type(), text: message.text() }));

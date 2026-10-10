@@ -1,0 +1,390 @@
+{
+  "schemaVersion": 1,
+  "sourceManifestSha256": "534f57e2cb8bcc42529a026c2cfe5b9b2ce2287f41e9923a77c0023616623d0b",
+  "sourceCommit": "dcf309bd86bd521083d9c70f01f2de45fdc7c457",
+  "frameCount": 16,
+  "sourceModelHeightMetres": 20,
+  "frameWorldBoundsMetres": [
+    -11,
+    -0.5,
+    11,
+    21.5
+  ],
+  "sourceModelUnitsArePresentationOnly": true,
+  "sourcePixelsUnchanged": true,
+  "sampling": {
+    "framePx": 512,
+    "columns": 4,
+    "rows": 2,
+    "maxMipLevel": 8,
+    "edgePolicy": "power-of-two cells keep each mip reduction within its own frame through mip9; runtime clamps bilinear UVs to the selected mip texel centers and caps at mip8"
+  },
+  "atlases": [
+    {
+      "species": "ash",
+      "image": {
+        "file": "ash-8-view-atlas.png",
+        "bytes": 1559256,
+        "sha256": "8f9451bfe6739bc78653643c9b34e9943bb227372ed5a01f242424781c42f9af",
+        "pixelSha256": "0af4eb74bbe9b84c45da2b40edf4af748fdeb98278dc5356100393bd5e4e6a64"
+      },
+      "sizePx": [
+        2048,
+        1024
+      ],
+      "frames": [
+        {
+          "yawDegrees": 0,
+          "sourcePngSha256": "c4f80ad7b011a68632b65d9960df494ad593521129addc668835c1c6956277fa",
+          "sourcePixelSha256": "b7e972fa6347a1c327cf2b330a33d87ae296d32f63925da46b5ef6b1d2733250",
+          "rectPxFromTopLeft": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            255.99986267089844,
+            500.3635034561157
+          ],
+          "alphaBoundsInFrame": [
+            49,
+            40,
+            430,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 45,
+          "sourcePngSha256": "626d4328a266c76f1f8ab5bf67b68d3884ede47d9a98acae449762c141562ea9",
+          "sourcePixelSha256": "7a6b71101de61f8baf72a56ed60cd9e32bb11d93700516d9412c17b752f4d6ef",
+          "rectPxFromTopLeft": [
+            512,
+            0,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            256.0000305175781,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            76,
+            40,
+            445,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 90,
+          "sourcePngSha256": "9e52796b9ddf364c19037528c068f4f6a3044c4e7d41a56ad6b0f0cc5469bf07",
+          "sourcePixelSha256": "3c197dd62a78f0d16e28c8db831a35d458dd4defb89ba812b94216e64c6ca108",
+          "rectPxFromTopLeft": [
+            1024,
+            0,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            256.0001525878906,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            111,
+            40,
+            446,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 135,
+          "sourcePngSha256": "147c16daa250629c48bf31cb8dfbda0c6c138d5ccd30a0edaeaf2f87cf496f77",
+          "sourcePixelSha256": "be8af2151aa906d6139d6b03052175d66b235cfa0707c8866f028943acbdfca6",
+          "rectPxFromTopLeft": [
+            1536,
+            0,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            255.99996948242188,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            84,
+            40,
+            438,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 180,
+          "sourcePngSha256": "4fcff52cdd9acef8e063b60d07431c2c786d47ffa68f39cec4b37c066431f353",
+          "sourcePixelSha256": "3939e176467ab858be9a9d998ccfaee121e3f41e091751bc411356203ee67eb2",
+          "rectPxFromTopLeft": [
+            0,
+            512,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            255.99989318847656,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            82,
+            39,
+            463,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 225,
+          "sourcePngSha256": "4b92fb3472af7b991c37b77bedfc91f1284f5e270af5bfea2f04b87dc1bd2075",
+          "sourcePixelSha256": "66b470f637e8728d1cd4b1eaa67f6cfa418a84bf2e6c2e2d94f89444efa944c6",
+          "rectPxFromTopLeft": [
+            512,
+            512,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            255.99984741210938,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            66,
+            40,
+            435,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 270,
+          "sourcePngSha256": "ec5db0d83c98364b65080308d467c79c6e0426ef4e8976fbf58aae7c5a8b8cfe",
+          "sourcePixelSha256": "84413b30fa01d0e2da1211a3e978c42d8c82f5d147e93691fbd3b730a2f1507f",
+          "rectPxFromTopLeft": [
+            1024,
+            512,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            256.0,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            66,
+            39,
+            400,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 315,
+          "sourcePngSha256": "0d34d1d907487c3443d0eff08554417e878d8565f0b201117d88e9f7b97e2952",
+          "sourcePixelSha256": "c37bb3e490cb0edb34d1287bf9f5b17c0fbc8096c609b6b24bd9d7a8d7330dcf",
+          "rectPxFromTopLeft": [
+            1536,
+            512,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            256.0001525878906,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            74,
+            40,
+            428,
+            501
+          ]
+        }
+      ]
+    },
+    {
+      "species": "oak",
+      "image": {
+        "file": "oak-8-view-atlas.png",
+        "bytes": 1512559,
+        "sha256": "7d2790429dcaad36403ddf5477de095453f95d05102bf849db0adc58b9c81a82",
+        "pixelSha256": "3c8ace1675ede2e0d25b2156a18fe52d62f05d76967a1115c800fa2ec5d9b0d8"
+      },
+      "sizePx": [
+        2048,
+        1024
+      ],
+      "frames": [
+        {
+          "yawDegrees": 0,
+          "sourcePngSha256": "0ae3a5782657cf6287426047a18427781789193c81ef9af8ac86e6757cbda8f0",
+          "sourcePixelSha256": "960abcf89a7b8ed0a4b6017ba53e3f8df7438f7a9037f589771d90bdf9fd5643",
+          "rectPxFromTopLeft": [
+            0,
+            0,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            255.99986267089844,
+            500.3635034561157
+          ],
+          "alphaBoundsInFrame": [
+            108,
+            43,
+            431,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 45,
+          "sourcePngSha256": "a65be6e37b52377acbf3ed19fc700fc5bc392980d19e7a4526c7ff565528ba64",
+          "sourcePixelSha256": "a428483f6ed00888c23b1c49a598b6ee430109bff2f3605f5bf9ad6236854b82",
+          "rectPxFromTopLeft": [
+            512,
+            0,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            256.0000305175781,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            75,
+            43,
+            443,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 90,
+          "sourcePngSha256": "a53178f872b88cc046c10339ba93f51dc58b491df06e3d7f43075b1a7b9d88e7",
+          "sourcePixelSha256": "27cdbbdca335dbc28f1c416a20df62cf415766f38d7d9d9a0ddb23c1966e2767",
+          "rectPxFromTopLeft": [
+            1024,
+            0,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            256.0001525878906,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            58,
+            44,
+            446,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 135,
+          "sourcePngSha256": "3a9d05aecc693c9eff0d0f5c535c6a1feb7417dadf94093247395df7db483e49",
+          "sourcePixelSha256": "f4e442703d11132f9f227947099ab8c0f943154da16534835182cdf25eaa8463",
+          "rectPxFromTopLeft": [
+            1536,
+            0,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            255.99996948242188,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            90,
+            43,
+            430,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 180,
+          "sourcePngSha256": "ef87d43263b8ecee7a3ac7b432faa0ef45d9cd37f9c7f1721a9c83bffc246ab4",
+          "sourcePixelSha256": "8985d0237403327df73ff9cdd1bcb9777f842beaf5afa635c19a4b4b1f57b593",
+          "rectPxFromTopLeft": [
+            0,
+            512,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            255.99989318847656,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            81,
+            43,
+            404,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 225,
+          "sourcePngSha256": "3a65e8528d6f399b9a34ce64c14b5690ecba6491b2ebf9823e4f7293f679b4ea",
+          "sourcePixelSha256": "251e2f1a87137ffa31b2af412f07e4da6260a2a41ac0e4a6f37f02c8c02eb30a",
+          "rectPxFromTopLeft": [
+            512,
+            512,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            255.99984741210938,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            69,
+            43,
+            437,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 270,
+          "sourcePngSha256": "4ff4da8adfe9815e5d82623ab9266efaf130ff18b43d06692df93412fbe0fca4",
+          "sourcePixelSha256": "83848f521dd1c574f82b6b8a5cd58a7ab35eb68f07ce35758026c5b08c161e00",
+          "rectPxFromTopLeft": [
+            1024,
+            512,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            256.0,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            66,
+            43,
+            454,
+            501
+          ]
+        },
+        {
+          "yawDegrees": 315,
+          "sourcePngSha256": "9a511a10bb4b953205a96708187223406a20ef782cf33d11b17ddc5030dd048d",
+          "sourcePixelSha256": "68d06216a5e1c123549208b437d67acf846e914f43a5c9767fbdf930aa61c2ff",
+          "rectPxFromTopLeft": [
+            1536,
+            512,
+            512,
+            512
+          ],
+          "rootPixelInFrame": [
+            256.0001525878906,
+            500.36372470855713
+          ],
+          "alphaBoundsInFrame": [
+            82,
+            43,
+            422,
+            501
+          ]
+        }
+      ]
+    }
+  ]
+}
