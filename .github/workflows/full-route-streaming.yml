@@ -44,13 +44,14 @@ jobs:
           const fs = require('node:fs/promises');
           const path = require('node:path');
           const output = process.env.CW_OUTPUT;
-          const health = { commit: process.env.CW_SHA, scope: 'Continuous actual train motion from source-route start to endpoint, no jumps or changed speed. 640x360 software WebGL; hardware FPS, high-resolution visual quality and offline behavior are not assessed.', console: [], requestFailures: [], samples: [], screenshotPositions: [] };
+          const health = { commit: process.env.CW_SHA, scope: 'Continuous actual train motion with the main source-model forest, eight-view distant canopies and whole-route imagery from source-route start to endpoint, no jumps or changed speed. 640x360 software WebGL; hardware FPS, high-resolution visual quality and offline behavior are not assessed.', console: [], requestFailures: [], sourceAssetRequests: [], samples: [], screenshotPositions: [] };
           let browser, page;
           const save = () => fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
           const state = () => page.evaluate(() => {
             const text = label => document.querySelector(`[aria-label="${label}"]`)?.textContent ?? '';
             const position = document.querySelector('[aria-label="真实列车位置"]');
-            return { metres: Number(position?.dataset.routeMetres), lengthMetres: Number(position?.dataset.routeLengthMetres), position: text('真实列车位置'), status: text('真实地理加载状态'), streaming: text('地理区块流式加载诊断'), performance: text('地理渲染性能'), station: text('Metro-North 实际车站'), convertedBuildings: text('转换建筑准备诊断'), timestamp: new Date().toISOString() };
+            const dataset = label => ({ ...document.querySelector(`[aria-label="${label}"]`)?.dataset });
+            return { metres: Number(position?.dataset.routeMetres), lengthMetres: Number(position?.dataset.routeLengthMetres), position: text('真实列车位置'), status: text('真实地理加载状态'), streaming: text('地理区块流式加载诊断'), performance: text('地理渲染性能'), station: text('Metro-North 实际车站'), convertedBuildings: text('转换建筑准备诊断'), forest: dataset('沿线三维森林准备诊断'), aerial: dataset('真实航片准备诊断'), timestamp: new Date().toISOString() };
           });
           const capture = async name => {
             health.screenshotPositions.push({ name, state: await state() });
@@ -64,6 +65,7 @@ jobs:
               page.on('console', message => { if (['warning', 'error'].includes(message.type())) health.console.push({ level: message.type(), text: message.text() }); });
               page.on('pageerror', error => health.console.push({ level: 'pageerror', text: String(error) }));
               page.on('requestfailed', request => health.requestFailures.push({ url: request.url(), error: request.failure()?.errorText }));
+              page.on('request', request => { if (request.url().includes('/models/trees/impostors/') || request.url().includes('/geodata/hudson/imagery/')) health.sourceAssetRequests.push(request.url()); });
               await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=0', { waitUntil: 'domcontentloaded' });
               await page.getByText('Advanced settings', { exact: true }).click();
               await page.getByRole('button', { name: 'Daylight', exact: true }).click();
@@ -72,6 +74,7 @@ jobs:
               const prepared = await state();
               if (prepared.metres !== 0 || !Number.isFinite(prepared.lengthMetres)) throw new Error(`Not at actual route start: ${JSON.stringify(prepared)}`);
               if (!/GPU 离屏预热 [\d.]+ms · 已完成/.test(prepared.streaming)) throw new Error('Initial world GPU preparation missing');
+              if (prepared.forest.impostorsReady !== 'true' || prepared.forest.impostorsEnabled !== 'true' || prepared.forest.impostorsBytes !== '3071815' || prepared.aerial.corridorReady !== 'true' || prepared.aerial.corridorBlocks !== '141') throw new Error(`Source canopy/imagery not ready before departure: ${JSON.stringify(prepared)}`);
               health.initial = prepared;
               await capture('00-prepared-start');
               await page.getByRole('button', { name: 'Board train', exact: true }).click();
@@ -85,6 +88,7 @@ jobs:
                 health.samples.push({ ...sample, missing, late });
                 await save();
                 if (!Number.isFinite(sample.metres) || missing !== 0 || late !== 0) throw new Error(`Route coverage failed: ${JSON.stringify(sample)}`);
+                if (Number(sample.forest.unpreparedVisibleTrees) !== 0) throw new Error(`Unuploaded woodland entered the view: ${JSON.stringify(sample.forest)}`);
                 if (health.console.some(item => ['error', 'pageerror'].includes(item.level)) || health.requestFailures.length) throw new Error('Runtime or request failure');
                 if (sample.metres >= nextScreenshot) { await capture(`ride-${Math.floor(sample.metres)}m`); nextScreenshot += 3000; }
                 // Normal braking stops within 2cm of the source endpoint.
@@ -92,6 +96,7 @@ jobs:
                   health.actualContinuousDistanceMetres = sample.metres;
                   health.endpointToleranceMetres = 0.021;
                   health.complete = true;
+                  if (new Set(health.sourceAssetRequests).size !== health.sourceAssetRequests.length) throw new Error('Source canopy/imagery requested again during the ride');
                   await capture('99-route-endpoint');
                   break;
                 }
