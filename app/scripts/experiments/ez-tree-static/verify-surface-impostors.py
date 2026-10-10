@@ -228,7 +228,11 @@ def verify(root, output, report):
             binding = tree["uvBindings"][label]
             assert binding["sourceUvSha256"] == hashlib.sha256(uv_data).hexdigest()
             blender_uv = b"".join(struct.pack("<2f", uv[index * 2], 1 - uv[index * 2 + 1]) for index in indices)
-            assert binding["blenderLoopUvSha256"] == hashlib.sha256(blender_uv).hexdigest()
+            expected_uv_sha = hashlib.sha256(blender_uv).hexdigest()
+            assert binding["blenderLoopUvSha256"] == expected_uv_sha, (
+                f"{short}/{label} actual Blender loop-UV hash {binding['blenderLoopUvSha256']} differs from exact source mapping {expected_uv_sha}")
+            assert binding["blenderLoopUvBeforeNormalsSha256"] == expected_uv_sha
+            assert "reacquire UVMap RNA layer" in binding["readbackPolicy"]
             assert binding["loopCount"] == len(indices) and binding["assignment"] == manifest["textureCoordinates"]["blenderAssignment"]
         actual = [[min(v[i] for v in source_vertices), max(v[i] for v in source_vertices)] for i in range(3)]
         assert model["actualBoundsThreeLocalMetresXYZ"] == actual

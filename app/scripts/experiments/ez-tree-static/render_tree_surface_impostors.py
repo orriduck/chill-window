@@ -201,13 +201,44 @@ def mesh_object(name, part, scale):
             # Match the official glTF importer without touching source UV bytes.
             layer.data[index].uv = (uv[vertex * 2], 1.0 - uv[vertex * 2 + 1])
             custom.append(normals[vertex])
+    expected_uv = b"".join(struct.pack("<2f", uv[index * 2], 1.0 - uv[index * 2 + 1]) for index in indices)
+
+    def verified_uv_readback(stage):
+        # Adding custom normals can move/reallocate CustomDataLayer entries.
+        # Never dereference the earlier `layer` RNA object after that mutation.
+        fresh_uv = mesh.uv_layers["UVMap"]
+        actual_indices = tuple(loop.vertex_index for loop in mesh.loops)
+        if actual_indices != indices:
+            raise RuntimeError(f"{name} {stage}: actual Blender corner topology differs from exact source indices")
+        actual = b"".join(struct.pack("<2f", *item.uv) for item in fresh_uv.data)
+        if actual != expected_uv:
+            diagnostics = {"mesh": name, "stage": stage, "expectedBytes": len(expected_uv), "actualBytes": len(actual),
+                           "expectedSha256": hashlib.sha256(expected_uv).hexdigest(),
+                           "actualSha256": hashlib.sha256(actual).hexdigest(), "firstMismatchLoops": []}
+            for index in range(min(len(actual), len(expected_uv)) // 8):
+                observed, expected = actual[index * 8:index * 8 + 8], expected_uv[index * 8:index * 8 + 8]
+                if observed != expected:
+                    diagnostics["firstMismatchLoops"].append({"loop": index, "sourceVertex": indices[index],
+                                                             "actual": struct.unpack("<2f", observed),
+                                                             "expected": struct.unpack("<2f", expected),
+                                                             "actualHex": observed.hex(), "expectedHex": expected.hex()})
+                    if len(diagnostics["firstMismatchLoops"]) == 8:
+                        break
+            print("UV_READBACK_FAILURE", json.dumps(diagnostics))
+            raise RuntimeError(f"{name} {stage}: freshly acquired UVMap differs from exact source-derived float32 UV bytes")
+        return hashlib.sha256(actual).hexdigest()
+
+    before_normals_sha = verified_uv_readback("before custom normals")
     # No silent normal recalculation fallback: source split normals are required.
     mesh.normals_split_custom_set(custom)
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
+    after_normals_sha = verified_uv_readback("after custom normals and object linking")
     uv_binding = {
         "sourceUvSha256": hashlib.sha256(base64.b64decode(part["uv"])).hexdigest(),
-        "blenderLoopUvSha256": hashlib.sha256(b"".join(struct.pack("<2f", *item.uv) for item in layer.data)).hexdigest(),
+        "blenderLoopUvSha256": after_normals_sha,
+        "blenderLoopUvBeforeNormalsSha256": before_normals_sha,
+        "readbackPolicy": "reacquire UVMap RNA layer after custom-normal mutation; exact source-indexed little-endian float32 byte equality before and after",
         "assignment": UV_POLICY["blenderAssignment"], "loopCount": len(mesh.loops),
     }
     return obj, vertices, uv_binding
