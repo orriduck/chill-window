@@ -6,7 +6,7 @@ command -v blender >/dev/null || { echo 'Blender 4.x is required' >&2; exit 2; }
   echo 'Run ./rebuild-assets.sh first to prepare pinned EZ-Tree geometry and textures.' >&2
   exit 2
 }
-blender -b --factory-startup -t 4 --python "$ROOT/render_tree_impostors.py" -- \
+blender -b --factory-startup -t 4 --python-exit-code 1 --python "$ROOT/render_tree_impostors.py" -- \
   --source-root "$ROOT" --out "$ROOT/impostors"
 python3 "$ROOT/make_impostor_contact_sheets.py" \
   --manifest "$ROOT/impostors/tree-impostors.json" \

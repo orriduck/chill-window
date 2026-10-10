@@ -325,7 +325,7 @@ def main():
     upstream = root / ".work" / "upstream"
     lib = upstream / "src" / "lib"
     texture_root = upstream / "src" / "app" / "public" / "textures"
-    source_manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    source_manifest = json.loads((root / "cloud-manifest.json").read_text(encoding="utf-8"))
     output_root.mkdir(parents=True, exist_ok=True)
 
     clear_scene()
