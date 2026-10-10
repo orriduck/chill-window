@@ -25,11 +25,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y libx11-6 libxi6 libxrender1 libxfixes3 libxxf86vm1 libxkbcommon0 libsm6 libgl1
           python3 - <<'PY'
-          import hashlib, json, os, urllib.request
+          import hashlib, json, os, subprocess
           from pathlib import Path
           tool=json.loads(Path('app/scripts/experiments/polyhaven-pine/blender-toolchain.json').read_text())
           archive=Path(os.environ['RUNNER_TEMP'])/'blender.tar.xz'
-          urllib.request.urlretrieve(tool['url'], archive)
+          subprocess.run(['curl', '--fail', '--location', '--retry', '2', '--user-agent', 'ChillWindowAssetRebuild/1.0 (+https://github.com/orriduck/chill-window)', tool['url'], '--output', str(archive)], check=True)
           assert archive.stat().st_size==tool['bytes']
           assert hashlib.sha256(archive.read_bytes()).hexdigest()==tool['sha256']
           PY
