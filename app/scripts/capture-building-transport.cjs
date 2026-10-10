@@ -191,7 +191,19 @@ async function ready(page) {
     await page.waitForFunction(start => Number(document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres) > start + 1, start, { timeout: 120000 });
     health.states.push({ name: 'moving', ...await state(page) });
     const pauseButton = page.getByRole('button', { name: 'Pause journey', exact: true });
-    health.pause = { beforeClick: await pauseButton.evaluate(button => {
+    await page.evaluate(() => {
+      window.__buildingPausePointerEvents = [];
+      document.addEventListener('pointerdown', event => {
+        window.__buildingPausePointerEvents.push({ isTrusted: event.isTrusted, pointerType: event.pointerType,
+          label: event.target.closest?.('button')?.getAttribute('aria-label'),
+          targetTag: event.target.tagName, x: event.clientX, y: event.clientY });
+      }, { capture: true });
+    });
+    health.pause = { pointerEvents: [] };
+    health.stage = 'pause-control'; await save();
+    // The projected HUD follows camera sway. Measure immediately before a native
+    // pointer click rather than requiring this intentionally moving button to stop.
+    health.pause.beforeClick = await pauseButton.evaluate(button => {
       const bounds = button.getBoundingClientRect();
       const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
       const hit = document.elementFromPoint(center.x, center.y);
@@ -200,11 +212,15 @@ async function ready(page) {
         computedStyle: { minWidth: style.minWidth, minHeight: style.minHeight, padding: style.padding,
           boxSizing: style.boxSizing, overflow: style.overflow }, center,
         hitTarget: { tag: hit?.tagName, label: hit?.closest('button')?.getAttribute('aria-label'), belongsToPause: hit === button || button.contains(hit) } };
-    }) };
-    health.stage = 'pause-control'; await save();
-    // Keep Playwright's normal hit testing/stability checks: no force or dispatched click.
-    await pauseButton.click();
-    await page.getByRole('button', { name: 'Resume journey', exact: true }).waitFor({ state: 'visible' });
+    });
+    fail(health.pause.beforeClick.hitTarget.belongsToPause, 'Current pause center does not hit the actual Pause button');
+    const { x, y } = health.pause.beforeClick.center;
+    await page.mouse.click(x, y);
+    health.pause.pointerEvents = await page.evaluate(() => window.__buildingPausePointerEvents);
+    await save();
+    fail(health.pause.pointerEvents.length === 1 && health.pause.pointerEvents[0].isTrusted
+      && health.pause.pointerEvents[0].label === 'Pause journey', 'Native pointer did not reach the actual Pause button with a trusted event');
+    await page.getByRole('button', { name: 'Resume journey', exact: true }).waitFor({ state: 'visible', timeout: 1500 });
     health.pause.resumeLabelObserved = true;
     // Let the existing throttled HUD/position readouts acknowledge the click.
     await page.waitForTimeout(1000);

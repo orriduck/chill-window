@@ -58,3 +58,16 @@ actual route/focus/segment readouts over a one-second hold before the existing
 strict GPU-ready PNG gate. Initial-proof, held-pack and independent offline pins
 remain unchanged. The corrected native click, PNG and SW/offline checks still
 require a new cloud run; no local browser/GPU or appearance acceptance is claimed.
+
+Follow-up after actual f325499 / [Actions 38064980308](https://github.com/orriduck/chill-window/actions/runs/38064980308)
+failed: the corrected CSS passed the actual center hit test (`Pause journey`),
+with zero computed minimum dimensions and border. The projected HUD still moves
+with camera sway, so the locator's stability requirement timed out. No PNG or
+actual SW/offline evidence was produced. Keep the painted HUD and CSS unchanged;
+QA now measures the current pause center immediately before one browser-native
+mouse click, requires that center to hit the actual Pause button, and records a
+read-only document `pointerdown` observer's trusted flag, button label and
+coordinates. Fail if the trusted pointer misses Pause or Resume is not observed.
+The existing unfrozen one-second settle and one-second route/clock hold, strict
+GPU-ready frozen PNG, held-pack/source-count checks and independent SW/offline
+pins remain intact. Actual native pointer verification is pending a new cloud run.
