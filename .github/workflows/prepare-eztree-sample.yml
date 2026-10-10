@@ -31,6 +31,7 @@ jobs:
         run: |
           bash app/scripts/experiments/ez-tree-static/rebuild-impostors.sh
           /usr/bin/python3 app/scripts/experiments/ez-tree-static/verify-impostors.py
+          /usr/bin/python3 app/scripts/experiments/ez-tree-static/pack-impostors.py
       - name: Preserve upstream source and texture license notices
         run: |
           cp app/scripts/experiments/ez-tree-static/.work/upstream/LICENSE app/scripts/experiments/ez-tree-static/glb/EZ-TREE-LICENSE.txt
