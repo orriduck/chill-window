@@ -1,0 +1,51 @@
+{
+  "asset": "mature-scots-pine-lod.glb",
+  "sourceName": "Mature Scots pine tree",
+  "sourceAuthor": "Innerscene (original Innerscene model)",
+  "sourcePage": "https://www.innerscene.com/tools/library/3d-parts/mature-scots-pine-tree-280307e1",
+  "sourceDownload": "https://www.innerscene.com/api/library/mature-scots-pine-tree-280307e1/download",
+  "license": "CC0 1.0 Universal",
+  "licenseEvidence": "The source page states the original Innerscene model is released CC0 and permits reuse, modification, and redistribution.",
+  "retrievedDate": "2026-10-09",
+  "sourceFile": "app/scripts/tree-assets/mature-scots-pine-source.glb",
+  "sourceSha256": "16dfad1920598df1fc4acb06fee00a581bf25edf91206e1da089632c723eae6a",
+  "sourceBytes": 2105404,
+  "processedSha256": "133a9653917dd511ab0af062f997946cfd966dc09b4d9b8c381c671866c962b6",
+  "processedBytes": 537348,
+  "conversion": {
+    "tool": "@gltf-transform/cli 4.5.1",
+    "operation": "optimize",
+    "arguments": [
+      "--simplify-ratio", "0.1",
+      "--simplify-error", "0.02",
+      "--compress", "false",
+      "--texture-compress", "false",
+      "--palette", "false",
+      "--instance", "false",
+      "--join", "true"
+    ],
+    "trianglesBefore": 54318,
+    "trianglesAfter": 6588,
+    "triangleReductionPercent": 87.87,
+    "drawMeshesAfter": 2,
+    "textures": [
+      { "role": "foliage base color", "format": "PNG", "width": 64, "height": 64, "bytes": 241 },
+      { "role": "bark base color", "format": "PNG", "width": 64, "height": 64, "bytes": 241 }
+    ]
+  },
+  "sourceMeasurements": {
+    "nominalHeightMetres": 18,
+    "nominalWidthMetres": 10.421,
+    "nominalDepthMetres": 11.187,
+    "processedBoundsMetresXYZ": {
+      "min": [-4.30464, 0.00602, -5.37017],
+      "max": [5.75837, 18, 5.11776]
+    },
+    "axis": "Y-up",
+    "materialNames": ["Deep conifer foliage", "Rough conifer bark"],
+    "sourceGeometry": "closed conifer needle sprays and connected conifer branchlets"
+  },
+  "speciesAndUseBoundary": "The source calls this a Scots pine (Pinus sylvestris), a temperate conifer. It is not claimed as a surveyed Hudson Valley tree or as the native local pine species. Woodland polygons locate the visual sampling area; they do not provide individual tree locations. Use only as a near-view appearance sample until a locally appropriate broadleaf asset is added; do not replace all NLCD deciduous forest with pines.",
+  "runtimePolicy": "The GLB and its embedded textures are local application assets. Load and prepare instances before the scene is marked presentable; no movement-time network download or model replacement."
+}
+

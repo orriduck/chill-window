@@ -1,0 +1,117 @@
+name: Whole Hudson route streaming review
+on:
+  push:
+    branches: ['codex/full-route-streaming-review']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: chill-whole-route-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ride:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Build and prepare cloud Chromium
+        run: |
+          npm --prefix app ci
+          npm --prefix app run build
+          npm install --prefix "$RUNNER_TEMP/chill-playwright" --no-package-lock --no-audit --no-fund playwright@1.64.0
+          "$RUNNER_TEMP/chill-playwright/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Drive the actual whole route without jumps
+        env:
+          CW_SHA: ${{ github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/chill-whole-route"
+          npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-whole-route/server.log" 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          export PW_MODULE_PATH="$RUNNER_TEMP/chill-playwright/node_modules/playwright"
+          export CW_OUTPUT="$RUNNER_TEMP/chill-whole-route"
+          cat > "$RUNNER_TEMP/chill-whole-route.cjs" <<'NODE'
+          const { chromium } = require(process.env.PW_MODULE_PATH);
+          const fs = require('node:fs/promises');
+          const path = require('node:path');
+          const output = process.env.CW_OUTPUT;
+          const health = { commit: process.env.CW_SHA, scope: 'Continuous actual train motion from source-route start to endpoint, no jumps or changed speed. 640x360 software WebGL; hardware FPS, high-resolution visual quality and offline behavior are not assessed.', console: [], requestFailures: [], samples: [], screenshotPositions: [] };
+          let browser, page;
+          const save = () => fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
+          const state = () => page.evaluate(() => {
+            const text = label => document.querySelector(`[aria-label="${label}"]`)?.textContent ?? '';
+            const position = document.querySelector('[aria-label="真实列车位置"]');
+            return { metres: Number(position?.dataset.routeMetres), lengthMetres: Number(position?.dataset.routeLengthMetres), position: text('真实列车位置'), status: text('真实地理加载状态'), streaming: text('地理区块流式加载诊断'), performance: text('地理渲染性能'), station: text('Metro-North 实际车站'), convertedBuildings: text('转换建筑准备诊断'), timestamp: new Date().toISOString() };
+          });
+          const capture = async name => {
+            health.screenshotPositions.push({ name, state: await state() });
+            await page.screenshot({ path: path.join(output, `${name}.png`), timeout: 90000 });
+            await save();
+          };
+          (async () => {
+            try {
+              browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
+              page = await browser.newPage({ viewport: { width: 640, height: 360 }, serviceWorkers: 'block' });
+              page.on('console', message => { if (['warning', 'error'].includes(message.type())) health.console.push({ level: message.type(), text: message.text() }); });
+              page.on('pageerror', error => health.console.push({ level: 'pageerror', text: String(error) }));
+              page.on('requestfailed', request => health.requestFailures.push({ url: request.url(), error: request.failure()?.errorText }));
+              await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=0', { waitUntil: 'domcontentloaded' });
+              await page.getByText('Advanced settings', { exact: true }).click();
+              await page.getByRole('button', { name: 'Daylight', exact: true }).click();
+              await page.getByRole('button', { name: 'Clear', exact: true }).click();
+              await page.waitForFunction(() => document.querySelector('[aria-label="真实地理加载状态"]')?.textContent.includes('场景就绪'), null, { timeout: 240000 });
+              const prepared = await state();
+              if (prepared.metres !== 0 || !Number.isFinite(prepared.lengthMetres)) throw new Error(`Not at actual route start: ${JSON.stringify(prepared)}`);
+              if (!/GPU 离屏预热 [\d.]+ms · 已完成/.test(prepared.streaming)) throw new Error('Initial world GPU preparation missing');
+              health.initial = prepared;
+              await capture('00-prepared-start');
+              await page.getByRole('button', { name: 'Board train', exact: true }).click();
+              const deadline = Date.now() + 38 * 60000;
+              let nextScreenshot = 3000;
+              while (Date.now() < deadline) {
+                await page.waitForTimeout(10000);
+                const sample = await state();
+                const missing = Number(sample.streaming.match(/视野缺块 (\d+)/)?.[1]);
+                const late = Number(sample.streaming.match(/行驶缺块帧 (\d+)/)?.[1]);
+                health.samples.push({ ...sample, missing, late });
+                await save();
+                if (!Number.isFinite(sample.metres) || missing !== 0 || late !== 0) throw new Error(`Route coverage failed: ${JSON.stringify(sample)}`);
+                if (health.console.some(item => ['error', 'pageerror'].includes(item.level)) || health.requestFailures.length) throw new Error('Runtime or request failure');
+                if (sample.metres >= nextScreenshot) { await capture(`ride-${Math.floor(sample.metres)}m`); nextScreenshot += 3000; }
+                // Normal braking stops within 2cm of the source endpoint.
+                if (sample.lengthMetres - sample.metres <= 0.021) {
+                  health.actualContinuousDistanceMetres = sample.metres;
+                  health.endpointToleranceMetres = 0.021;
+                  health.complete = true;
+                  await capture('99-route-endpoint');
+                  break;
+                }
+                const previous = health.samples.at(-7);
+                if (previous && sample.metres - previous.metres < 0.01) throw new Error(`Train stopped for a minute before endpoint: ${sample.position}`);
+              }
+              if (!health.complete) throw new Error('Whole-route observation deadline reached before endpoint');
+              health.runtimePassed = true;
+            } catch (error) {
+              health.runtimePassed = false; health.failure = String(error.stack ?? error);
+              if (page) { health.final = await state().catch(() => null); await page.screenshot({ path: path.join(output, 'failure.png'), timeout: 15000 }).catch(() => {}); }
+              process.exitCode = 1;
+            } finally { await save(); await browser?.close(); }
+          })();
+          NODE
+          timeout 2400s node "$RUNNER_TEMP/chill-whole-route.cjs"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: chill-whole-route-${{ github.sha }}
+          path: ${{ runner.temp }}/chill-whole-route/
+          retention-days: 7
+          if-no-files-found: error

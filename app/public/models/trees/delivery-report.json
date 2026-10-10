@@ -1,0 +1,18 @@
+[
+  {
+    "asset": "mature-scots-pine-lod.glb",
+    "sha256": "133a9653917dd511ab0af062f997946cfd966dc09b4d9b8c381c671866c962b6",
+    "bytes": 537348,
+    "triangles": 6588,
+    "materials": 2,
+    "images": 2
+  },
+  {
+    "asset": "oak-street-tree-lod.glb",
+    "sha256": "d65f2515da582174c0321cb9a349f119496ded36633454e29f3666ac3c0fdc02",
+    "bytes": 708996,
+    "triangles": 10668,
+    "materials": 4,
+    "images": 0
+  }
+]

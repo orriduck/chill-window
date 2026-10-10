@@ -1,0 +1,187 @@
+{
+  "title": "Peekskill, New York 2022 NAIP RGB orthophoto crop",
+  "source": {
+    "provider": "USDA Farm Service Agency (FSA), Aerial Photography Field Office (APFO); NOAA Digital Coast distribution",
+    "collection": "New York NAIP 2022, quarter-quadrangle GeoTIFF",
+    "tile": "m_4107341_se_18_060_20221022.tif",
+    "tileUrl": "https://coastalimagery.blob.core.windows.net/digitalcoast/NY_NAIP_2022_9986/m_4107341_se_18_060_20221022.tif",
+    "sourceCrs": "EPSG:26918 (NAD83 / UTM zone 18N)",
+    "acquisitionDateFromTileName": "2022-10-22",
+    "pixelSizeMetres": [
+      0.6,
+      0.6
+    ],
+    "sourceSizePixels": [
+      9540,
+      12350
+    ],
+    "sourceBands": [
+      "Red",
+      "Green",
+      "Blue",
+      "Near Infrared"
+    ],
+    "sourceBandInterpretationFromGdal": [
+      "Red",
+      "Green",
+      "Blue",
+      "Undefined (NOAA metadata identifies band 4 as NIR)"
+    ],
+    "rgbOutputBandOrder": [
+      1,
+      2,
+      3
+    ],
+    "useConditions": "NO access limitations stated in NOAA InPort metadata; derived products should credit USDA-FSA APFO. This is not asserted as a separate license grant.",
+    "noColorEnhancement": true,
+    "sourceBytes": 446297038,
+    "sourceSha256": "8c35fc499c0eec831baec91c1c03edf21f7f8dad4ca50b07076c997cb67a3bb1",
+    "officialIndexUrl": "https://coastalimagery.blob.core.windows.net/digitalcoast/NY_NAIP_2022_9986/index.html",
+    "tileIndexUrl": "https://coastalimagery.blob.core.windows.net/digitalcoast/NY_NAIP_2022_9986/tileindex_NY_NAIP_2022.zip",
+    "indexFiles": [
+      {
+        "path": "index.html",
+        "bytes": 658365,
+        "sha256": "2c615abbdb5d0c98cb04a0b544b0f7ee4051f574b9dfe8835cc1342418142b05"
+      },
+      {
+        "path": "tileindex_NY_NAIP_2022.zip",
+        "bytes": 1123506,
+        "sha256": "95fb188aadd8c9729e46f0769f4f336af02db75436c88840a744d5700854c9e1"
+      },
+      {
+        "path": "m_4107341_se_18_060_20221022.tif",
+        "bytes": 446297038,
+        "sha256": "8c35fc499c0eec831baec91c1c03edf21f7f8dad4ca50b07076c997cb67a3bb1"
+      }
+    ]
+  },
+  "query": {
+    "bboxWgs84": [
+      -73.934,
+      41.282,
+      -73.929,
+      41.287
+    ],
+    "selection": "one tile selected by NOAA NY NAIP 2022 tile index (EPSG:4269 footprint)",
+    "selectedTile": "m_4107341_se_18_060_20221022.tif"
+  },
+  "processing": {
+    "gdalVersion": "GDAL 3.8.4, released 2024/02/08",
+    "warp": "gdalwarp to EPSG:26918, 0.6m pixels, bilinear reprojection/resampling, source bands 1/2/3 only, no radiometric/color enhancement",
+    "png": "lossless RGB PNG derived directly from the RGB GeoTIFF; world file supplied",
+    "jpeg": "JPEG quality 95 derived directly from the RGB GeoTIFF; lossy encoding; world file supplied"
+  },
+  "cropRaster": {
+    "crs": "EPSG:26918",
+    "sizePixels": [
+      686,
+      934
+    ],
+    "geoTransform": [
+      589269.7113446131,
+      0.6,
+      0.0,
+      4571170.675948167,
+      0.0,
+      -0.6
+    ],
+    "actualWgs84Extent": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -73.9339179,
+            41.2870457
+          ],
+          [
+            -73.934,
+            41.2819986
+          ],
+          [
+            -73.9290858,
+            41.2819529
+          ],
+          [
+            -73.9290033,
+            41.287
+          ],
+          [
+            -73.9339179,
+            41.2870457
+          ]
+        ]
+      ]
+    },
+    "bands": [
+      {
+        "type": "Byte",
+        "colorInterpretation": "Red"
+      },
+      {
+        "type": "Byte",
+        "colorInterpretation": "Green"
+      },
+      {
+        "type": "Byte",
+        "colorInterpretation": "Blue"
+      }
+    ]
+  },
+  "outputs": [
+    {
+      "path": "peekskill-naip-2022-rgb-26918.tif",
+      "bytes": 1417135,
+      "sha256": "3ce42533f59d321ab731fd16d11016cc950d50a45ac945abb29d22d600435794"
+    },
+    {
+      "path": "peekskill-naip-2022-rgb.png",
+      "bytes": 1037954,
+      "sha256": "e1556a7401f3217a82bae2c41842a1391e8e10929e85ffa4363ea9d83f03b8d2"
+    },
+    {
+      "path": "peekskill-naip-2022-rgb.jpg",
+      "bytes": 256014,
+      "sha256": "39267c798fcd2f7ca8c611ebd1b3d5a182c75e8e684a71a0ac77d9bf80820f7d"
+    },
+    {
+      "path": "peekskill-naip-2022-rgb.wld",
+      "bytes": 90,
+      "sha256": "b1bbcfa2a0d4414b4ad9926ecd0b9412c6da4dbc4dc2beb9cd98da5cb41558a4"
+    }
+  ],
+  "credits": [
+    "USDA-FSA Aerial Photography Field Office (APFO)",
+    "NOAA Digital Coast distributes the NY NAIP 2022 index and imagery"
+  ],
+  "metadataReferences": [
+    "https://coastalimagery.blob.core.windows.net/digitalcoast/NY_NAIP_2022_9986/index.html",
+    "https://coastalimagery.blob.core.windows.net/digitalcoast/NY_NAIP_2022_9986/tileindex_NY_NAIP_2022.zip",
+    "https://www.fisheries.noaa.gov/inport/item/71609"
+  ],
+  "sceneRaster": {
+    "filename": "peekskill-naip-2022-scene.png",
+    "crs": "EPSG:3857",
+    "sizePixels": [
+      696,
+      944
+    ],
+    "boundsMercator": [
+      -8230295.234918027,
+      5054018.698989496,
+      -8229738.749127457,
+      5054773.472820384
+    ],
+    "geoTransform": [
+      -8230295.234918027,
+      0.7995485496703736,
+      0.0,
+      5054773.472820384,
+      0.0,
+      -0.7995485496703736
+    ],
+    "bytes": 978340,
+    "sha256": "b52faa3730355e2c11ffa9599ad6a311e84fc3dac647d63151eac60b8e2355e0",
+    "processing": "Geospatial reprojection and bilinear resampling only; RGB from official bands 1/2/3. UTM bounds are not used as Mercator bounds."
+  }
+}

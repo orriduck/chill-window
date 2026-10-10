@@ -1,0 +1,33 @@
+name: Prepare real NAIP Peekskill scene crop
+on:
+  push:
+    branches: ['codex/tree-asset-preparation']
+    paths:
+      - 'app/scripts/experiments/naip-peekskill/**'
+      - '.github/workflows/prepare-naip-sample.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install GDAL and rebuild from actual NOAA source
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gdal-bin
+          python3 app/scripts/experiments/naip-peekskill/prepare_naip_peekskill.py
+          python3 app/scripts/experiments/naip-peekskill/project_for_scene.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: real-naip-crop-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            app/scripts/experiments/naip-peekskill/output/*
+            app/scripts/experiments/naip-peekskill/manifest.json

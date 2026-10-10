@@ -1,0 +1,199 @@
+{
+  "sourceCommit": "dcf309bd86bd521083d9c70f01f2de45fdc7c457",
+  "presetSeeds": {
+    "ash_large.json": 29919,
+    "oak_large.json": 23399
+  },
+  "heightPolicy": "The preset source does not identify a physical unit or field-measured height. Export positions are uniformly scaled to an explicit 20m presentation height; that scale is an asset presentation choice, not a local measurement.",
+  "writerCorrection": "Use the standard metallicRoughnessTexture field for the unchanged grayscale source roughness map. The reconstructed original cloud binary hash matches for all six outputs.",
+  "models": [
+    {
+      "file": "glb/ash-large-lod0-20m.glb",
+      "preset": "Ash Large",
+      "triangles": 21512,
+      "bytes": 3712148,
+      "sha256": "e79b8574767361ea0666a36ca2e87fb970a21be4df5bbfbcc66f620830e96f01",
+      "heightMetres": 20.0,
+      "images": [
+        {
+          "name": "Bark001_1K-JPG_Color.jpg",
+          "bytes": 831490,
+          "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+        },
+        {
+          "name": "Bark001_1K-JPG_NormalGL.jpg",
+          "bytes": 1270807,
+          "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+        },
+        {
+          "name": "Bark001_1K-JPG_Roughness.jpg",
+          "bytes": 397062,
+          "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+        },
+        {
+          "name": "ash.png",
+          "bytes": 181423,
+          "sha256": "5ec987db3829a839856c32c79b18a33a78f209e911cad55c65abfb77f30e2d29"
+        }
+      ],
+      "originalCloudContentVerified": true
+    },
+    {
+      "file": "glb/ash-large-lod1-20m.glb",
+      "preset": "Ash Large",
+      "triangles": 8968,
+      "bytes": 3172184,
+      "sha256": "e942ff58523e3833b87fdb1d3fa3d04cd797a85e09434aef90881bee38d1d9eb",
+      "heightMetres": 20.396900177001953,
+      "images": [
+        {
+          "name": "Bark001_1K-JPG_Color.jpg",
+          "bytes": 831490,
+          "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+        },
+        {
+          "name": "Bark001_1K-JPG_NormalGL.jpg",
+          "bytes": 1270807,
+          "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+        },
+        {
+          "name": "Bark001_1K-JPG_Roughness.jpg",
+          "bytes": 397062,
+          "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+        },
+        {
+          "name": "ash.png",
+          "bytes": 181423,
+          "sha256": "5ec987db3829a839856c32c79b18a33a78f209e911cad55c65abfb77f30e2d29"
+        }
+      ],
+      "originalCloudContentVerified": true
+    },
+    {
+      "file": "glb/ash-large-lod2-20m.glb",
+      "preset": "Ash Large",
+      "triangles": 4346,
+      "bytes": 2942720,
+      "sha256": "3441ea08b563c5d0f6c15432770420b0128caf79115afa5235a7f9429e012580",
+      "heightMetres": 20.251272201538086,
+      "images": [
+        {
+          "name": "Bark001_1K-JPG_Color.jpg",
+          "bytes": 831490,
+          "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+        },
+        {
+          "name": "Bark001_1K-JPG_NormalGL.jpg",
+          "bytes": 1270807,
+          "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+        },
+        {
+          "name": "Bark001_1K-JPG_Roughness.jpg",
+          "bytes": 397062,
+          "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+        },
+        {
+          "name": "ash.png",
+          "bytes": 181423,
+          "sha256": "5ec987db3829a839856c32c79b18a33a78f209e911cad55c65abfb77f30e2d29"
+        }
+      ],
+      "originalCloudContentVerified": true
+    },
+    {
+      "file": "glb/oak-large-lod0-20m.glb",
+      "preset": "Oak Large",
+      "triangles": 22566,
+      "bytes": 3839404,
+      "sha256": "cb12ebec0ea43fc57120efd6c385d6273cffa499d18018839fe7428d96b0ebc9",
+      "heightMetres": 20.0,
+      "images": [
+        {
+          "name": "Bark001_1K-JPG_Color.jpg",
+          "bytes": 831490,
+          "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+        },
+        {
+          "name": "Bark001_1K-JPG_NormalGL.jpg",
+          "bytes": 1270807,
+          "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+        },
+        {
+          "name": "Bark001_1K-JPG_Roughness.jpg",
+          "bytes": 397062,
+          "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+        },
+        {
+          "name": "oak.png",
+          "bytes": 238115,
+          "sha256": "24451223cf396d22910a4932b8bb996a7274e63d81e24128c96a430ab67822b1"
+        }
+      ],
+      "originalCloudContentVerified": true
+    },
+    {
+      "file": "glb/oak-large-lod1-20m.glb",
+      "preset": "Oak Large",
+      "triangles": 9240,
+      "bytes": 3257564,
+      "sha256": "20443ef8c9d66adaaf92bc8fef48e7fc401dd747e220b79804da1f2f6704da79",
+      "heightMetres": 20.379621505737305,
+      "images": [
+        {
+          "name": "Bark001_1K-JPG_Color.jpg",
+          "bytes": 831490,
+          "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+        },
+        {
+          "name": "Bark001_1K-JPG_NormalGL.jpg",
+          "bytes": 1270807,
+          "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+        },
+        {
+          "name": "Bark001_1K-JPG_Roughness.jpg",
+          "bytes": 397062,
+          "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+        },
+        {
+          "name": "oak.png",
+          "bytes": 238115,
+          "sha256": "24451223cf396d22910a4932b8bb996a7274e63d81e24128c96a430ab67822b1"
+        }
+      ],
+      "originalCloudContentVerified": true
+    },
+    {
+      "file": "glb/oak-large-lod2-20m.glb",
+      "preset": "Oak Large",
+      "triangles": 5364,
+      "bytes": 3039740,
+      "sha256": "5af0126c0e021da4c928c14da11ebe9409f63a943cd088810737d5f9158c0b06",
+      "heightMetres": 19.929523468017578,
+      "images": [
+        {
+          "name": "Bark001_1K-JPG_Color.jpg",
+          "bytes": 831490,
+          "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"
+        },
+        {
+          "name": "Bark001_1K-JPG_NormalGL.jpg",
+          "bytes": 1270807,
+          "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"
+        },
+        {
+          "name": "Bark001_1K-JPG_Roughness.jpg",
+          "bytes": 397062,
+          "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"
+        },
+        {
+          "name": "oak.png",
+          "bytes": 238115,
+          "sha256": "24451223cf396d22910a4932b8bb996a7274e63d81e24128c96a430ab67822b1"
+        }
+      ],
+      "originalCloudContentVerified": true
+    }
+  ],
+  "runtimeImported": false,
+  "visualAcceptance": false
+}

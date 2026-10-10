@@ -1,0 +1,222 @@
+{
+  "baseWorldSha256": "c4a2eaea1d1ffc3d1f9c346dcceb812f10a4efb9755da146d4c18249002393ec",
+  "width": 640,
+  "height": 779,
+  "bounds": [
+    -10016.404169176298,
+    -12224.816731436222,
+    9180.87060669268,
+    11130.517911003362
+  ],
+  "rowOrder": "north-to-south",
+  "resolution": [
+    29.99574183729528,
+    29.98117412379921
+  ],
+  "file": "landcover.u8",
+  "sha256": "b961be6b378c0003217235332b8dca757ffdb0f2197e6de2c91f2d88080759fb",
+  "noData": 250,
+  "year": 2025,
+  "collection": "1.2",
+  "method": "Exact USGS table 2-2 palette decoding of categorical WMS sample; not native COG",
+  "sourceResolutionMetres": 30,
+  "source": {
+    "url": "https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms?service=WMS&version=1.1.1&request=GetMap&layers=Land-Cover-Native_conus_year_data&styles=&srs=EPSG%3A3857&bbox=-8246534.556694695%2C5049300.15512425%2C-8220957.716354264%2C5080416.846020287&width=640&height=779&format=image%2Fpng&transparent=true&time=2025-01-01T00%3A00%3A00.000Z",
+    "parameters": {
+      "service": "WMS",
+      "version": "1.1.1",
+      "request": "GetMap",
+      "layers": "Land-Cover-Native_conus_year_data",
+      "styles": "",
+      "srs": "EPSG:3857",
+      "bbox": "-8246534.556694695,5049300.15512425,-8220957.716354264,5080416.846020287",
+      "width": "640",
+      "height": "779",
+      "format": "image/png",
+      "transparent": "true",
+      "time": "2025-01-01T00:00:00.000Z"
+    },
+    "method": "GET",
+    "contentType": "image/png",
+    "retrievedAt": "2026-10-09T22:12:38+00:00",
+    "responseSha256": "3e934f94187bc7ed9fbfd449d92248e27a6256243d1afe5a3d970e187d1608ec",
+    "responseBytes": 161398
+  },
+  "capabilities": {
+    "url": "https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms?service=WMS&version=1.3.0&request=GetCapabilities",
+    "parameters": {
+      "service": "WMS",
+      "version": "1.3.0",
+      "request": "GetCapabilities"
+    },
+    "method": "GET",
+    "contentType": "text/xml",
+    "retrievedAt": "2026-10-09T22:15:40+00:00",
+    "responseSha256": "03cbd45098260853bd36a216aebf5b6f72cddaaa36cfe96761643861d8f83fed",
+    "responseBytes": 225982
+  },
+  "paletteGuide": "https://www.usgs.gov/centers/eros/science/annual-nlcd-science-user-product-guide",
+  "classCounts": {
+    "11": 37836,
+    "21": 56528,
+    "22": 28492,
+    "23": 13349,
+    "24": 3596,
+    "31": 1423,
+    "41": 326865,
+    "42": 248,
+    "43": 4072,
+    "52": 153,
+    "71": 1352,
+    "81": 6390,
+    "90": 14115,
+    "95": 4141
+  },
+  "pixelChecks": [
+    {
+      "class": 41,
+      "pixel": [
+        96,
+        40
+      ],
+      "source": {
+        "url": "https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=Land-Cover-Native_conus_year_data&styles=&srs=EPSG%3A3857&bbox=-8246534.556694695%2C5049300.15512425%2C-8220957.716354264%2C5080416.846020287&width=640&height=779&format=image%2Fpng&transparent=true&time=2025-01-01T00%3A00%3A00.000Z&query_layers=Land-Cover-Native_conus_year_data&info_format=application%2Fjson&feature_count=1&x=96&y=40&i=96&j=40",
+        "parameters": {
+          "service": "WMS",
+          "version": "1.1.1",
+          "request": "GetFeatureInfo",
+          "layers": "Land-Cover-Native_conus_year_data",
+          "styles": "",
+          "srs": "EPSG:3857",
+          "bbox": "-8246534.556694695,5049300.15512425,-8220957.716354264,5080416.846020287",
+          "width": "640",
+          "height": "779",
+          "format": "image/png",
+          "transparent": "true",
+          "time": "2025-01-01T00:00:00.000Z",
+          "query_layers": "Land-Cover-Native_conus_year_data",
+          "info_format": "application/json",
+          "feature_count": "1",
+          "x": "96",
+          "y": "40",
+          "i": "96",
+          "j": "40"
+        },
+        "method": "GET",
+        "contentType": "application/json;charset=UTF-8",
+        "retrievedAt": "2026-10-09T22:12:39+00:00",
+        "responseSha256": "7ee09ec1207878f308df05c60b5fed0a1008c9f510ce86d0e27c9cfd2f4560ac",
+        "responseBytes": 213
+      }
+    },
+    {
+      "class": 11,
+      "pixel": [
+        200,
+        40
+      ],
+      "source": {
+        "url": "https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=Land-Cover-Native_conus_year_data&styles=&srs=EPSG%3A3857&bbox=-8246534.556694695%2C5049300.15512425%2C-8220957.716354264%2C5080416.846020287&width=640&height=779&format=image%2Fpng&transparent=true&time=2025-01-01T00%3A00%3A00.000Z&query_layers=Land-Cover-Native_conus_year_data&info_format=application%2Fjson&feature_count=1&x=200&y=40&i=200&j=40",
+        "parameters": {
+          "service": "WMS",
+          "version": "1.1.1",
+          "request": "GetFeatureInfo",
+          "layers": "Land-Cover-Native_conus_year_data",
+          "styles": "",
+          "srs": "EPSG:3857",
+          "bbox": "-8246534.556694695,5049300.15512425,-8220957.716354264,5080416.846020287",
+          "width": "640",
+          "height": "779",
+          "format": "image/png",
+          "transparent": "true",
+          "time": "2025-01-01T00:00:00.000Z",
+          "query_layers": "Land-Cover-Native_conus_year_data",
+          "info_format": "application/json",
+          "feature_count": "1",
+          "x": "200",
+          "y": "40",
+          "i": "200",
+          "j": "40"
+        },
+        "method": "GET",
+        "contentType": "application/json;charset=UTF-8",
+        "retrievedAt": "2026-10-09T22:12:39+00:00",
+        "responseSha256": "419004eaa718e33ed255134a2e420650d965aa23da25389c0de41ea5d6f696ff",
+        "responseBytes": 213
+      }
+    },
+    {
+      "class": 21,
+      "pixel": [
+        168,
+        64
+      ],
+      "source": {
+        "url": "https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=Land-Cover-Native_conus_year_data&styles=&srs=EPSG%3A3857&bbox=-8246534.556694695%2C5049300.15512425%2C-8220957.716354264%2C5080416.846020287&width=640&height=779&format=image%2Fpng&transparent=true&time=2025-01-01T00%3A00%3A00.000Z&query_layers=Land-Cover-Native_conus_year_data&info_format=application%2Fjson&feature_count=1&x=168&y=64&i=168&j=64",
+        "parameters": {
+          "service": "WMS",
+          "version": "1.1.1",
+          "request": "GetFeatureInfo",
+          "layers": "Land-Cover-Native_conus_year_data",
+          "styles": "",
+          "srs": "EPSG:3857",
+          "bbox": "-8246534.556694695,5049300.15512425,-8220957.716354264,5080416.846020287",
+          "width": "640",
+          "height": "779",
+          "format": "image/png",
+          "transparent": "true",
+          "time": "2025-01-01T00:00:00.000Z",
+          "query_layers": "Land-Cover-Native_conus_year_data",
+          "info_format": "application/json",
+          "feature_count": "1",
+          "x": "168",
+          "y": "64",
+          "i": "168",
+          "j": "64"
+        },
+        "method": "GET",
+        "contentType": "application/json;charset=UTF-8",
+        "retrievedAt": "2026-10-09T22:12:39+00:00",
+        "responseSha256": "b8988aa40510ec0f2f7492950b147848720573712b59efba039842bdb495647f",
+        "responseBytes": 213
+      }
+    },
+    {
+      "class": 22,
+      "pixel": [
+        152,
+        64
+      ],
+      "source": {
+        "url": "https://dmsdata.cr.usgs.gov/geoserver/mrlc_Land-Cover-Native_conus_year_data/wms?service=WMS&version=1.1.1&request=GetFeatureInfo&layers=Land-Cover-Native_conus_year_data&styles=&srs=EPSG%3A3857&bbox=-8246534.556694695%2C5049300.15512425%2C-8220957.716354264%2C5080416.846020287&width=640&height=779&format=image%2Fpng&transparent=true&time=2025-01-01T00%3A00%3A00.000Z&query_layers=Land-Cover-Native_conus_year_data&info_format=application%2Fjson&feature_count=1&x=152&y=64&i=152&j=64",
+        "parameters": {
+          "service": "WMS",
+          "version": "1.1.1",
+          "request": "GetFeatureInfo",
+          "layers": "Land-Cover-Native_conus_year_data",
+          "styles": "",
+          "srs": "EPSG:3857",
+          "bbox": "-8246534.556694695,5049300.15512425,-8220957.716354264,5080416.846020287",
+          "width": "640",
+          "height": "779",
+          "format": "image/png",
+          "transparent": "true",
+          "time": "2025-01-01T00:00:00.000Z",
+          "query_layers": "Land-Cover-Native_conus_year_data",
+          "info_format": "application/json",
+          "feature_count": "1",
+          "x": "152",
+          "y": "64",
+          "i": "152",
+          "j": "64"
+        },
+        "method": "GET",
+        "contentType": "application/json;charset=UTF-8",
+        "retrievedAt": "2026-10-09T22:12:40+00:00",
+        "responseSha256": "a0f31666428b4ef217fc5804db6da1cd07eedcb999de187dc09324dd25f90a9c",
+        "responseBytes": 213
+      }
+    }
+  ],
+  "notice": "Satellite classification is not an individual tree inventory. OSM polygons remain primary; forest classes 41/42/43 fill unmapped ground. Woody wetlands are not assumed to be mature forest."
+}

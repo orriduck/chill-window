@@ -1,0 +1,562 @@
+{
+  "experiment": "Peekskill OSM2World building-only real-data sample",
+  "createdOn": "2026-10-09",
+  "software": {
+    "name": "OSM2World",
+    "version": "0.4.0",
+    "releaseArchiveUrl": "https://osm2world.org/download/files/0.4.0/OSM2World-0.4.0-bin.zip",
+    "releaseArchiveBytes": 452089567,
+    "releaseArchiveSha256": "c05b37920d29c26710a06e30c170ca62e5e8ea653cccbbb3243dfc7e5d20b899",
+    "license": "MIT",
+    "source": "https://github.com/tordanik/OSM2World",
+    "cliCommand": [
+      "osm2world.sh",
+      "--input=input/peekskill-buildings-only.osm",
+      "--output=output/peekskill-buildings.glb",
+      "--lod=2"
+    ],
+    "cliVersionOutput": "OSM2World 0.4.0"
+  },
+  "input": {
+    "query": "input/peekskill-overpass.ql",
+    "querySha256": "e04e41a4af1e9281daba3ab6bc5c08e3a1d6799a747519ded66fb60b3323bf23",
+    "overpassUrl": "https://overpass-api.de/api/interpreter",
+    "osmSnapshot": "input/peekskill-overpass.xml",
+    "osmSnapshotSha256": "a6e7c6c2bea2fe63211bc18331e06b5896a18db096ec723bf387486f1adf6bbe",
+    "osmSnapshotBytes": 142535,
+    "osmApiBaseTimestamp": "2026-10-09T23:38:06Z",
+    "license": "OpenStreetMap ODbL 1.0; attribution required",
+    "areaBboxSouthWestNorthEast": [
+      41.2833,
+      -73.9335,
+      41.2863,
+      -73.9295
+    ],
+    "retainedBuildingWays": 18,
+    "retainedBuildingRelations": 0,
+    "retainedReferencedNodes": 209,
+    "buildingObjectsWithHeightTag": 15,
+    "buildingObjectsWithLevelsOnly": 0,
+    "buildingObjectsMissingHeightAndLevels": 3,
+    "records": [
+      {
+        "osmId": "w280176097",
+        "name": "Mount Saint Francis Church",
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "19.2024",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "addr:city": "Peekskill",
+          "addr:housenumber": "250",
+          "addr:postcode": "10566",
+          "addr:state": "NY",
+          "addr:street": "South Street",
+          "alt_name": "Mount Saint Francis Convent",
+          "amenity": "place_of_worship",
+          "building": "yes",
+          "ele": "19",
+          "fixme": "Determine if name or alt_name is correct",
+          "gnis:feature_id": "957903",
+          "height": "19.2024",
+          "name": "Mount Saint Francis Church",
+          "religion": "christian",
+          "source:geometry:ref": "WestchesterGIS-BI-211787"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 19.2024
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w280500163",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "6.096",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "6.096",
+          "source:geometry:ref": "WestchesterGIS-BI-213118"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 6.096
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w280500165",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "3.6576",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "3.6576",
+          "source:geometry:ref": "WestchesterGIS-BI-211766"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 3.6576
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w285220955",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "11.5824",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "11.5824",
+          "source:geometry:ref": "WestchesterGIS-BI-212360"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 11.5824
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w285220956",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "4.572",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "4.572",
+          "source:geometry:ref": "WestchesterGIS-BI-212200"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 4.572
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w285221615",
+        "name": "Peekskill",
+        "building": "train_station",
+        "buildingPart": null,
+        "sourceHeightTag": null,
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "train_station",
+          "name": "Peekskill"
+        },
+        "heightStatus": "missing_in_osm",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 7.5
+        },
+        "verticalValueIsConverterOutput": true
+      },
+      {
+        "osmId": "w285355817",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "6.4008",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "addr:city": "Peekskill",
+          "addr:housenumber": "342",
+          "addr:postcode": "10566",
+          "addr:state": "NY",
+          "addr:street": "South Street",
+          "building": "yes",
+          "height": "6.4008",
+          "nysgissam:nysaddresspointid": "WEST090036",
+          "source:geometry:ref": "WestchesterGIS-BI-212153"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 6.4008
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w285355818",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "7.0104",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "addr:city": "Peekskill",
+          "addr:flats": "1-2",
+          "addr:housenumber": "344",
+          "addr:postcode": "10566",
+          "addr:state": "NY",
+          "addr:street": "South Street",
+          "building": "yes",
+          "height": "7.0104",
+          "nysgissam:nysaddresspointid": "WEST090321;WEST331092;WEST287829",
+          "source:geometry:ref": "WestchesterGIS-BI-212115"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 7.0104
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w285355819",
+        "name": "His & Hers Cleaners",
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "3.3528",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "addr:city": "Peekskill",
+          "addr:housenumber": "321",
+          "addr:postcode": "10566",
+          "addr:state": "NY",
+          "addr:street": "Railroad Avenue",
+          "building": "yes",
+          "height": "3.3528",
+          "name": "His & Hers Cleaners",
+          "nysgissam:nysaddresspointid": "WEST089831",
+          "shop": "dry_cleaning",
+          "source:geometry:ref": "WestchesterGIS-BI-212058"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 3.3528
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w591713455",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "4.8768",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "4.8768",
+          "source:geometry:ref": "WestchesterGIS-BI-211823"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 4.8768
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w1307801003",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": null,
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "amenity": "shelter",
+          "building": "yes",
+          "shelter_type": "public_transport"
+        },
+        "heightStatus": "missing_in_osm",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 7.5
+        },
+        "verticalValueIsConverterOutput": true
+      },
+      {
+        "osmId": "w1307801004",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": null,
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "amenity": "shelter",
+          "building": "yes",
+          "shelter_type": "public_transport"
+        },
+        "heightStatus": "missing_in_osm",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 7.5
+        },
+        "verticalValueIsConverterOutput": true
+      },
+      {
+        "osmId": "w1307801027",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "6.7056",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "6.7056",
+          "source:geometry:ref": "WestchesterGIS-BI-211888"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 6.7056
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w1307801049",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "2.4384",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "2.4384",
+          "source:geometry:ref": "WestchesterGIS-BI-212097"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 2.4384
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w1416011253",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "9.4488",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "9.4488",
+          "source:geometry:ref": "WestchesterGIS-BI-212364"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 9.4488
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w1416012080",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "4.8768",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "4.8768",
+          "source:geometry:ref": "WestchesterGIS-BI-212212"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 4.8768
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w1416012269",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "10.0584",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "10.0584",
+          "source:geometry:ref": "WestchesterGIS-BI-212285"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 10.0584
+        },
+        "verticalValueIsConverterOutput": false
+      },
+      {
+        "osmId": "w1416012463",
+        "name": null,
+        "building": "yes",
+        "buildingPart": null,
+        "sourceHeightTag": "6.4008",
+        "sourceLevelsTag": null,
+        "sourceTags": {
+          "building": "yes",
+          "height": "6.4008",
+          "source:geometry:ref": "WestchesterGIS-BI-212279"
+        },
+        "heightStatus": "osm_tag",
+        "outputNodePresent": true,
+        "outputVerticalBoundsMetres": {
+          "yMinMetres": 0.0,
+          "yMaxMetres": 6.4008
+        },
+        "verticalValueIsConverterOutput": false
+      }
+    ]
+  },
+  "projectionAndElevation": {
+    "coordinateSystem": "OSM2World local metric projection; GLB stores no global CRS transform",
+    "originLonLat": {
+      "longitude": -73.9314607,
+      "latitude": 41.2843073,
+      "derivation": "midpoint of min/max lon/lat of nodes retained by the building-only input"
+    },
+    "axes": {
+      "x": "east-positive, metres",
+      "y": "up, metres",
+      "z": "south-positive (north is negative), metres"
+    },
+    "elevationInput": "No DEM/terrain was provided. Ground is y=0; vertical extent comes from tagged heights or OSM2World defaults. OSM ele tags are retained in source XML but are not used as terrain elevation in this conversion."
+  },
+  "defaults": {
+    "observedNoHeightFeatureOutputTopMetres": [
+      7.5
+    ],
+    "observedMissingHeightFeatureCountWithGeometry": 3,
+    "interpretation": "For this exact 0.4.0 conversion, all three source objects with neither height nor building:levels produced yMin=0 and yMax=7.5m. This is converter-generated geometry, not an OSM tag, survey, or measured height.",
+    "shelterSemanticMismatch": "OSM ways 1307801003 and 1307801004 are amenity=shelter / shelter_type=public_transport with building=yes and no height. OSM2World emitted building geometry up to 7.5m; that does not validate enclosed walls or this height. Keep the source-aware open-shelter implementation as the truth baseline."
+  },
+  "output": {
+    "file": "output/peekskill-buildings.glb",
+    "sha256": "29a077b67cccd602c01eb6bd0de204cf6a20bebe9ff882af5238fe0ec11b79af",
+    "bytes": 3281376,
+    "generator": "OSM2World 0.4.0",
+    "meshCount": 36,
+    "primitiveCount": 36,
+    "uniquePositionAccessors": 36,
+    "triangles": 630,
+    "materials": [
+      "Plaster002",
+      "RoofingTiles010"
+    ],
+    "textures": 6,
+    "embeddedImages": [
+      {
+        "mimeType": "image/jpeg",
+        "bytes": 651880,
+        "sha256": "b33af5b3dd422aacf097a573f574f4558d15e72b7768dff6a0261b11f9a83642"
+      },
+      {
+        "mimeType": "image/jpeg",
+        "bytes": 266948,
+        "sha256": "55b7944b3a267cba51664fc05a5817b2958dd57e3f375aad0b8fb9c08e413e2f"
+      },
+      {
+        "mimeType": "image/jpeg",
+        "bytes": 837456,
+        "sha256": "2ce354d9fc0aac7e5f5e711e7cab2f252402a899148ac3352a59a2d3b44af384"
+      },
+      {
+        "mimeType": "image/jpeg",
+        "bytes": 156868,
+        "sha256": "8e5dc1e4180df847baac2af6ac18152dffd0519af9093bc8abf66a403d0d7660"
+      },
+      {
+        "mimeType": "image/jpeg",
+        "bytes": 592856,
+        "sha256": "e92e54d6002880245f1116f085ed6c8c692e84ae8ad13da967fb3dddbe36a6bf"
+      },
+      {
+        "mimeType": "image/jpeg",
+        "bytes": 625232,
+        "sha256": "9251b7c73d4835a9d26ab2d74bb87fecb9084fd1c839da1d6e706bce6c327c32"
+      }
+    ],
+    "sourceOsmIdsPreservedAsNodeExtras": [
+      "w1307801003",
+      "w1307801004",
+      "w1307801027",
+      "w1307801049",
+      "w1416011253",
+      "w1416012080",
+      "w1416012269",
+      "w1416012463",
+      "w280176097",
+      "w280500163",
+      "w280500165",
+      "w285220955",
+      "w285220956",
+      "w285221615",
+      "w285355817",
+      "w285355818",
+      "w285355819",
+      "w591713455"
+    ],
+    "boundsXYZMetres": {
+      "min": [
+        -171.007,
+        0.0,
+        -198.741
+      ],
+      "max": [
+        171.007,
+        19.2024,
+        198.736
+      ]
+    }
+  },
+  "styleAndTextures": {
+    "style": "OSM2World 0.4.0 shipped standard.properties + shipped texture folder",
+    "styleSource": "https://github.com/tordanik/OSM2World-default-style",
+    "styleLicense": "CC0-1.0",
+    "buildingMaterial": "Plaster002",
+    "roofMaterial": "RoofingTiles010",
+    "textureOrigin": "The style uses CC0Textures material directories; six JPEG images are embedded in the GLB. These generic style textures are not building-specific survey photos."
+  },
+  "comparisonBoundary": "This is a converter-default contrast sample only. Use the checked-in source XML/tags and existing source-aware building geometry as the truth baseline. OSM2World's generated height, default roof, windows, generic materials, and shelter closure are not local measurements or source facts.",
+  "rebuildAudit": {
+    "githubRun": "https://github.com/orriduck/chill-window/actions/runs/38008413794",
+    "originalCloudRawSha256": "d652fa8196efb62e0e4ca4d28daf6eda759a58c84ba2f0756f760731e7b04b69",
+    "crossEnvironmentRawBytesIdentical": false,
+    "sameManifestExceptRawSha256": true,
+    "canonicalJsonSha256": "4e1965df93fe5a4316f817f30b29d3530b4cd52245ec14094bcf26d827c3a050",
+    "binarySha256": "73f158a835afefe99113b4c44447c9d27208cc53d0c473540870d6fa6c126d94",
+    "originalChunkComparison": "Independent source-keyed accessor comparison completed: all 18 objects and 36 primitives match, as do all six embedded texture hashes. Original JSON/BIN chunk hashes differ; raw-byte equality is not claimed.",
+    "originalCloudCanonicalJsonSha256": "fa2fc64e8067ab64b7c8531b916687e06ca3a677d37ef374e988bdfbf5ae5eb2",
+    "originalCloudBinarySha256": "618c3684ceb595090caf416ad442ef8d9c6f63bd06b0f75a207315f77ed0a24f",
+    "semanticMeshSha256": "a04a18fad2b7eaee14659d71bffaafde3f24ccbb00e5aca0b8d92db3ccdd2bb3",
+    "semanticMeshBytes": 22109,
+    "semanticSourceObjects": 18,
+    "semanticPrimitives": 36,
+    "sourceKeyedMeshBytesEqual": true
+  }
+}

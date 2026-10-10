@@ -1,0 +1,73 @@
+import * as THREE from 'three'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { treeNearTex, treeNearBTex } from '../textures'
+import { detailCoverageDeclarations, detailCoverageLookup, type GeoDetailCoverage } from './GeoDetailCoverage'
+import { treeScreenThreshold } from './GeoCloseTrees'
+
+export interface ForestPlacement { x: number; y: number; z: number; height: number; yaw: number; variant: number; close3D?: boolean | number }
+
+/** Existing textured tree silhouettes replace untextured polygon crowns.
+ * The forest boundary is OSM data; individual trees remain visual samples,
+ * not a surveyed tree inventory or a claim about local species. */
+export class GeoForest {
+  private focus = new THREE.Vector2()
+  private closeEnabled = { value: 0 }
+  private geometry: THREE.BufferGeometry
+  private materials = [treeNearTex, treeNearBTex].map(map => new THREE.MeshLambertMaterial({
+    map, alphaTest: 0.42, side: THREE.DoubleSide,
+  }))
+  constructor(mode: 'near' | 'far' = 'near', coverage?: GeoDetailCoverage) {
+    const plane = new THREE.PlaneGeometry(0.74, 1)
+    plane.translate(0, 0.5, 0)
+    const second = plane.clone().rotateY(Math.PI / 2)
+    this.geometry = mergeGeometries([plane, second], false)!
+    plane.dispose(); second.dispose()
+    for (const material of this.materials) {
+      material.onBeforeCompile = shader => {
+        shader.uniforms.geoForestFocus = { value: this.focus }
+        shader.uniforms.geoCloseEnabled = this.closeEnabled
+        if (coverage) {
+          shader.uniforms.geoDetailCoverage = { value: coverage.texture }
+          shader.uniforms.geoDetailMinTile = { value: coverage.minTile }
+        }
+        // Both inspected atlases are 512x256. Keep linear filtering inside
+        // each cell so a neighbouring crown cannot bleed into its border.
+        shader.uniforms.geoTreeAtlasInset = { value: new THREE.Vector2(0.5 / 512, 0.5 / 256) }
+        shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 treeAtlasCell;\nuniform vec2 geoTreeAtlasInset;\nuniform vec2 geoForestFocus;\nvarying float geoTreeDistance;')
+          .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = vMapUv * (vec2(0.25, 0.5) - 2.0 * geoTreeAtlasInset) + treeAtlasCell + geoTreeAtlasInset;\n#endif')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoTreeCenter = instanceMatrix[3].xz;\ngeoTreeDistance = length(geoTreeCenter - geoForestFocus);')
+        shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nattribute float treeCloseModel;\nvarying float geoTreeCloseModel;\nvarying vec2 geoTreeCenter;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoTreeCloseModel = treeCloseModel;')
+        const fade = mode === 'near' ? 'geoDetailReady * (1.0 - smoothstep(500.0, 650.0, geoTreeDistance))' : 'mix(1.0, smoothstep(500.0, 650.0, geoTreeDistance), geoDetailReady) * (1.0 - smoothstep(3000.0, 4500.0, geoTreeDistance))'
+        shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\nuniform float geoCloseEnabled;\nvarying float geoTreeCloseModel;\nvarying float geoTreeDistance;\nvarying vec2 geoTreeCenter;\n${coverage ? detailCoverageDeclarations : ''}`)
+          .replace('#include <alphatest_fragment>', `${coverage ? detailCoverageLookup('geoTreeCenter') : 'float geoDetailReady = 1.0;'}\ndiffuseColor.a *= (${fade});\nif (geoCloseEnabled > 0.5 && geoTreeCloseModel > 0.5 && ${treeScreenThreshold} < 1.0 - smoothstep(geoTreeCloseModel - 35.0, geoTreeCloseModel, geoTreeDistance)) discard;\n#include <alphatest_fragment>`)
+      }
+      material.customProgramCacheKey = () => `geographic-forest-coverage-v6-${mode}-${!!coverage}`
+    }
+  }
+  setFocus(x: number, z: number) { this.focus.set(x, z) }
+  setCloseTreesEnabled(enabled: boolean) { this.closeEnabled.value = enabled ? 1 : 0 }
+  addInstances(parent: THREE.Group, placements: ForestPlacement[]) {
+    const transform = new THREE.Object3D()
+    for (let atlas = 0; atlas < 2; atlas++) {
+      const batch = placements.filter(p => Math.floor(p.variant / 8) === atlas)
+      if (!batch.length) continue
+      const geometry = this.geometry.clone(), cells = new Float32Array(batch.length * 2), close = new Float32Array(batch.length)
+      const mesh = new THREE.InstancedMesh(geometry, this.materials[atlas], batch.length)
+      mesh.name = 'osm-forest-textured-trees'
+      mesh.userData.individualTreeLocationsEstimated = true
+      for (let index = 0; index < batch.length; index++) {
+        const p = batch[index]
+        close[index] = typeof p.close3D === 'number' ? p.close3D : p.close3D ? 115 : 0
+        const variant = p.variant % 8
+        cells[index * 2] = (variant % 4) / 4; cells[index * 2 + 1] = 1 - (Math.floor(variant / 4) + 1) / 2
+        transform.position.set(p.x, p.y, p.z); transform.rotation.set(0, p.yaw, 0)
+        transform.scale.setScalar(p.height); transform.updateMatrix(); mesh.setMatrixAt(index, transform.matrix)
+      }
+      geometry.setAttribute('treeAtlasCell', new THREE.InstancedBufferAttribute(cells, 2))
+      geometry.setAttribute('treeCloseModel', new THREE.InstancedBufferAttribute(close, 1))
+      mesh.computeBoundingSphere(); parent.add(mesh)
+    }
+  }
+  dispose() { this.geometry.dispose(); this.materials.forEach(m => m.dispose()) }
+}

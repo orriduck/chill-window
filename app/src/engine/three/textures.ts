@@ -22,7 +22,10 @@ import { configureSpriteAtlas } from './textureSampling'
 const loader = new THREE.TextureLoader()
 
 function load(url: string, srgb = true, onLoad?: () => void): THREE.Texture {
-  const tex = loader.load(url, onLoad)
+  let resolveReady!: (loaded: boolean) => void
+  const ready = new Promise<boolean>(resolve => { resolveReady = resolve })
+  const tex = loader.load(url, () => { onLoad?.(); resolveReady(true) }, undefined, () => resolveReady(false))
+  tex.userData.ready = ready
   if (srgb) tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 4
   return tex
@@ -47,6 +50,12 @@ export const treeNearTex = configureSpriteAtlas(load(treesNearUrl))      // 4x2
 export const treeNearBTex = configureSpriteAtlas(load(treesNearBUrl))    // 4x2
 export const treeFarTex = configureSpriteAtlas(load(treesFarUrl))        // 2x2
 export const treeFarBTex = configureSpriteAtlas(load(treesFarBUrl))      // 2x2
+
+/** Meshing waits for the images, so loading a tree atlas never replaces a
+ * visible fallback model or forces the geography chunks to rebuild. */
+export const geographicTexturesReady = Promise.all([
+  groundGrassTex, groundRockTex, treeNearTex, treeNearBTex,
+].map(texture => texture.userData.ready as Promise<boolean>))
 
 /** Rewrite a geometry's uv attribute to address one cell of an atlas.
  *  col/row are 0-based; row 0 is the TOP row of the image. */

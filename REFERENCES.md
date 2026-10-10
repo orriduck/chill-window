@@ -138,6 +138,33 @@
 
 直接案例 [YusufEminoglu/osm_3d_model](https://github.com/YusufEminoglu/osm_3d_model) 也可研究，其README明确包含procedural建筑/树木等细节；与“全部真实数据”的目标需要区分实际OSM几何和生成的细节，不能整体照搬并宣称真实。
 
+### 补充：OSM 真实地景开源项目与代码核查
+
+核查日期 2026-10-09；本次读取作者仓库、官方文档和以下源码，没有运行这些项目或将其代码接入当前场景。
+
+| 一手来源 | 具体机制与适用边界 | 关联代码（待评估） |
+| --- | --- | --- |
+| [Streets GL](https://github.com/StrandedKitty/streets-gl)、[建筑标签解析](https://github.com/StrandedKitty/streets-gl/blob/HEAD/src/lib/tile-processing/vector/qualifiers/factories/osm/helpers/getBuildingParamsFromOSMTags.ts)、[双坡屋顶构造](https://github.com/StrandedKitty/streets-gl/blob/HEAD/src/lib/tile-processing/tile3d/builders/roofs/GabledRoofBuilder.ts) | TypeScript / 自有 WebGL2 渲染器；OSM 矢量瓦片和 Esri 高程分开输入，运行时建立建筑、道路等网格并使用地形 LOD。源码包含屋顶直骨架处理、UV 和墙/屋顶材质解析，适合研究建筑几何。高度缺失时会采用默认一层、每层4m等推断，不能在本项目中把这些默认值作为真实高度直接导入。 | `geography/RealWorld.ts` 建筑几何、未来按块预加载；保留现有 Three.js 渲染器 |
+| [OSM2World 官方 Web 模块](https://osm2world.org/docs/library-web/)、[BuildingDefaults.java](https://github.com/tordanik/OSM2World/blob/HEAD/core/src/main/java/org/osm2world/world/modules/building/BuildingDefaults.java) | 官方 Web 接口直接返回位置、索引、法线、UV 和材质，可适配 Three.js；官方提示客户端转换适合较小数据集。类型默认值明确区分 roof/carport 的无墙结构，但同样含默认楼层、层高和材质，需保留来源属性并限制缺失数据的推断。沿线区域离线转换、模型分块是本项目拟评估的接入方法，尚未验证输出。 | 模型转换管线、`GeoData.ts` 来源属性、`RealWorld.ts` 模型加载 |
+| [Map3D](https://github.com/cartesiancs/map3d) | React Three Fiber / Three.js，使用 OSM 创建建筑和道路并导出 GLB。README 当前把建筑纹理、材质和 heightmap 列为未完成，适合小区域导出原型，不能视为现成完整地景引擎。 | 离线区域 GLB 导出候选 |
+| [Blosm 官方文档](https://github.com/vvoovv/blosm/wiki/Documentation) | Blender 离线导入 OSM 建筑 part、高度、多类屋顶、道路/铁路和约30m地形，建筑可贴合高程。这里研究的是 OSM 导入；Google 3D 城市是另一个数据来源，不能把它与开放 OSM 重建混称。 | 离线转换对比候选 |
+
+本次判断：优先评估 OSM2World 的转换结果，参考 Streets GL 的建筑/屋顶算法与地形细节分配。OSM 地图要素与独立 DEM 能约束布局和地形；转换器生成的默认立面、窗户、树木和缺失高度并不因此成为当地实测数据。
+
+2026-10-09 补充核查：读取 [iTowns 作者仓库](https://github.com/iTowns/itowns) README，其基于 Three.js，支持高程、影像、MVT、GeoJSON 与 3D Tiles；适合作为地理数据加载框架候选，不能替代建筑转换器或提供缺失的当地立面。读取 [NASA-AMMOS/3DTilesRendererJS](https://github.com/NASA-AMMOS/3DTilesRendererJS) README，确认支持 Three.js，并提供区域预加载与 LOD 渐变示例；后续关联 `RealWorld.ts` 的沿线模型流式加载评估。两者本次均未安装、运行或接入。当前优先级仍为 OSM2World 小区域转换对比、Streets GL 建筑几何参考，再评估独立瓦片加载器。
+
+### 补充：可直接复用的 OSM 地景工具
+
+核查日期 2026-10-09。本轮重新读取作者仓库与官方 Web 文档；没有运行新候选或替换场景引擎。
+
+| 一手来源 | 具体用途与边界 | 关联位置 |
+| --- | --- | --- |
+| [BlenderGIS 作者仓库](https://github.com/domlysz/BlenderGIS) | 导入 OSM XML、GeoTIFF DEM、栅格影像和矢量数据，支持地理配准及把对象落到地形；适合离线整合真实高程和影像，仓库概述没有证明能自动重建当地建筑立面。本轮未安装或运行。 | 离线地理数据处理候选 |
+| [Blosm 作者仓库](https://github.com/vvoovv/blosm) | 免费基础版支持 OSM 建筑高度、part、多种屋顶、道路/铁路及约30m高程；基础版建筑没有贴图。默认建筑纹理、3D树林和影像投影属于 Pro 功能，不把免费基础版描述为完整带纹理地景方案。 | 离线模型管线候选 |
+| [OSM Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings) | 数据规范表达建筑轮廓、part、高度、屋顶等属性；转换出来的模型细节应区分原始标签和转换器默认值。 | `GeoConvertedBuildings.ts`、OSM2World Peekskill 样本来源规则 |
+
+本项目接入判断：保留 Three.js 车窗与相机，优先扩大已验证的 OSM2World 离线建筑样本覆盖；Streets GL 用于研究完整场景表现与建筑几何。DEM 和真实航片需要独立输入；转换器的通用纹理不能称为当地实拍立面。
+
 ## 2026-10-09：真实 Hudson 车站数据
 
 | 来源 | 具体借鉴或核查 | 受影响的文件 |
@@ -164,3 +191,210 @@
 | --- | --- | --- |
 | [Playwright 官方 CI 指引](https://playwright.dev/docs/ci)、[GitHub Actions 工作流语法](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) | 使用GitHub云端Ubuntu runner构建真实应用，并由Chromium拍摄车窗、F5俯视、站点里程跳转前后与移动视口。截图、视频、日志和临时脚本均在runner临时目录，作为artifact提供，不把报告/图片写入仓库。软件WebGL不代表用户GPU性能；自动运行健康检查不能代替人工画面检查，也不代表五项目标完成。 | `.github/workflows/cloud-visual-review.yml` |
 | [Poly Haven Tree Small 02](https://polyhaven.com/a/tree_small_02)、[官方文件清单](https://api.polyhaven.com/files/tree_small_02)、[许可](https://polyhaven.com/license)、[作者导出说明](https://blog.polyhaven.com/dev-log-20/) | 实际读到CC0、4.6m高、约5M三角形，1k glTF依赖约95MB几何buffer；网站标签为Burkea africana，不能直接作为哈德逊河本地成熟树种。尚未下载模型或接入，作为被排除的直接替换候选；保留现有枝叶图集作LOD方案研究，具体树高/单株位置未由该素材提供。 | 云端`RealWorld`树木表现评估；不作为运行时新模型 |
+
+
+## 2026-10-09：真实数据渲染接入与完整初始范围预加载
+
+| 来源与本次核查 | 采用范围与边界 | 受影响代码 |
+| --- | --- | --- |
+| 上文实际取得的 FRA/USGS/OSM、MTA 站点与 Overture 2026-09-23.1 快照 | 运行时校验叠加层绑定的 world.json SHA-256，接入四个沿线 Metro-North 站及八条站台几何、34,326 个区域建筑组件及三个建筑 part。保留上游高度估计和缺失高度的状态。此段 Empire Service 经过这些 Metro-North 站，不把它们标为 Amtrak 停靠站。 | `geography/GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts`、`ThreeCanvas.tsx` |
+| [OSM way/1307801003](https://www.openstreetmap.org/way/1307801003) 的 amenity=shelter / shelter_type=public_transport 与实际匹配 Overture class=shelter | Peekskill 遮棚按开放结构表达；保留真实 footprint，估算支柱和缺失时的3.6m棚高均标为可视化估值。不能由 building=yes 覆盖更具体的遮棚标签并填入实墙。 | `GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts` |
+| 仓库已有 `trees_summer_near_04*.png` 图集；本次直接查看现有图像，不新增下载或声称其是 Hudson 当地单株照片 | 以带枝叶轮廓、纹理和 alpha 的交叉面实例替换 Kenney 树模型/低模球冠。近景和远景使用距离过渡，远景整段数据范围一次准备，按1024m区域分批以利剔除；落在OSM林地内并避开水体与建筑。单株位置/高度仍是明确的视觉采样，不是树木调查。排除已确认的 Burkea africana / Tree Small 02，不引入该模型。 | 新 `geography/GeoForest.ts`、`RealWorld.ts`、`textures.ts` |
+| [Three.js InstancedBufferAttribute](https://threejs.org/docs/pages/InstancedBufferAttribute.html)、[WebGLRenderer compileAsync](https://threejs.org/docs/pages/WebGLRenderer.html) 与当前已安装 Three.js API | 每株树用实例属性选择图集单元，一块最多两个森林批次；等待纹理、整个初始7×7可视范围及同宽1536m前方缓冲，再编译材质。缓存最多256块，尚未备妥的目标区域不会推进列车；跳转先准备目标块。时段/天气修改不重新创建地理世界。只有云端运动检查才能证明连续运行状态，不把这些代码机制或构建成功视为完整验收。 | `GeoForest.ts`、`RealWorld.ts`、`ThreeCanvas.tsx`、`core/Renderer.ts`、云端截图 workflow |
+
+本次没有运行或集成 OSM2World/Blosm，也没有获得当地建筑逐栋立面纹理。正常车窗用中性墙面，调试模式才用源高度/模型估计分色；建筑 roof/wall 合并成每类两组，建筑 part 同样保留材质组，防止构件不绘制及逐栋 draw call 膨胀。此段描述是实现状态，新版视觉检查结果待云端 artifact 核对后另行报告。
+
+### 源材质与 Peekskill 建筑案例接入
+
+本次重新核对 retained 的 `buildings.json`、原始 Overpass OSM gzip 和官方/作者源码。它们提供的是地图标签和模型高度，不是现场材质测量：
+
+| 来源 | 核对结果与实现边界 | 受影响文件 |
+| --- | --- | --- |
+| [OSM way/962993799](https://www.openstreetmap.org/way/962993799)、包内 `sources/osm-buildings.json.gz` | Mount Lebanon Baptist Church，648 Harrison Avenue。源标签为 `building:material=wood`、`building:colour=white`、`roof:material=tar_paper`、`roof:colour=grey`、`roof:shape=pyramidal`、`building:levels=2`；原样保留。Overture 字段把颜色细化为 facade `#FFFFFF` / roof `#778899`，材料分别仍为 `wood` / `tar_paper`。这里将 tar_paper 表达为深灰屋面调色，不称其为金属卷材。高度 `3.877643585...m` 的属性来源是 Microsoft ML Buildings，仍标“模型估计”；两层标签不用于覆写或反推。没有 roof_height，因此场景保留 pyramidal 源标签与屋顶颜色，但不凭空指定屋顶升高值。 | `GeoBuilding.ts`、`GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts` |
+| [Overture building schema](https://docs.overturemaps.org/schema/reference/buildings/building/)、[building guide](https://docs.overturemaps.org/guides/buildings/) 与包内 release `2026-09-23.1` | 每个 wall/roof 使用各自的 source color；缺显式颜色但有 `facade_material` / `roof_material` 时，以代码内材质调色板表达类别，UI 明示这不是本地采样色或实测立面。`building_part` 保留父级 GERS、来源记录、`height`、`min_height`、facade/roof 属性并独立着色；缺高度仍不挤出。 | `GeoBuilding.ts`、`GeoData.ts`、`RealWorld.ts` |
+| [OSM2World PyramidalRoof.java](https://github.com/tordanik/OSM2World/blob/HEAD/core/src/main/java/org/osm2world/world/modules/building/roof/PyramidalRoof.java)、[BuildingDefaults.java](https://github.com/tordanik/OSM2World/blob/HEAD/core/src/main/java/org/osm2world/world/modules/building/BuildingDefaults.java)、[Streets GL roof tag parser](https://github.com/StrandedKitty/streets-gl/blob/HEAD/src/lib/tile-processing/vector/qualifiers/factories/osm/helpers/getRoofParamsFromTags.ts)、[OSM material resolver](https://github.com/StrandedKitty/streets-gl/blob/HEAD/src/lib/tile-processing/vector/qualifiers/factories/osm/helpers/getRoofMaterialFromOSMMaterial.ts) | 源码确认这些项目能解析 OSM roof shape/material/color；OSM2World默认建筑参数与 Streets GL 缺高规则会补默认层数/高度。当前仅复用“材料标签决定视觉材质类别、显式来源颜色优先”的机制，没有导入其生成默认值；未部署或运行转换器。足迹凹形、无来源 roof_height 的屋顶不使用可能越界的质心扇面，也不捏造坡高。 | `GeoBuilding.ts`、`RealWorld.ts` |
+| [Mount Lebanon Baptist Church 官方站点](https://mountlebanonbc.info/)、[官方 History 页面](https://mountlebanonbc.info/?page_id=50)、[官方 Media Ministry 页面](https://mountlebanonbc.info/?page_id=82) | 官方搜索索引将该会址对应到 648 Harrison Avenue，但访问时首页显示主机暂不可用，媒体页未能读取到可核验的现场外观照片。搜索到的同名 Wikimedia 图片标注国家注册号 `80001703` 且位于路易斯安那州，明确不是 Peekskill 这栋，已排除。故本案例用 OSM/Overture 原始 footprint 和属性验证数据接入，不宣称完成照片外观比对，也不以错配照片覆盖 `tar_paper` 标签。 | `GeoInspector.ts` 案例定位/来源查询；外观照片仍待核验 |
+
+调试面板增加建筑独立显隐、GERS 源查询以及“定位 Peekskill 源建筑案例”快捷入口；可隔离查看墙/屋顶颜色与来源字段。选中案例的材料来源显示为 OSM 标签；因现场照片不可核验，没有将标签表述为现场实测。立面贴图和窗户仍缺少此建筑的可靠逐栋数据。
+
+### 站台高度基准与性能诊断修正
+
+2026-10-09 核查 [OSM railway=platform_edge 文档](https://wiki.openstreetmap.org/wiki/Tag:railway%3Dplatform_edge) 中 height above the rails 的定义。渲染站台升高改以当前平滑轨面为基准，不叠加平均DEM地面。Cold Spring `way/1131682757` 的原 height=4 原样保留，2.5m 的显示合理性上限是项目的异常值保护规则，不是测量或通用铁路规范；本对象显示时参考同站 `way/97522334` 明确的4英尺标签，并标为同站估计（1.2192m），不把4默默解释为英尺。Manitou 缺失高度的0.35m是画面估值。逐站台显示原值、使用值与估计说明，关联 `GeoData.ts`、`RealWorld.ts`、`GeoInspector.ts`。
+
+云端 run37993781339 在首次桌面截图超30秒失败，无请求失败或shader错误，KHR_parallel_shader_compile不支持为警告。已从录制视频查看60秒/150秒原始帧：初始预热仍逐帧进行，完成后有顶棚和纹理树，但连续运动及画面质量尚未验收。新诊断保留截图前的DOM与帧性能（FPS/帧间隔/CPU提交/全场景绘制量），后续截图使用1280×720桌面和390×844移动视口，明确软件渲染条件。
+
+地表着色和森林采样复用4096² OSM 土地覆盖掩码，减少重复遍历复杂林地/水域多边形；这是和GPU掩码一致的显示栅格，未改原始几何。预测队列同时加入实际下一步位置，避免256m预测采样之间的弯道角块未进入队列而导致列车等待。
+
+### 成熟林冠尺度、屋顶及失败路径复核
+
+2026-10-09 读取 [NYSDEC 学校苗木项目](https://dec.ny.gov/nature/forests-trees/saratoga-tree-nursery/school-seedling-program) 对当地红橡成熟60–80英尺的说明。结合已有NPS沿河照片与本轮云端帧中稀疏小树的差距，通用成熟林木显示高度选18–24m、远景采样24m（先前48m）；这些是视觉范围/密度，不是Hudson逐株测量。继续使用已有纹理轮廓，采用漫反射叶材质而不是无意义的金属/高光项。关联 `GeoForest.ts`、`RealWorld.ts`，密度/材质的实际运动性能与截图仍需验证。
+
+源数据 Perkins Memorial Tower 为 Overture `e82919a0-184c-47e2-bfe1-584ff22fb02a`，匹配OSM `w459098921@6`，源 height=12m、roof_shape=pyramidal、roof_height=3m。新增 `GeoRoof.ts` 为有内部可见顶点的足迹建三角面屋顶，避免仅在边界三角化而把金字塔画平。直接投影实际足迹验证生成15顶点、屋檐相对0m、顶点3m；总楼高保持来源12m。顶点位置由足迹几何推导，不是屋顶实测；不支持的形状/带洞轮廓保留源属性及完整楼高，不擅自压低建筑。
+
+源码审查另确认纹理失败会使ready永久等待；已让预热Promise reject并在真实数据已加载后仍显示失败状态。F5切换先定位检查镜头再更新世界；源站点加入路线快速选段。详细数据/加载/帧性能诊断默认折叠，保留主要导航控件；运动门控同时记录请求/目标速度、暂停、俯视、预热和下一步覆盖。
+
+### 实际土地覆盖补充 OSM 林地记录空白
+
+2026-10-09 读取 [USGS Annual NLCD 数据入口](https://www.usgs.gov/centers/eros/science/annual-nlcd-data-access)、[MRLC 官方服务目录](https://www.mrlc.gov/data-services-page)、[USGS 分类定义](https://www.usgs.gov/centers/eros/science/annual-nlcd-land-cover-classification) 与 [Science User Guide v1.2](https://www.usgs.gov/centers/eros/science/annual-nlcd-science-user-product-guide) PDF第10页（Table 2-2）。NLCD是30m卫星分类；41/42/43为落叶/常绿/混交林，52灌木与90木本湿地不直接当成成熟森林。
+
+官方WMS capabilities明列2025时间切片。WCS下载两种时间subset均返回startTime空值服务错误，1.0请求不受支持；没有将错误响应当作GeoTIFF。取得WMS 2025分类PNG，像素全部精确匹配官方色表、没有混合颜色/缺值；对四个均质位置分别用GetFeatureInfo独立核对41、11、21、22源编号。保留PNG、capabilities、查询响应、完整请求与SHA-256，导出640×779 UInt8（498,560字节）及绑定原world快照的metadata。此派生物是约30m的WMS分类采样，不能称为原生COG。关联 `prepare-hudson-landcover.py`、`GeoLandCover.ts`、`GeoData.ts` 与 geodata README。
+
+NLCD林地填入4096²显示掩码底层，再保留OSM土地/水域几何与holes的优先级，避免把未标注区域一律画成草地。仅森林类补充成熟树；依据本次实际查看的既有两张树木图集，落叶林选阔叶轮廓，常绿林选针叶轮廓，非逐种植物识别。远景批次在整个范围一次建好；距离超过4500m的完整批次只剔除绘制、不删除重建。关联 `RealWorld.ts`。调试模式先加入“NLCD 分类对照”与中心分类/数据年份读数，可关林木检查原分类；切换仅改shader uniform，不重建世界。云端新画面与成本尚待检查。
+
+已查看 run37995594034 的车窗、四站、俯视和移动端截图：遮棚没有原来的实墙，但远山林木仍稀疏、许多建筑无立面细节，因此没有将任务标为视觉完成。该运行实际跨920m，六次采样missing/late均0；这是有限区间运行证据，不是全22.84km验收。SwiftShader仅0–2FPS，帧间隔466–6261ms，不能据此声称硬件性能通过。
+
+同一实际64m DEM背景网格按1024m固定片区预先建好，以Three.js正常frustum culling减少原来单个大网格每帧提交整个区域；没有降低DEM采样、修改地形或随行驶重建背景。参考本机已安装Three.js `Object3D.frustumCulled` / InstancedMesh.boundingSphere。已查看两张现有512×256 atlas的原图，增加半像素内缩避免线性过滤跨单元采样；天空边缘叶片是否消除仍待新截图确认。关联 `RealWorld.ts`、`GeoForest.ts`。
+
+run37997465057 实际行驶710m、六次missing/late均0；已查看截图确认树冠更密、诊断折叠后主导航可见，沿河仍有覆盖空白。该版运动读数请求0/目标44.4揭示“上车”直接修改camera却没有保留requestedSpeed；若预热随后完成会将目标改回0。改为在加载时保留待出发意图，完成预热再采用原有缓加速出发。新增云端情景先阻止必要的landcover.u8响应，上车后才释放，核对请求/目标44.4并实际移动。为让响应拦截确定可重复，该QA情景禁用service worker；不验收PWA/offline。关联 `ThreeCanvas.tsx`、云端workflow；新情景待运行。
+
+俯视自由平移时，required缓存同时保护实际列车位置的49块；不会因为查看远处多个区段而逐出返回时立刻可见的建筑/地面。新增情景连续查看Manitou/Peekskill但不应用列车跳转，然后Esc返回即查missing/late=0，再执行原来的Garrison跳转检查。此项是新的缓存交互验证，待云端运行；不把静态源码规则本身视为通过。
+
+2026-10-09 云端交互复核：[run 38000427779](https://github.com/orriduck/chill-window/actions/runs/38000427779)，对应 `bbf32c5`。已读取 health.json 并查看返回车窗与 Peekskill 图片：加载前点击 Board 的排队发车、远处 Manitou/Peekskill 俯视后立即 Esc 返回均通过；连续实际推进 810m 的六次抽查缺块/迟到帧均为0。软件 SwiftShader 的帧率不代表硬件表现，未验证整段22.84km。图片仍可辨认近景交叉树贴片，树木质感目标未完成。此结果不包含本次建筑材质新代码的视觉验收。
+
+
+## 2026-10-09：整段远景建筑与 GPU 提前准备
+
+核查依据仍是上文实际 OSM/Overture 建筑和 USGS DEM，不增加随机建筑。新 `GeoDistantBuildings.ts` 在启动时一次准备全数据范围，按1024m区域、来源高度状态与结构类型合批。保留外环/内洞、已知高度、min_height、墙/屋顶颜色与已支持的源 pyramidal 屋顶；无高度建筑保持平面，开放遮棚沿用明确标注的3.6m画面估算，不增加实墙。近/远景都用同一来源中心在650–740m过渡；互补屏幕像素裁切避免两个独立alpha测试留下空洞。远景在3–4.5km淡出，分区始终保留而不随移动重建。
+
+当前整段真实数据 Node 核验：34,326组件，29,818挤出建筑、4,362平面足迹、28开放遮棚；115个中心缺DEM、3个源高度/min_height组合无有效体积而省略，另有1个有效part。337区域644合批、556,963三角形、48,487,934几何缓冲字节；一次准备约339ms。该数字是CPU/几何测量，不是浏览器帧率或视觉验收。核验全部索引范围、顶点/中心坐标有限；单独验证院落孔洞的屋面面积和法线、源抬高范围、开放结构与无高度处理。代码：`GeoDistantBuildings.data.test.ts`、`GeoDistantBuildings.test.ts`。
+
+已读本地安装 Three.js `WebGLRenderer.js` 的 compile/compileAsync 实现并对照[官方 renderer 文档](https://threejs.org/docs/pages/WebGLRenderer.html)：编译遍历隐藏对象的材质，不能据此说几何已上传。`core/Renderer.ts` 增加16×16离屏提交，用原对象/实例缓冲、保留灯光和父坐标；同步pass结束立即恢复显隐和渲染目标，然后通过[WebGL2 fenceSync](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/fenceSync)及非阻塞clientWaitSync等待GPU完成，不调用gl.finish。初始全世界及后续新近景区块均先提交；后续只绘制被准备区块，避免额外整世界提交。`RealWorld.canAdvance`现在要求下一位置49块的gpuReady，`ThreeCanvas.tsx`完成后才标记，调试诊断展示待上传队列。该新路径待云端实际运行、着色器编译与图片核验；硬件平滑度和全路线连续性仍未证明。
+
+树模型候选再次核查：[Poly Haven Pine Tree 01](https://polyhaven.com/a/pine_tree_01)、[官方 files API](https://api.polyhaven.com/files/pine_tree_01)、[许可](https://polyhaven.com/license)。实际读取1k glTF（MD5 9bc0153071011411957a74e473d24858）只含3个LOD0，共17,182,252三角形，bin948,849,556bytes；1k表示纹理档，不代表低几何LOD，未把该大包接入场景。[LOLIPOP Maple 作者页](https://sketchfab.com/3d-models/maple-trees-pack-lowpoly-game-ready-lods-b5d2833c258f4054a01ee2b4ef85adf0)提供成熟17–20m及LOD2约2825–5321tri的CC Attribution候选；下载认证尚未解决，不使用viewer提取绕过下载。Poly Haven Tree Small02源种为Burkea africana，继续排除。独立云端任务正处理其他合法公开温带静态模型，尚未进入本次运行代码。
+
+
+2026-10-09 建筑材质云端复核：[run38002543420](https://github.com/orriduck/chill-window/actions/runs/38002543420)，8e67aa5，读取health并实际查看03e/03f图片。白色木材标签立面、#778899屋顶、源模型估计3.9m和缺失roof_height说明均存在；建筑关闭后画面中的建筑消失。连续740m六次抽查missing/late为0，无请求失败或运行错误。截图同时暴露 ready() 在定位后的新视野更新前读到了旧49/49：03e实际只有2/49，03f只有10/49，不能把这组视图当作完整就绪验收。修正方案是等待新的场景更新帧，再检查当前49/49；新等待方案尚未跑云端。
+
+接续 `GeoDetailCoverage.ts`：用7×7可用性小纹理记录当前视野细节区块的真实gpuReady，建筑与森林均在匹配区块未上传时保持已准备远景。此前纯距离淡化会在俯视快速定位后把近中心的远景裁掉，而细节仍在准备，产生临时空白。这里不新增地理要素，只调整已有来源模型的显示覆盖；数据坐标仍为地理米、按原256m中心区块判定。当前仅生产构建和定向lint核查，新着色器与快速定位备用画面仍待云端验收。
+
+## 2026-10-09：OSM 开源地景管线比较
+
+响应用户关于 GitHub 现成地景项目的询问，重新读取下列作者仓库与官方文档；本节为研究结果，未运行其转换器、未接入新引擎、未验证线上 demo 的实际可用性。
+
+| 项目与主要来源 | 可借鉴能力及边界 | 对当前代码的适用点 |
+| --- | --- | --- |
+| [Streets GL](https://github.com/StrandedKitty/streets-gl) | TypeScript / 自研 WebGL2，OSM复杂建筑、道路、树木，地形LOD、PBR与大气；数据来自改版Planetiler矢量瓦片和Esri高程。不是直接可替换的Three.js组件。仓库仍注明早期开发；不能从README的demo链接推断当前服务可用。 | `GeoRoof.ts`、`GeoBuilding.ts`、`GeoForest.ts`、`core/Renderer.ts`的屋顶解析、材质和分级显示参考；目前仅部分屋顶/材质机制参考，未导入渲染器。 |
+| [OSM2World](https://github.com/tordanik/OSM2World)、[官方功能页](https://osm2world.org/)、[Web library](https://osm2world.org/docs/library-web/) | 输出glTF/GLB、PBR材质、LOD；新ES模块返回带材质的三角网格，可供Three.js使用，官方建议客户端只处理较小数据集。候选方案为云端预转换路线片区，再加载静态模型；尚未实现。 | 潜在替代部分`RealWorld.ts`建筑/沿线设施自建网格的离线准备步骤，须先对同一Peekskill片区做来源字段、坐标、高度和显示成本对照。 |
+| [Blosm](https://github.com/vvoovv/blosm) | 代码在release分支。免费基础版导入OSM建筑/屋顶、约30m真实地形、道路/铁路与植被多边形；贴图/UV、三维森林和单树列在Pro功能中，不将其误写为全套免费功能。 | 可选Blender离线资产制作路线，尚未安装、购买或导出；不替换当前USGS DEM。 |
+| [three-geo](https://github.com/w3reality/three-geo) | Three.js地形网格，Mapbox Terrain-RGB DEM与卫星纹理，需要Mapbox token；主要提供地表，不提供完整OSM建筑街景管线。 | `RealWorld.ts`地理投影与地形贴图研究参考，当前仍使用已获取的USGS数据。 |
+| [osm2city官方仓库](https://gitlab.com/osm2city/osm2city)、[算法说明](https://osm2city.readthedocs.io/en/latest/how_it_works.html) | 主仓库在GitLab，面向FlightGear。根据OSM生成建筑、道路、电力线、码头、站台等；文档明确使用启发式和随机性形成合理外观，不能当作当地完整实测复原。 | 沿线设施和批次/LOD实现参考；没有接入其生成资产。 |
+
+[OSM2World 2026地形路线图](https://osm2world.org/blog/2026/06/03/ptf-roadmap-2026-osm-3d-terrain/)明确OSM不包含连续地形高程，需额外数据；建筑、道路、桥隧与地形贴合、瓦片边界连续性仍属于专门工作。当前判断：优先评估OSM2World的云端片区转换，并借鉴Streets GL的运行显示机制；保留真实DEM和来源审计。通用材质/默认窗户不能表述为当地逐栋照片纹理，默认补高也不能覆盖来源缺失状态。
+
+### f89bc93 云端运行失败及队列修正
+
+实际核对 [run38004369924](https://github.com/orriduck/chill-window/actions/runs/38004369924) 的health与02b/03e图片。初始GPU离屏预热完成（SwiftShader约12.1秒），整段远景建筑初始化完成，加载前上车意图保留、实际连续780m六次抽查missing/late均0；其后进入调试已有1次行驶缺块计数，因此不能把整次运行描述为无迟到。Peekskill源案例截图为0/49并实际显示空白地表；旧ready状态误读仍存在。后续远处定位等待180秒失败，最终0/49、171块待GPU上传；没有请求失败或shader错误。初始准备成功不代表后续地图切换成功，远景建筑的视觉/显隐情景尚未完成。
+
+当前修正关联`RealWorld.ts`、`core/Renderer.ts`、`ThreeCanvas.tsx`：CPU/GPU均优先当前视野，其次列车位置/跳转/下一步覆盖，再处理缓冲；GPU每批最多12块，同一离屏提交与fence，保留原对象/父变换，不在准备过程中驱逐该批。CPU每帧按8ms预算推进，单块仍可能超过预算，不把该预算说成硬上限。移动门控与准备范围覆盖起终点及中间原路线顶点的包围区块，避免只验证预测终点却漏掉弯道中途；该保护并非已经证明上述1次缺块的确切原因。新帧确认、远景可用性备用显示和这些队列改动均待下一次云端运行；本地构建/定向lint和26项既有数据/几何/相机检查通过，既有检查不直接验收新异步GPU队列。
+
+云端已处理两种静态三维树候选，root取回`GeoCloseTrees.ts`、准备脚本与来源metadata完整源码；GLB转交尚待完成，模型尚未接入本次发布。成熟Scots pine候选与8.6m橡树街树样本不能替代所有落叶林，当前图片中的交叉贴片仍清晰可辨，树木视觉目标继续未完成。
+
+## 2026-10-09：静态三维树资源接入与隔离对照
+
+核查[Innerscene成熟Scots pine作者页](https://www.innerscene.com/tools/library/3d-parts/mature-scots-pine-tree-280307e1)及[橡树街树详细叶片作者页](https://www.innerscene.com/tools/library/3d-parts/oak-street-tree-detailed-leaves-a273fef9)：两者为作者CC0模型，松树名义18m，橡树约8.6m；不是当地实测树种/树高，橡树为原始程序制作的建筑场景模型。许可证和可再分发不等于照片级视觉质量。此次独立[资源重建run38005959794](https://github.com/orriduck/chill-window/actions/runs/38005959794)实际成功取得公开原始文件、以固定@gltf-transform/cli4.5.1重建并校验SHA，root下载artifact后重新核查产物。松树537,348bytes/6,588tri/2材质/2张64²内嵌纹理；橡树708,996bytes/10,668tri/4材质/无外部贴图。源GLB、重建脚本、全部许可/源URL/SHA/参数/bbox及delivery-report随代码保留，不再依赖行驶时的第三方下载。两个资产检查直接读取实际二进制，验证本地buffers/images、节点变换后的米制包围盒、索引范围、三角形数与完整checksum。
+
+`GeoCloseTrees.ts`使用作者网格实例，保留原尺度与材质、加入近景阴影和80–115m距离过渡。`RealWorld.ts`仅在NLCD42常绿林、实际DEM可用、无建筑/轨道冲突的现有16m显示采样位置准备整段松树；位置不是树木调查。当前松树不得替换NLCD41/43的落叶/混交林。橡树只在调试对照显示。两种模型及内嵌纹理准备完成后才开始初始GPU提交、允许世界呈现；移动中只改变固定实例格的显隐。原松树贴片与模型过渡使用同一16m采样位置；远景原24m采样仍为低成本显示，不声称已验证过渡无跳变。
+
+先扩展`GeoInspector.ts`折叠诊断：独立常绿林近景模型开关、来源尺度对照开关、定位按钮、资源准备/距离筛选量读数；对照使用两个实际林地显示采样位置，18m松树和约8.6m橡树均不缩放。`cloud-visual-review.yml`新增模型隔离及关闭截图。专门的near-tree-visual-review分支仅运行初始准备和树模型对照，明确不包含连续路线/四站验收；主评估分支仍保留完整情景。静态资源校验、构建/lint不能证明画面自然，待云端截图实际检查。
+
+已核查安装的Three.js `WebGLObjects.js`对整份instanceMatrix/instanceColor attributes.update的调用及`WebGLRenderer.js`以object.count作renderInstances的实现。`core/Renderer.ts`仅在同步离屏提交中将每个实例批次draw count暂设为最多1，仍提交完整原属性缓冲，结束立即恢复原count/显隐/渲染目标，然后等待fence；减少整段实例森林预热的额外绘制。是否实际减少软件GPU耗时仍待该版本云端运行，不以源码推断称性能通过。
+
+OSM2World云端实验已完成转换：官方0.4.0、18个building way与209个引用节点、输出约3.28MB/630tri，但把3个缺高站房/遮棚补为7.5m体块，输入没有DEM且通用默认贴图不是本地立面照片。root已取得完整准备脚本的可检索记录，实际输入/manifest文本转交中；GLB尚未接入。该实验支持先隔离对比的决定，不覆盖当前缺高状态与开放结构规则。
+
+### 2026-10-09：当前 GPU 队列和树模型云端画面核查
+
+`6fd400c` 的 [云端运行](https://github.com/orriduck/chill-window/actions/runs/38005612742) 连续行驶880m、六次采样缺块/迟到均为0；实际查看 Peekskill 远城建筑、关闭远景和源教堂三张截图，定位与返回均49/49，修复了旧版可视区上传排在队尾导致空白的问题。远景仍主要是源足迹体块，不能写成真实逐栋立面完成。
+
+`503222f` 的 [完整云端运行](https://github.com/orriduck/chill-window/actions/runs/38006740292) 连续1040m、六次采样缺块/迟到均0，初次GPU预热7881ms；源树模型及显隐、远景地图返回、Cold Spring/Garrison/Manitou/Peekskill采样通过。实际查看 `02b-continuous-ride.png` 和 `03i-tree-source-models.png`：大部分林地仍呈交叉树卡，18m松树对照树冠过疏，阔叶/混合林尚未改成三维模型，不能作为“树木不动漫化”验收。源码尺度与准备成功不等于视觉合格。SwiftShader软件渲染检查不证明用户硬件帧率；全22.84km连续覆盖尚未验收。
+
+### 2026-10-09：OSM2World 建筑输出接入
+
+主要来源：[OSM2World](https://github.com/tordanik/OSM2World)、[默认样式/材质](https://github.com/tordanik/OSM2World-default-style)、[MetricMapProjection](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/math/geo/MetricMapProjection.java)、[MercatorProjection](https://github.com/tordanik/OSM2World/blob/master/core/src/main/java/org/osm2world/math/geo/MercatorProjection.java)。投影公式从作者源码核对，实际binary投影后地面顶点与现有OSM源足迹最大偏差0.0006442m。
+
+已取得 [Actions诊断运行](https://github.com/orriduck/chill-window/actions/runs/38008413794) 的实际GLB；该运行因跨环境原始SHA不同而失败，输出保留用于核对。历史原始SHA和交付SHA均保存在provenance，不宣称字节重建一致。当前导入15个有源height的建筑/586tri，排除3个默认补高对象。模型逐栋加当前DEM中心点地面高度并翻转Z及三角绕序，合并为两组PBR材质；同时预建原始体块作为对照，Debug Mode可定位和显隐。材质为CC0通用Plaster002/RoofingTiles010，没有取得当地立面照片，默认屋顶不标成实测。受影响代码：`GeoConvertedBuildings.ts`、`GeoConvertedBuildingRecords.ts`、`RealWorld.ts`、`GeoDistantBuildings.ts`、`GeoInspector.ts`；素材与具体SHA在 `public/models/osm2world/peekskill/provenance.json`。新版实际画面核查待云端artifact。
+
+`d7c7b2a` 的 [建筑隔离检查](https://github.com/orriduck/chill-window/actions/runs/38009285847) 已通过。已实际看PBR/原体块/返回列车截图；模型15/15、2合批、586tri，浏览器Float32坐标最大足迹误差0.0009m；全部图片49/49、缺块/迟到0，无请求或运行错误。初始GPU预热14960ms；此运行只覆盖初始准备及隔离建筑/返回，不包含完整连续路线。PBR图默认红瓦明显过饱和，未有当地颜色标签支持；因此后续材质保留既有源/中性颜色，仅从通用贴图提取低对比明度与减弱法线细节。此画面结论不表示真实逐栋立面完成。
+
+原始云端与Actions的18 source对象/36 primitive，独立按source ID与primitive整理accessor实际元素bytes（位置、法线、UV、索引）和材质名称，均得到SHA `a04a18fad2b7eaee14659d71bffaafde3f24ccbb00e5aca0b8d92db3ccdd2bb3` / 22,109B；6张内嵌纹理SHA也一致。JSON规范化及BIN原始chunk SHA仍不同，不宣称raw bytes可重现。新增明确的mesh/hash检查，并固定已观察Actions raw SHA，[591c3c1重建](https://github.com/orriduck/chill-window/actions/runs/38010556265)通过。保留两个不同的原始SHA和早期失败，不将调整验证口径写成初次检查已通过。
+
+树木候选补充：[Poly Haven Pine Tree 01](https://polyhaven.com/a/pine_tree_01)官方CC0，云端实际下载并打开Blender源文件；作者A树LOD2有416,451tri（叶片345,915tri），约20.4m高，有专用叶片alpha和真实纹理PBR。已保存完整重建脚本至 `scripts/experiments/polyhaven-pine/`，等待固定source manifest及Blender bootstrap后再在Actions生成可下载模型。它尚未接入或检查实际浏览器；不能用高面数或作者预览证明自然林目标已达成。早期25k整体简化没有被作为通过标准，后续应保留叶冠并作原生/减轻版本实际对比。Tree Small 02是4.6m Burkea africana；Jacaranda也未当成Hudson本地成熟树种。主要阔叶林模型仍缺，当前goal仍未完成。
+
+### 2026-10-09：全样板线路连续行驶与颜色修正版
+
+[150f076全线运行38009493345](https://github.com/orriduck/chill-window/actions/runs/38009493345)已通过并读取完整health：基于d7c7b2a，仅增加精确里程诊断和独立工作流，640×360 SwiftShader、正常速度、不跳转，从0实际推进到22837.381661575448m（恰好源线路终点）。95次采样缺块和累计迟到均0，初始GPU预热8352ms，终点49/49且待上传0，没有请求或运行错误。已实际看21.135km、终点及四站套件Peekskill图。此证据覆盖当前整条22.84km样板线路的连续准备，不等于完整Empire Service、硬件帧率、高分辨率所有视角或离线验收。终点树卡的轮廓与悬空感仍明显，树木目标未达成。
+
+[d7c7b2a完整交互运行38009280167](https://github.com/orriduck/chill-window/actions/runs/38009280167)已通过：另有700m连续六次缺块/迟到0，建筑原/PBR/隐藏、树模型、远地图返回、四站和移动视图保留，无请求失败。已读取health并看Peekskill图；站台/遮棚视觉仍需进一步完善，绿色地表和基础体块不能视为全部视觉完成。
+
+[b97483f颜色修正版38010134905](https://github.com/orriduck/chill-window/actions/runs/38010134905)已通过，实际查看PBR及原体块图：默认红色被移除，源/中性颜色保留，通用表面细节仍可见；15栋/586tri/2合批、足迹误差0.0009m，定位/显隐/返回均49/49且缺块/迟到0，无请求或运行错误。初始GPU预热14292ms。此运行只覆盖初次准备和隔离建筑/返回，不包含全线连续行驶；全线证据是上述150f076基于d7c7b2a的运行。[b97483f预览](https://chill-window-pokr0r9f4-orriduck.vercel.app/?world=hudson)已READY并核对提交与HTTP200。真正的立面/窗口、主要阔叶林与整段建筑视觉升级仍需继续。
+
+### 2026-10-10：原生纹理松树配方与阔叶候选实际文件
+
+原生松树 Actions 配方保留实际源 .blend 与18张贴图的 SHA/大小，固定官方下载 Blender4.4.3 的363,316,148B归档及SHA。原生416,451tri与只减枝干的381,180tri版本保持叶片accessor hash `0ae502cc8ceb0ff51013367cfe9b983aaece6e0b9a073bd8850a7bf64f0aedd6`，待实际输出校验完成；此内容尚未成为默认运行模型。首次[38014145361](https://github.com/orriduck/chill-window/actions/runs/38014145361)下载Blender遇到403；标准curl下载后已成功验证归档并导出两版。第二次[38014301825](https://github.com/orriduck/chill-window/actions/runs/38014301825)因验证器要求显式alphaCutoff而失败，实际glTF允许省略该属性，默认0.5；按[Khronos glTF2.0规范](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#_material_alphacutoff)修正，并按源名称比较纹理，未改变叶片hash要求。
+
+核对[Innerscene Mature silver birch](https://www.innerscene.com/tools/library/3d-parts/mature-silver-birch-tree-8e297753)作者页及其公开Download GLB链接，root实际取得4,902,236B文件，SHA `d1832a237f9e5d3728c7c6dc6e8e8243ac2984e51abe102cdf12bb996ca3dcc7`。源文件103mesh、52,476tri、5材质/5张64×64内嵌PNG，实际顶点及节点变换后的尺度8.185×14.000×7.791m，CC0 original_design。作者页的textured标记不能写成真实摄影纹理；尚未检查应用内树冠自然程度、未接入或替换主要阔叶林。下载临时原件为 `/tmp/chill-silver-birch-source.glb`，尚无运行代码引用。
+
+后续[c647543 / 38014443841](https://github.com/orriduck/chill-window/actions/runs/38014443841)已成功，实际取回原生24,328,860B及枝干版23,313,556B产物，root重新计算SHA分别为 `5b3b8c30cf28937e5e5193602e76e48878a24f81b58377dbbf3d2587d60a3ee8` 和 `6d6dbf39b0f2d0099df6cb12bea32e0d4f43de19a76bbce9b0188eeb2d5bf6db`，与之前云端相同；两版完整叶片hash一致、内嵌图像逐源名称hash相同。保留实际报告至 `scripts/experiments/polyhaven-pine/cloud-delivery-report.json`。此资源重建成功尚不表示浏览器自然外观通过，也尚未铺到运行世界。
+
+将上述实际GLB接入`GeoCloseTrees.ts`和`RealWorld.ts`的来源尺度对照，在同一现有林地显示采样点保留20.4m作者尺度/方向/地面位置；暂不覆盖主要森林。`GeoInspector.ts`折叠诊断增加版本选择，现有松树/新原生/仅减枝干版本使用同一机位，沿线林木在来源对照时隔离、退出调试恢复。所有版本初次加载验证真实字节SHA并随整世界GPU准备，选择只改显隐。两版各约23–24MB，不把它们称为已适合整片森林或PWA离线可用；本次原生416k与381k画面待云端检查。主要借鉴点为真实针叶RGB/alpha、树皮normal/roughness和作者枝叶结构；出处[Poly Haven原作者页](https://polyhaven.com/a/pine_tree_01)及上述固定源码/纹理清单。
+
+[0b2a1d5树模型运行38015041430](https://github.com/orriduck/chill-window/actions/runs/38015041430)通过，已读完整health并实际查看旧松树/原生/仅减枝干/隐藏/返回车窗五图。初次GPU预热14686ms，所有对照和返回49/49、缺块/迟到0，无请求或运行错误；此套件不含全线连续或四站。原生与减枝干图的轮廓一致，但地图相机minDistance=100把申请的近距离机位推远，树冠仍显细小/偏疏；不能以这几图判定主要森林自然目标达成。后续756e6a3放开12m最小距离、允许近水平观察，机位高于实际地面，并在来源对照时隔离区块线/路线帮助图形；待新图进一步判断针叶与树皮。桦树来源元数据不能证明摄影纹理，但用户目标是自然外观，所以增加同机位实际对照再判断，不因元数据预先当作合格或不合格。
+
+[4b5fa34完整运行38014046719](https://github.com/orriduck/chill-window/actions/runs/38014046719)失败：实际620m/六次缺块与迟到0，树显隐、建筑PBR/原体块/隐藏、远地图返回及Garrison跳转已记录为49/49；在随后Manitou重新载入世界时到达原1500秒执行时限，浏览器被终止。health明确runtimePassed=false，不能说完整四站通过；此前d7完整四站证据仍保留。已读取完整health与失败日志，此次将完整套件时限改为2400秒/45分钟job，覆盖余下世界重新准备和新增树对照；测试要求不减少。
+
+建筑补充研究：[USGS LiDAR Explorer](https://www.usgs.gov/tools/lidarexplorer)、[点云来源说明](https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it)、[实际2022片区记录](https://www.sciencebase.gov/catalog/item/66f3a453d34e791ae5dfa5a0)、[laspy分类/分块读示例](https://laspy.readthedocs.io/en/latest/examples.html)。实际查询和OSM源足迹保存在`scripts/experiments/peekskill-lidar/source-selection.json`。云端[ef7c17b首次扫描](https://github.com/orriduck/chill-window/actions/runs/38015443417)与[0d5e05e未分类点扫描](https://github.com/orriduck/chill-window/actions/runs/38016007012)均成功，读取实际报告：10,808,037B LAZ、1,740,009点，SHA `47b0fedc079e8c41fe65256058deb1d9cbc45b4bb417cb02d35f5c844f4e78cc`；2022项目、2024-09-23发布，WKT为NAD83(2011)/UTM18N加NAVD88/GEOID18、三轴米。源数据没有分类6，三栋足迹中分类1样本分别26,925/1,996/943；不能称其为已分类屋顶，可能包含树木。暂只保留真实观察用于后续屋顶归属/形状判断，没有改运行高度或造出新屋顶。
+
+另查[Westchester官方DSM服务](https://giswww.westchestergov.com/arcgis/rest/services/DigitalSurfaceModel/MapServer)、[2023航片服务](https://giswww.westchestergov.com/arcgis/rest/services/MappingWestchesterCounty_AerialPhoto2023/MapServer)。DSM服务目录没有提供本次可直接用的屋顶三维网格；航片元数据为2023-03-20、6英寸自然色正射，不能提供建筑立面。服务注明禁止exportTiles；本轮仅读取服务元数据，没有抓取瓦片、接入图片或宣称开放再分发许可。
+
+
+## 2026-10-09：Peekskill 真实 NAIP RGB 航片接入
+
+| 一手来源与实际产物 | 核查、用途及限制 | 关联代码 |
+| --- | --- | --- |
+| [NOAA NY NAIP 2022 官方索引](https://coastalimagery.blob.core.windows.net/digitalcoast/NY_NAIP_2022_9986/index.html)、[NOAA InPort 71609](https://www.fisheries.noaa.gov/inport/item/71609) | 原始 USDA-FSA APFO 四波段0.6m影像；采用1/2/3波段RGB，记录源文件、日期、字节数、SHA与CRS。NOAA要求派生产品署名APFO；瓦片日期2022-10-22来自文件名，不能混称本日拍摄。 | `scripts/experiments/naip-peekskill/`、`public/geodata/hudson/imagery/scene-raster.json` |
+| [实际云端重建](https://github.com/orriduck/chill-window/actions/runs/38019017382) | 源图446,297,038B，SHA `8c35fc499c0eec831baec91c1c03edf21f7f8dad4ca50b07076c997cb67a3bb1`。实际UTM RGB裁片686×934；再投影到EPSG3857成为696×944、978,340B的PNG，SHA `b52faa3730355e2c11ffa9599ad6a311e84fc3dac647d63151eac60b8e2355e0`。根任务已独立校验文件并查看实际PNG：可见铁路站台、停车场、道路、建筑屋顶及秋季树冠。没有增强颜色或生成图像。 | `GeoAerial.ts`、`RealWorld.ts`、`GeoConvertedBuildings.ts` |
+
+运行时由已校验Mercator范围转换到当前GeoData米制坐标，北向Z与PNG翻转保持一致；原图SRGB只解码一次，地表和朝上屋顶共享同一配准。保留裁片外现有数据表达，边界8m渐变；航片包含拍摄时的阴影、屋顶、树冠，贴在DEM上不能当成裸土地表或新立面。该裁片只有Peekskill局部覆盖，尚不代表整段航片完成。
+
+Debug折叠面板增加真实影像开关、定位裁片和来源/加载状态。图片和来源JSON均做SHA校验，参加出发前的共享资产准备和GPU离屏提交；开关只改统一shader值。新增云端同机位截图用于检查地理方向、地表/屋顶对齐和返回列车行为；本段添加时尚未取得本次运行结果，不能据构建通过宣称视觉验收。
+
+### 当前基线的完整连续行驶证据
+
+[完整交互38016848039](https://github.com/orriduck/chill-window/actions/runs/38016848039) 的2ca6f07实际health已读取：790m连续行驶6次采样缺块/延迟均0，四个车站经行画面、五个树版本、15栋建筑对照、远地图片区返回、390×844移动视口均执行，应用错误和请求失败为空。根任务查看Peekskill和移动截图仍见粗糙平面/树木表现，因此这只是运行与加载验证，不能当成视觉目标已达成。
+
+[整段连续行驶38017383186](https://github.com/orriduck/chill-window/actions/runs/38017383186) 的48507e0运行时代码与2ca6f07相同：实际从0连续到22837.381661575448m终点，78次采样缺块和延迟均0，终点49/49、待上传0、应用错误和请求失败为空。640×360 SwiftShader，不验证硬件FPS或离线体验；以上结果早于本次航片接入。
+
+
+## 2026-10-09：成熟阔叶树静态模型候选
+
+[EZ-Tree 作者仓库](https://github.com/dgreenheck/ez-tree/tree/dcf309bd86bd521083d9c70f01f2de45fdc7c457) 与[作者建模说明](https://tympanus.net/codrops/2025/01/27/fractals-to-forests-creating-realistic-3d-trees-with-three-js/)用于研究完整树冠、细枝和透明叶片。源代码/随附叶片为MIT，树皮Bark001按上游notice为AmbientCG CC0。固定Ash Large种子29919、Oak Large种子23399，离线导出同骨架LOD，不在运行时生成新地形、位置或树形。20m为LOD0展示比例，低级别保留作者扩大叶片的覆盖策略，实际高度约19.93–20.40m；这不是Hudson树种或树高测量。
+
+[实际静态资产重建38020479988](https://github.com/orriduck/chill-window/actions/runs/38020479988) 已成功：全部6个输出的原始云端GLB在还原标准roughness字段修正后SHA完全相同，验证完整几何、索引、嵌入图片与材质布局。源叶片1024×1024透明PNG SHA保持不变。Ash LOD1/2分别8,968/4,346三角形，Oak LOD1/2为9,240/5,364。实际GLB与report在根任务独立核对bytes/SHA后，四个LOD1/2作为同机位候选加入`GeoCloseTrees.ts`、`RealWorld.ts`和`GeoInspector.ts`。
+
+第一次准备工作流38020394215验证器误要求每个LOD外包高度精确20m；实际Ash LOD1为20.3969m。修正为验证统一缩放基准与原始云端完整内容，记录实际外包尺寸，没有改小叶片去通过检查。当前仍待应用内实际画面验收，主森林仍使用原有表示；不能据静态资产导出成功宣称树木视觉目标完成。
+
+
+### 2026-10-10：真实影像和阔叶候选的实际画面检查
+
+[Aerial 38020654610](https://github.com/orriduck/chill-window/actions/runs/38020654610) 的6a03cc3实际health和截图已读取：故意阻塞真实PNG下载时列车保持3123.283m；地表影像开关、建筑屋顶同机位、NLCD优先级、返回列车以及Peekskill车窗均执行。所有状态49/49、缺块/延迟均0，应用错误和请求失败为空，切换没有新增影像请求。查看03o/03p/03q/03r实际图片可见停车场、道路和屋顶颜色随影像开关改变；壁面仍是简化表示。第一次38019888721虽然这些步骤通过，却在保留旧3D页时启动第二页超时；关闭旧页后新运行通过，没有把原失败伪称完整通过。
+
+[全套交互38019887599](https://github.com/orriduck/chill-window/actions/runs/38019887599) 的0df40da实际health已读取：580m连续运动、四站经行、影像/建筑/五个旧树版本对照、远地检查返回及移动视口全执行，缺块/延迟/应用错误/失败请求均0。[整段38020041524](https://github.com/orriduck/chill-window/actions/runs/38020041524) 的c4b8743运行时代码与0df40da一致：0→22837.381661575448m真实连续运动，79次采样缺块/延迟均0，终点49/49、待GPU上传0。640×360 SwiftShader，硬件帧率和离线行为未验证。
+
+[阔叶对照38020892177](https://github.com/orriduck/chill-window/actions/runs/38020892177) 的cc9896a actual health已读取：9个实例66,203,204B在初始准备中加载，四个Ash/Oak LOD1/2同机位切换、隐藏和返回列车均完成，所有状态49/49、缺块/延迟0、无应用错误或失败请求。根任务查看四张实际模型图：LOD1树冠更连贯、细枝/叶片可辨，比旧桦树孤立的三层叶丛更适合沿线阔叶林；LOD2保留较少枝叶，更适合距离更远的配对表达。这是下一轮主森林替换的外观候选验证，当前主森林尚未替换。
+
+2026-10-10 主森林接入：`GeoCanopy.ts`把上述固定Ash/Oak LOD1/2用于既有16m林地样本，不修改OSM/NLCD边界、DEM或树木位置。模型源字节在出发前校验并加载一次，各区块实例随原有1536m前方队列建立；GPU缓冲上传回调与fence完成后才允许进入视野。35–60m两级模型、80–115m模型与旧轮廓使用互补屏幕阈值，避免先降低叶片alpha再截断导致树冠缩小。源常绿分类改用已核对的Poly Haven枝干版，范围60m；远景旧轮廓尚未替换。新增调试定位、40/90/150m观察和同机位模型开关；本段记录接入机制，实际外观与连续运行待云端检查，不据构建结果宣称完成。
+
+GPU准备参考当前Three.js185源代码 [`WebGLObjects`](https://github.com/mrdoob/three.js/blob/r185/src/renderers/webgl/WebGLObjects.js) 和 [`WebGLIndexedBufferRenderer`](https://github.com/mrdoob/three.js/blob/r185/src/renderers/webgl/WebGLIndexedBufferRenderer.js)：实例属性在绘制前上传，零实例不发起绘制。`Renderer.ts`对同几何/材质仅首次提交一个实例，其他批次提交零实例并逐属性观察实际上传；未观察到对应版本即报错，完成GPU同步前不发布准备标记。实际浏览器运行必须进一步验证，不能仅据代码推断上传成功。
+
+[主森林实际检查38024825045](https://github.com/orriduck/chill-window/actions/runs/38024825045)，运行代码1165006：故意延迟Ash LOD1下载时列车保持3123.283m；资源就绪后出发。40m同机位三维树/旧轮廓切换、90/150m观察、返回车窗与390×844视图均完成，9个模型文件各下载一次。连续608.17m的6次检查均49/49可视块、缺块/迟现0、视野未上传森林样本0，无应用错误和失败请求。已查看40m模型/旧轮廓、90m以及连续车窗四张真实截图：近处可见细枝、叶片与树皮，旧轮廓明显平面；远坡仍有旧轮廓点阵、地表单色与简化建筑，整体目标尚未完成。SwiftShader仅0–1FPS，不能据此宣称硬件流畅度或整段路线已验收。
+
+[八方向树模型重建38025151601](https://github.com/orriduck/chill-window/actions/runs/38025151601) 已成功。前两次失败分别为来源清单文件名、缺EGL库；修复环境与失败退出码后，读取同一固定源几何/纹理并由Blender4.0.2 Eevee输出16张512²透明PNG。根任务核对全部PNG实际bytes/SHA，查看两张8方向联系表：根部无悬空留白、冠形随角度连续变化。原始raw几何SHA和所有纹理完全相同，但16张PNG与原云端渲染的SHA均不同；不宣称跨渲染环境像素完全重现。保留完整配方、原云端记录以及本次实际manifest/report；还未接入远景森林。
+
+全线真实航片接入 `GeoCorridorImagery.ts` / `GeoAerial.ts`：采用上一轮已验证的141区块、3×4096²图集，元数据SHA `6c7f48d7...`及三PNG完整SHA均固定校验。按源Mercator栅格和GeoData原点映射，末行/列保留真实有效像素尺寸，alpha=0区域不补图；三张图集总35,723,083B。根任务读取实际PNG，443个源路线点均映射到alpha=255的源像素。连续坐标导数控制采样，避免跨图集偏移造成错误mip；2px边缘保护限制到mip1，远距离缩小/运动质量仍需云端画面检查。源图片含树冠和阴影，朝上屋顶为航片覆盖，不能据此称为真实立面或新测绘三维模型。当前构建通过，实际全线影像渲染尚待验证。
+
+### 全线真实 NAIP 图幅与静态atlas准备
+
+[实际全线重建38023192477](https://github.com/orriduck/chill-window/actions/runs/38023192477) 以当前world.json为准，在EPSG26918对443点路线两侧各缓冲1200m；官方图幅索引有7个相交候选，其中6个各有不可替代独占面积，六幅联合完全覆盖缓冲带。原图总2,531,739,152B，仅云端下载，逐幅SHA记录于`hudson-naip-corridor/observations/corridor-manifest.json`。不是完整纽约州下载。
+
+RGB降采样到EPSG3857的2.4投影米（本纬度约1.8地面米），形成141个427px JPEG+源覆盖mask；三张4096px RGBA PNG无额外调色地保存已解码JPEG像素，alpha来自实际route cutline/tile mask。不能声称恢复了GeoTIFF原始无损RGB。完整141块的RGB/alpha/边缘padding/PNG往返比较均在云端执行通过。根任务独立校验三张PNG和manifest的bytes/SHA，并查看实际Atlas01；三个PNG SHA与原云端观察相同：`ef06cfec...e2be33` / `569a2828...af89c` / `34aba2fd...ac45e`，完整值留在观察记录。scene-atlases.json为319,673B、SHA `6c7f48d7e977b64886f3d491153b2fab9d4e943be89d134433ca66a04ac15d57`。
+
+关联后续`GeoAerial.ts`的整段真实影像接入。当前只有Peekskill高分辨率裁片进入应用，以上全线atlas尚未导入运行时。采样器需要保护分块边缘和mipmap导数，世界位置信息不能从UTM矩形直接推断；还需沿线实际截图验收，不把数据准备成功当成应用效果已完成。

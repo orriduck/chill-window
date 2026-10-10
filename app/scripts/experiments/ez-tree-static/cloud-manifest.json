@@ -1,0 +1,64 @@
+{
+  "source": {
+    "repository": "https://github.com/dgreenheck/ez-tree",
+    "commit": "dcf309bd86bd521083d9c70f01f2de45fdc7c457",
+    "sourceLicense": "MIT; include upstream LICENSE with redistributed outputs",
+    "treeTypeCaveat": "Ash Large and Oak Large are author-defined procedural presets, not botanical surveys or Hudson-specific species models.",
+    "generatorBehavior": "The author source creates a deterministic skeleton per preset seed; generateLODs/createGeometry mesh alternate levels from that same skeleton.",
+    "threeJs": {
+      "version": "0.167.1 (r167 source build)",
+      "url": "https://raw.githubusercontent.com/mrdoob/three.js/r167/build/three.module.js",
+      "sha256": "5289ca2dfde8572bd7715b9fa2ca929db12bae87e9a2cb53e431662df7039506"
+    }
+  },
+  "textures": {
+    "leaf": {
+      "ash": {"source": "upstream src/app/public/textures/leaves/ash.png", "license": "MIT (bundled with ez-tree app)", "size": [1024, 1024], "mode": "palette PNG with transparency; alpha extrema 0..255", "sha256": "5ec987db3829a839856c32c79b18a33a78f209e911cad55c65abfb77f30e2d29"},
+      "oak": {"source": "upstream src/app/public/textures/leaves/oak.png", "license": "MIT (bundled with ez-tree app)", "size": [1024, 1024], "mode": "palette PNG with transparency; alpha extrema 0..255", "sha256": "24451223cf396d22910a4932b8bb996a7274e63d81e24128c96a430ab67822b1"}
+    },
+    "bark": {
+      "set": "AmbientCG Bark001 1K JPG: Color, NormalGL, Roughness",
+      "license": "CC0 1.0 (AmbientCG); upstream notice gives source and URLs",
+      "files": [
+        {"name": "Bark001_1K-JPG_Color.jpg", "bytes": 831490, "sha256": "2a7e8c742aa0110057d7a3ff0e8ec193c26ef23b77bc778fb9258c0e41b29474"},
+        {"name": "Bark001_1K-JPG_NormalGL.jpg", "bytes": 1270807, "sha256": "d7a275aa573a701d8814d7378abd8ea227f651ae6da33f8c57a6b862419e621e"},
+        {"name": "Bark001_1K-JPG_Roughness.jpg", "bytes": 397062, "sha256": "2c0829e7a04b78234357ac6eb93173667fab9191c4340343ce88dddfcca1e6fd"}
+      ],
+      "source": "https://ambientcg.com/view?id=Bark001"
+    },
+    "ezTreeLicenseSha256": "20e4afadfb10c67952b3d73cd2982d21d165ab4ae82b0dd9e4d6f2166ee349b6",
+    "textureNoticeSha256": "c4c67cf955536e61d9ac3fdf13830114edcd4c19c9aa0356ed0862cedf64140a"
+  },
+  "generation": {
+    "presetFiles": {
+      "ash_large.json": "fb630c9f4ae0e344c884f0380d23b35bd93af8924dc0244190b83811634d4f50",
+      "oak_large.json": "da60d7104796e5dc099effe778f22e055a8365549e2eb6cfa6fb0bb6a8190d6b"
+    },
+    "heightPolicy": "The preset source does not identify a physical unit or field-measured height. Export positions are uniformly scaled to an explicit 20m presentation height; that scale is an asset presentation choice, not a local measurement.",
+    "lods": [
+      {"label": "LOD0", "detail": {}},
+      {"label": "LOD1", "detail": {"sectionStride": 3, "segmentFactor": 0.75, "leafStride": 2, "leafScale": 1.25}},
+      {"label": "LOD2", "detail": {"sectionStride": 6, "segmentFactor": 0.4, "leafStride": 2, "leafScale": 1.3, "billboard": "single"}}
+    ],
+    "sameSkeleton": true,
+    "lodGeometry": "per-preset skeleton re-meshed by the upstream createGeometry(details); no tree RNG/skeleton regeneration between LODs",
+    "export": "Static GLB 2.0 files; leaf PNG is alpha MASK with cutoff 0.5 and double-sided material; PBR bark maps are embedded. No runtime tree generation or in-app geographic placement is included."
+  },
+  "models": [
+    {"file":"glb/ash-large-lod0-20m.glb","preset":"Ash Large","heightMeters":20,"triangles":{"branches":11832,"leaves":9680,"total":21512},"bytes":3712140,"sha256":"ad7a4a0726fdfca723110a0278ecfe2c41da7d7d7dd75ee398002be51947d260"},
+    {"file":"glb/ash-large-lod1-20m.glb","preset":"Ash Large","heightMeters":20,"triangles":{"branches":4128,"leaves":4840,"total":8968},"bytes":3172176,"sha256":"9ae62591ae5c3b778f7d2e8c447d53a1ff6c5f6cb3d99dc0932f3b9f02192eca"},
+    {"file":"glb/ash-large-lod2-20m.glb","preset":"Ash Large","heightMeters":20,"triangles":{"branches":1926,"leaves":2420,"total":4346},"bytes":2942712,"sha256":"7698e9586b72886c79eb6d92fb30b0dce99f7a2001a6dd4845afabd2ec64504a"},
+    {"file":"glb/oak-large-lod0-20m.glb","preset":"Oak Large","heightMeters":20,"triangles":{"branches":12006,"leaves":10560,"total":22566},"bytes":3839396,"sha256":"7531995d8678aa588cd86f4af97f7c930f3750df5ce357e15ec520e18792fe8f"},
+    {"file":"glb/oak-large-lod1-20m.glb","preset":"Oak Large","heightMeters":20,"triangles":{"branches":3960,"leaves":5280,"total":9240},"bytes":3257556,"sha256":"56c63de22a3f81e4f1517eed68e9ef99b548ce74137030aa01365e1bb7d57e68"},
+    {"file":"glb/oak-large-lod2-20m.glb","preset":"Oak Large","heightMeters":20,"triangles":{"branches":2724,"leaves":2640,"total":5364},"bytes":3039732,"sha256":"59c7b7da3ddd265f2c4e859163110db1fc7d239ff84ac153ae840ebd55ac6bd1"}
+  ],
+  "previews": [
+    {"file":"previews/ash-lod-comparison.png","sha256":"71e7f51200c4434ab47ad705980db82627c7998f0981e396278dbbd90db024bb"},
+    {"file":"previews/oak-lod-comparison.png","sha256":"df0eb400cf38dab23e880d3185bd2c66a55a70036c3a189d0c9bc00867e976f1"}
+  ],
+  "validation": {
+    "sourceGeometryCounts": "Counted from indexed Three.js BufferGeometry position/index arrays.",
+    "staticPreviews": "Rendered by Blender 4.0.2 Eevee using the same source geometry levels and embedded source textures; these are standalone comparison images, not Chill Window browser/GPU visual acceptance.",
+    "glbImport": "GLB headers and embedded buffer/accessor/image layouts were generated and size-checked; Blender's built-in glTF importer could not run in this container because its Python package dependency numpy is unavailable to Blender's bundled interpreter. Do not treat this as independent application-import validation."
+  }
+}
