@@ -1,0 +1,63 @@
+{
+  "checkedAtUtc": "2026-10-10T14:53:52Z",
+  "baseRevision": "adea0fea3ea514d2b4cfc76e34ab8c442dceb1bd",
+  "workspace": "/tmp/chill-cloud-review-checkout",
+  "delivery": "uncommitted; no push, deployment or browser/GPU run",
+  "sourceRun": "https://github.com/orriduck/chill-window/actions/runs/38045813068",
+  "checks": {
+    "fullSourcePackageVerifyOnly": "passed, existing source/input/audit/provenance checks and all 415 original GLB/texture files",
+    "deterministicTransport": "passed, two independent pack/index/constants/audit generations identical",
+    "originalCatalogProvenanceAuditRecords": "unchanged from HEAD",
+    "sourceSliceByteEqualityAndCatalogSha": "415 of 415 passed",
+    "indexRanges": "unique, contiguous, safe integer, complete coverage; tamper cases rejected",
+    "targetedVitest": { "filesPassed": 4, "testsPassed": 20, "testsFailed": 0 },
+    "changedFileEslint": "passed",
+    "typescriptAndViteBuild": "passed; existing >500kB JS chunk warning remains",
+    "cloudAndPrecacheScriptSyntax": "passed, including one strict-ready PNG RAF freeze/resume helper",
+    "workflowYamlAndBounds": "passed, exact branch push/manual guard, 25 minute job, 1200s script, independent concurrency and always-upload PNG/JSON/logs only",
+    "genericWorkflowChange": "only exact codex/building-transport-review branch skip; old capture body unchanged",
+    "gitDiffCheck": "passed"
+  },
+  "narrowQaReviewFix": {
+    "checkedAtUtc": "2026-10-10T15:05:18Z",
+    "changedScope": "cloud capture script and its README/check report only; runtime/assets/workflows unchanged",
+    "clockSampling": "continues to presentable AND GPU idle/completed count > 0 AND pending upload 0 AND exact coverage 49",
+    "nodeClockGateChecks": "passed, early presentable/fence/never-completed/pending-upload/48-tile progress rejected for focus and segment; complete gate accepted",
+    "offlineTrust": "all 3 asset hashes independently pinned to source record constants; pack 25160336/index 59502 bytes required before parsing and cross-binding index",
+    "nodeOfflineChecks": "passed on actual local source bytes; damaged pack/index/catalog and truncated index rejected with mocked offline fetch",
+    "scriptSyntaxAndWorkflowYamlBounds": "passed; exact workflow branch and time limits unchanged",
+    "gitDiffCheck": "passed",
+    "runtimeBuildAnd20Tests": "not repeated; runtime unchanged from prior verified candidate",
+    "actualCloudBrowserProof": "pending; Node mocks do not prove actual SW, GPU, clock or PNG behavior"
+  },
+  "artifacts": {
+    "catalogSha256": "7d45e8588ea45b130766ae79b60f463ab7764a464023dc58e7e118f0a8390919",
+    "packBytes": 25160336,
+    "packSha256": "4cd4c0b455ef3395e7fcfc0a5f27c0b115d5a3dc93a2d3c864bfb3c7cf719374",
+    "indexBytes": 59502,
+    "indexSha256": "5a616693fa4744f970408138dfff7ab739642e5e75125148509488ad2b8e3777",
+    "transportAuditBytes": 470,
+    "buildings": 5853,
+    "modelSlices": 415,
+    "textures": 16,
+    "textureBytes": 4984364
+  },
+  "generatedServiceWorker": {
+    "precacheEntries": 79,
+    "uniqueUrls": 75,
+    "packIndexCatalogEachExactlyOnce": true,
+    "hudsonStandaloneModelsCached": 0,
+    "excludedHudsonStandaloneModels": 415,
+    "retainedSharedTextures": 16,
+    "retainedTreeGlbs": 9,
+    "unrelatedExistingIconDuplicateEntries": 4
+  },
+  "pending": [
+    "Real-browser one-pack request count, actual GLTF parsing/shared image Sources and held-pack clock/train gate",
+    "Actual GPU fence and 49/49 current coverage readiness",
+    "Separate SW-enabled cache installation and offline building pack/index/catalog hash proof",
+    "Actual PNG capture and human visual inspection",
+    "Hardware performance and whole-route/whole-world offline acceptance"
+  ],
+  "cloudRecipe": "README.md, .github/workflows/building-transport-review.yml and app/scripts/capture-building-transport.cjs; dedicated exact branch skips the old generic 415-model assertion"
+}

@@ -475,3 +475,13 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 [Actions run 38056889707](https://github.com/orriduck/chill-window/actions/runs/38056889707)，候选commit `2306b53be8011eecb4f87f6a11fde37aaebee09b`，2026-10-10实际失败。下载artifact的`health.json`及唯一`2790m-01-default-background-on.png`（本轮直接查看原PNG，路径`/tmp/chill-terrain-overlap-2306b53/`）：第一张巨大平滑坡仍遮住近中景，不能称修复有效。背景关闭的第二条健康状态为2790m、49/49、暂停默认视角、GPU idle且无应用/请求错误；但page.screenshot在字体加载完成后90秒超时，第二张PNG不存在，无法据此比较土坡来源。
 
 `capture-terrain-overlap.cjs`限定截图阶段的RAF冻结候选：导航前包装原生RAF，保留一次性/取消语义；原49/49门控另外要求真实GPU idle/待上传0，字体完成和两个真实帧后冻结新与待执行应用回调，让SwiftShader提交帧完成合成，截图finally恢复。源几何/影像/相机/shader与准备状态均不修改。每次捕获写实际PNG成功/失败标志、字节、冻结前后sceneFrame/回调计数，要求没有场景推进；仍七处28张图，不把状态读数算作已取得图片。只有脚本语法、队列小型验证与差异检查，浏览器结果仍待下一轮云端运行。
+
+## 2026-10-10：建筑无损传输与真实准备门控
+
+本轮来源沿用上文[成功源批次 38045813068](https://github.com/orriduck/chill-window/actions/runs/38045813068)、仓库原始 `app/public/models/osm2world/hudson/catalog.json`（SHA `7d45e8588ea45b130766ae79b60f463ab7764a464023dc58e7e118f0a8390919`）和 `provenance.json`。轻量源码/字节核查：原 `GeoConvertedBuildings.ts` 的四个异步 worker 将415次 GLB fetch、SHA与parseAsync耦合，每轮还做源足迹/高度验证与合批；`GeoCorridorBuildingAssets.ts` 已共享16张图片Source。[旧浏览器实际报告 38047928868](https://github.com/orriduck/chill-window/actions/runs/38047928868)的415模型/16图片请求是此前已归档观察，本轮没有重新运行旧报告。`Home.tsx`原focus/segment clock在ride开始便递增，而列车需等待world.ready及GPU fence，导致准备时间进入专注计时。
+
+本轮只改变传输与准备状态：按原清单顺序逐字节串接415 GLB，无压缩、padding、重新导出或几何改写。`package-runtime.py`保留完整源输入/转换审查，并追加逐片原文件完全相等、catalog SHA、唯一连续安全整数范围及整包覆盖核对；所有415片通过。整包25,160,336B、SHA `4cd4c0b455ef3395e7fcfc0a5f27c0b115d5a3dc93a2d3c864bfb3c7cf719374`，索引59,502B、SHA `5a616693fa4744f970408138dfff7ab739642e5e75125148509488ad2b8e3777`；原清单、provenance、模型与16图片4,984,364B不变。独立 `building-transport-audit.json` 记录全部片段无损结果，不修改原来源证明。
+
+`GeoCorridorBuildingAssets.ts`一次fetch整包并校验SHA，原四worker按需复制/校验一片，再按原虚拟tile目录调用原GLTFLoader/shared-image handler；`../textures`、sampler、UV与colorspace保留，解析结束释放整包，错误/取消/销毁清理所有本对象资源，无独立GLB隐藏回退。`ThreeCanvas.tsx`将实际worldReady/presentable开放给`Home.tsx`，focus/segment/dwell均受准备完成、明确暂停与俯视检查状态门控，不通过速度猜测准备或停站；原world.ready/GPU fence/49覆盖门控保留。Debug先新增实际传输请求/字节/SHA片数、下载/校验/解析/合批/全世界/GPU时长；PWA只排除Hudson415原GLB precache，纳入pack/index/catalog，保留树GLB和共享图片。
+
+本轮没有新增实景外观推断，也不宣称性能加速、浏览器请求数量、GPU或视觉验收已通过。云端held-pack及SW独立证明脚本/未检查范围见 [QA记录与执行配方](docs/visual-checks/2026-10-10-building-transport/README.md)，实施计划见 `docs/superpowers/plans/2026-10-10-building-transport-readiness.md`。专用 `building-transport-review.yml`只允许exact `codex/building-transport-review`分支push/manual执行，25分钟job、1200秒脚本边界，始终上传小型PNG/JSON/log；通用旧工作流仅加该分支skip，旧捕获体与地形工作流不变。一张实际ready后暂停乘客PNG沿用既有RAF冻结/恢复契约；实际PNG与云端报告仍待执行，不因YAML/语法核查通过便声称截图成功。

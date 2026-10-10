@@ -1,0 +1,62 @@
+name: Building transport and readiness review
+
+on:
+  push:
+    branches: ['codex/building-transport-review']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chill-building-transport-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    if: github.ref == 'refs/heads/codex/building-transport-review'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Build and audit actual service worker
+        run: |
+          mkdir -p "$RUNNER_TEMP/chill-building-transport"
+          npm --prefix app ci
+          npm --prefix app run build > "$RUNNER_TEMP/chill-building-transport/build.log" 2>&1
+          node app/scripts/check-building-precache.mjs > "$RUNNER_TEMP/chill-building-transport/precache.json"
+      - name: Prepare cloud Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/chill-playwright" --no-package-lock --no-audit --no-fund playwright@1.64.0
+          "$RUNNER_TEMP/chill-playwright/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check held pack, real clocks, GPU coverage and independent SW cache
+        env:
+          CW_CLOUD_QA: '1'
+          CW_CAPTURE_SHA: ${{ github.sha }}
+        run: |
+          npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-building-transport/server.log" 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --silent --fail http://127.0.0.1:4173/ > /dev/null
+          export PW_MODULE_PATH="$RUNNER_TEMP/chill-playwright/node_modules/playwright"
+          export CW_CAPTURE_DIR="$RUNNER_TEMP/chill-building-transport"
+          timeout 1200s node app/scripts/capture-building-transport.cjs
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: building-transport-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/chill-building-transport/*.json
+            ${{ runner.temp }}/chill-building-transport/*.png
+            ${{ runner.temp }}/chill-building-transport/*.log
+          if-no-files-found: error
+          retention-days: 7

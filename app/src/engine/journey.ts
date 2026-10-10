@@ -3,6 +3,12 @@ import type { TimeOfDay } from './time';
 
 export type Mode = 'free' | 'pomodoro';
 
+/** A stopped train may be dwelling or just beginning to accelerate. Clock
+ * permission comes from preparation and explicit pause/inspection, never speed. */
+export function journeyClockDelta(dt: number, state: { presentable: boolean; paused: boolean; inspecting: boolean }) {
+  return state.presentable && !state.paused && !state.inspecting ? dt : 0;
+}
+
 export interface JourneyPlan {
   segments: { name: string; focusSec: number }[]; // 每段骑行（专注时间）
   dwellSec: number; // 每次经停休息时长

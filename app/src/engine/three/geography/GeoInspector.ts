@@ -306,12 +306,17 @@ export class GeoInspector {
     this.aerialStats.textContent = `真实航片 ${aerial.ready ? '已准备' : '加载中'} · ${aerial.enabled ? '显示' : '关闭 / NLCD对照'}\n${aerial.width} × ${aerial.height} 像素 · ${aerial.bytes.toLocaleString()} B · ${(aerial.areaMetresSquared / 1000000).toFixed(3)}km²\n2022 NAIP RGB · 原像素0.6m · 日期${aerial.date}（瓦片文件名）\n地表 / 朝上屋顶共享同一地理配准；图片和来源记录均已校验，参与初始GPU准备。`
     this.aerialStats.textContent += `\n全线 ${corridor.ready ? '已准备' : '加载中'} · ${corridor.blocks} 区块 / ${corridor.atlases} 图集 · ${corridor.bytes.toLocaleString()} B\n覆盖mask约 ${(corridor.areaMetresSquared / 1000000).toFixed(2)}km² · 2.4m Mercator采样；远处缩小与拼接仍需画面检查。`
     const converted = world.convertedBuildings.stats
+    const transport = world.convertedBuildings.transportStats
     this.convertedCase.disabled = !converted.ready
     Object.assign(this.convertedStats.dataset, { ready: String(converted.ready), buildings: String(converted.buildings), total: String(converted.total),
       tiles: String(converted.tiles), totalTiles: String(converted.totalTiles), sourceTags: String(converted.sourceTags), sourceEstimates: String(converted.sourceEstimates),
       openRoofs: String(converted.openRoofs), textures: String(converted.textures), imageSources: String(converted.imageSources), modelBytes: String(converted.modelBytes), textureBytes: String(converted.textureBytes),
       enabled: String(this.layers.convertedBuildings), visible: String(this.layers.buildings && world.presentable) })
+    Object.assign(this.convertedStats.dataset, Object.fromEntries(Object.entries(transport).map(([key, value]) => [key, String(value)])), {
+      prepareMs: String(converted.prepareMs), batchMs: String(converted.batchMs),
+    })
     this.convertedStats.textContent = `转换建筑 ${converted.ready ? '已准备' : '加载中'} · ${converted.buildings}/${converted.total} 栋 · ${converted.meshes} 合批 · ${converted.triangles} 三角形\n全线 ${converted.tiles}/${converted.totalTiles} 区块 · 源高度标签 ${converted.sourceTags} · 上游估高 ${converted.sourceEstimates} · 开放屋顶 ${converted.openRoofs}\n共享图片 ${converted.textures} 文件 / ${converted.textureBytes.toLocaleString()} B · 模型 ${converted.modelBytes.toLocaleString()} B\n足迹最大误差 ${converted.maxAlignmentErrorMetres.toFixed(4)}m · 窗面偏移 ${converted.maxWindowOffsetMetres.toFixed(3)}m（转换器外观）\n${converted.rejectedDefaults} 个无源高度对象保留原轮廓；原体块与PBR模型都在初始GPU预热中提交，切换只改变可见性。`
+    this.convertedStats.textContent += `\n传输 ${transport.transportMode} · 模型HTTP请求 ${transport.modelRequests} · 已下载 ${transport.downloadedModelBytes.toLocaleString()} B · 整包SHA ${transport.packVerified ? '通过' : '待校验'}\n分片SHA ${transport.slicesVerified}/415 · 已解析 ${transport.slicesParsed}/415 · 保留整包 ${transport.retainedPackBytes.toLocaleString()} B\n下载/整包SHA ${transport.downloadMs.toFixed(0)}/${transport.packHashMs.toFixed(0)}ms · 分片SHA累计 ${transport.sliceHashMs.toFixed(0)}ms\n解析累计/跨度 ${transport.parseMs.toFixed(0)}/${transport.parseWallMs.toFixed(0)}ms · 合批 ${converted.batchMs.toFixed(0)}ms · 建筑准备总计 ${converted.prepareMs.toFixed(0)}ms（含投影/源验证）`
     const trees = world.closeTrees.stats, samples = world.treeComparison.stats
     const canopy = world.canopy.stats
     this.forestCase.disabled = !canopy.ready
@@ -368,6 +373,10 @@ export class GeoInspector {
       gpuGroups: String(stats.groups), gpuElapsedMs: String(Math.round(elapsed)), gpuCompleted: String(stats.completed),
     })
     this.streamingStats.textContent += `\nGPU 当前批次 ${stats.sequence} · ${stats.phase} · ${stats.groupIndex + 1}/${stats.groups} · ${elapsed.toFixed(0)}ms · 完成 ${stats.completed}`
+  }
+  setWorldPreparation(phase: string, presentable: boolean, elapsedMs: number) {
+    Object.assign(this.streamingStats.dataset, { preparationPhase: phase, presentable: String(presentable), wholePrepareMs: String(elapsedMs) })
+    this.streamingStats.textContent += `\n整世界准备 ${phase} · ${(elapsedMs / 1000).toFixed(1)}s · 可呈现 ${presentable}`
   }
   private onDown = (event: PointerEvent) => { this.lastPointer = [event.clientX, event.clientY] }
   private onUp = (event: PointerEvent) => {

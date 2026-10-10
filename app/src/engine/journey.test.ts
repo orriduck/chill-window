@@ -1,5 +1,26 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DepartureScheduler, journeyBannerText } from './journey'
+import { DepartureScheduler, journeyBannerText, journeyClockDelta } from './journey'
+
+describe('journey preparation clock gate', () => {
+  it('holds focus and segment progress through source and GPU preparation, then advances while stationary', () => {
+    let focus = 0, segment = 0
+    const tick = (seconds: number, presentable: boolean, paused = false, inspecting = false) => {
+      const elapsed = journeyClockDelta(seconds, { presentable, paused, inspecting })
+      focus += elapsed; segment += elapsed
+    }
+    tick(45, false) // held source pack
+    tick(20, false) // decoded world, GPU fence still pending
+    expect([focus, segment]).toEqual([0, 0])
+    tick(3, true) // departure may still be stationary; readiness owns the gate
+    expect([focus, segment]).toEqual([3, 3])
+    tick(10, true, true); tick(15, true, false, true)
+    expect([focus, segment]).toEqual([3, 3])
+    tick(5, false) // later preparation error holds clocks again
+    expect([focus, segment]).toEqual([3, 3])
+    tick(2, true)
+    expect([focus, segment]).toEqual([5, 5])
+  })
+})
 
 describe('journey passenger banner', () => {
   const base = { paused: false, dwelling: false, approaching: false, stationName: 'Willow Bend' }

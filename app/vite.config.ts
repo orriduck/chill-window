@@ -49,7 +49,11 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff2,glb}', 'geodata/hudson/world.json', 'geodata/hudson/elevation.f32'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff2,glb}', 'geodata/hudson/world.json', 'geodata/hudson/elevation.f32',
+          'models/osm2world/hudson/buildings.pack.bin', 'models/osm2world/hudson/buildings.pack.index.json', 'models/osm2world/hudson/catalog.json'],
+        // Preserve original models for source audits, but cache their lossless
+        // transport once. Do not exclude tree GLBs or the 16 shared textures.
+        globIgnores: ['models/osm2world/hudson/tile-*/buildings.glb'],
         // Authored source-tree comparisons are local 23–24MB GLBs and must
         // remain available alongside the prepared scene after installation.
         maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,

@@ -17,6 +17,10 @@ import { DebugMode } from './core/DebugMode'
 const MAX_DT = 0.1
 export type WeatherPreset = WeatherType | 'auto'
 export interface TrainMotionTelemetry { speedKmh: number; speedRatio: number; acceleration: number }
+export interface WorldPreparation {
+  phase: 'loading' | 'preparing' | 'gpu' | 'ready' | 'error'
+  presentable: boolean; elapsedMs: number; error?: string
+}
 export interface TrainControl {
   setSpeed: (speed: number) => void
   setPaused: (paused: boolean) => void
@@ -24,6 +28,7 @@ export interface TrainControl {
   getGrade: () => number
   getRouteContext: () => { currentLabel: string; nextLabel: string }
   getMotion: () => TrainMotionTelemetry
+  getPreparation: () => WorldPreparation
   setWindowHud: (readout: WindowHudReadout) => void
   getWindowHudAnchor: () => WindowHudControlAnchor | null
   getWindowHudControlHitAreas: () => WindowHudControlHitArea[]
@@ -35,14 +40,15 @@ export interface TrainControl {
   resetView: () => void
   hideStation: () => void
 }
-interface ThreeCanvasProps { className?: string; controlRef?: RefObject<TrainControl | null>; timePreset?: TimeOfDayPreset; weatherPreset?: WeatherPreset; onTerrainEditingChange?: (active: boolean) => void }
+interface ThreeCanvasProps { className?: string; controlRef?: RefObject<TrainControl | null>; timePreset?: TimeOfDayPreset; weatherPreset?: WeatherPreset; onTerrainEditingChange?: (active: boolean) => void; onPreparationChange?: (state: WorldPreparation) => void }
 
 /** The exterior is always built from the bundled Hudson GIS/USGS snapshot.
  * There is no procedural-world initializer or alternate route mode here. */
-export default function ThreeCanvas({ className, controlRef, timePreset = 'day', weatherPreset = 'auto', onTerrainEditingChange }: ThreeCanvasProps) {
+export default function ThreeCanvas({ className, controlRef, timePreset = 'day', weatherPreset = 'auto', onTerrainEditingChange, onPreparationChange }: ThreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
   const onInspectionChange = useRef(onTerrainEditingChange)
+  const preparationListener = useRef(onPreparationChange)
   const environment = useRef<((time: TimeOfDayPreset, weather: WeatherPreset) => void) | null>(null)
   const settings = useRef({ timePreset, weatherPreset })
   useEffect(() => {
@@ -50,10 +56,19 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     environment.current?.(timePreset, weatherPreset)
   }, [timePreset, weatherPreset])
   useEffect(() => { onInspectionChange.current = onTerrainEditingChange }, [onTerrainEditingChange])
+  useEffect(() => { preparationListener.current = onPreparationChange }, [onPreparationChange])
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+    const preparationStarted = performance.now()
+    let preparationPhase: WorldPreparation['phase'] = 'loading', preparationError: string | undefined
+    let preparationMs: number | null = null
+    const reportPreparation = (phase: WorldPreparation['phase'], error?: string) => {
+      preparationPhase = phase; preparationError = error
+      preparationListener.current?.({ phase, presentable: phase === 'ready', elapsedMs: performance.now() - preparationStarted, error })
+    }
+    reportPreparation('loading')
     const scene = new Scene3D()
     const interiorScene = new THREE.Scene()
     const exteriorGroup = new THREE.Group(); exteriorGroup.name = 'real-hudson-exterior'; scene.add(exteriorGroup)
@@ -62,7 +77,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     const camera = new TrainCamera()
     let renderer: WebGLRenderer
     try { renderer = new WebGLRenderer() }
-    catch { if (controlRef) controlRef.current = null; container.dataset.webgl = 'unavailable'; scene.dispose(); interiorScene.clear(); return }
+    catch { if (controlRef) controlRef.current = null; reportPreparation('error', 'WebGL unavailable'); container.dataset.webgl = 'unavailable'; scene.dispose(); interiorScene.clear(); return }
     const sky = new SkyDome()
     const time = new TimeOfDay(settings.current.timePreset)
     const weather = new WeatherSystem(); weather.setOverride(settings.current.weatherPreset === 'auto' ? null : settings.current.weatherPreset)
@@ -87,11 +102,13 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     let gpuChunkInFlight = false
     let motionSampleTime = performance.now(), motionSampleZ = camera.z, measuredSpeed = 0, previousTime = motionSampleTime
     const abort = new AbortController()
-    const motionSpeed = () => paused || debug.isTopDown || !world ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH
+    const motionSpeed = () => paused || debug.isTopDown || !worldReady ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH
     if (controlRef) controlRef.current = {
       setSpeed: speed => { requestedSpeed = speed; pendingDeparture = false; if (worldReady) camera.setTargetSpeed(speed) }, setPaused: value => { paused = value }, getZ: () => camera.z, getGrade: () => camera.grade,
       getRouteContext: () => ({ currentLabel: camera.z < 11420 ? 'Hudson Highlands · 真实路线' : 'Empire Service · Hudson Valley', nextLabel: 'Empire Service · 南行' }),
-      getMotion: () => ({ speedKmh: motionSpeed(), speedRatio: motionSpeed() / CRUISE_SPEED_KMH, acceleration: paused || debug.isTopDown || !world ? 0 : camera.acceleration }),
+      getMotion: () => ({ speedKmh: motionSpeed(), speedRatio: motionSpeed() / CRUISE_SPEED_KMH, acceleration: paused || debug.isTopDown || !worldReady ? 0 : camera.acceleration }),
+      getPreparation: () => ({ phase: preparationPhase, presentable: worldReady && world?.presentable === true,
+        elapsedMs: preparationMs ?? performance.now() - preparationStarted, error: preparationError }),
       setWindowHud: readout => {
         const stations = data?.stations.filter(station => station.inCurrentRoute).sort((a, b) => a.sMetres - b.sMetres) ?? []
         const nearest = stations.find(station => station.sMetres >= camera.z) ?? stations.at(-1)
@@ -116,12 +133,14 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       if (disposed) return
       const query = new URLSearchParams(window.location.search)
       const startS = THREE.MathUtils.clamp(Number(query.get('routeMetres') ?? route.checkpoints[0].s), 0, route.length)
+      reportPreparation('preparing')
       data = route; world = new RealWorld(route, startS); exteriorGroup.add(world.group)
       camera.setZ(startS)
       camera.setRailProfile({ height: s => route.railHeight(s), grade: s => route.railGrade(s) }); inspector.setData(route)
       void world.ready
         .then(async () => {
           if (!disposed && world) {
+            reportPreparation('gpu')
             const prepared = world.captureGpuChunks()
             await renderer.warmup(scene.scene, camera.getCamera(), world.group)
             if (!disposed) world.markGpuChunks(prepared)
@@ -130,12 +149,13 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
         .then(() => {
           if (!disposed && world) {
             world.gpuWarmupMs = renderer.warmupMs; world.presentable = true; worldReady = true
+            preparationMs = performance.now() - preparationStarted; reportPreparation('ready')
             if (pendingDeparture) { camera.departStation(requestedSpeed); pendingDeparture = false }
             else camera.setTargetSpeed(requestedSpeed)
           }
         })
-        .catch(error => { if (!disposed) inspector.fail(`场景预热失败：${error.message}`) })
-    }).catch(error => { if (!disposed && error.name !== 'AbortError') inspector.fail(error.message) })
+        .catch(error => { if (!disposed) { reportPreparation('error', error.message); inspector.fail(`场景预热失败：${error.message}`) } })
+    }).catch(error => { if (!disposed && error.name !== 'AbortError') { reportPreparation('error', error.message); inspector.fail(error.message) } })
 
     let pointer: number | null = null, lastX = 0, lastY = 0
     const endDrag = (event: PointerEvent) => { if (pointer !== event.pointerId) return; pointer = null; canvas.style.cursor = 'grab'; if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId) }
@@ -163,9 +183,9 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       }
       if (command.time) time.setPreset(command.time)
       if (command.weather) weather.setOverride(command.weather === 'rain' ? WeatherType.RAIN : WeatherType.CLEAR)
-      const inspection = debug.isTopDown, simulationDt = paused || inspection || !world ? 0 : dt
+      const inspection = debug.isTopDown, simulationDt = paused || inspection || !worldReady ? 0 : dt
       inspector.setEditing(inspection, camera.z)
-      if (!paused && !inspection && world) elapsed += motionDt
+      if (!paused && !inspection && worldReady) elapsed += motionDt
       if (data && world && camera.targetSpeed > 0 && data.length - camera.z <= TrainCamera.STATION_STOP_DISTANCE) camera.beginStationApproach(data.length)
       const nextS = camera.z + Math.max(camera.currentSpeed, camera.targetSpeed) * motionDt
       world?.prepareAdvance(worldReady && !inspection ? nextS : null)
@@ -190,12 +210,13 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
           gpuChunkInFlight = true
           void renderer.preload(scene.scene, camera.getCamera(), prepared)
             .then(() => { if (!disposed) world?.markGpuChunks(prepared) })
-            .catch(error => { if (!disposed && world) { worldReady = false; world.presentable = false; inspector.fail(`区块 GPU 预热失败：${error.message}`) } })
+            .catch(error => { if (!disposed && world) { worldReady = false; world.presentable = false; reportPreparation('error', error.message); inspector.fail(`区块 GPU 预热失败：${error.message}`) } })
             .finally(() => { gpuChunkInFlight = false })
         }
       }
       inspector.update(camera.z, world)
       inspector.setGpuPreparation(renderer.preparation)
+      inspector.setWorldPreparation(preparationPhase, worldReady, preparationMs ?? now - preparationStarted)
       const cabinDarkness = Math.max(state.starOpacity, tunnel); interiorAmbient.intensity = THREE.MathUtils.lerp(0.85, 0.4, cabinDarkness); interiorKey.intensity = THREE.MathUtils.lerp(0.65, 0.2, cabinDarkness)
       windowFrame.update(viewCamera, elapsed, weather.current === WeatherType.RAIN, Math.min(1, camera.currentSpeed / CRUISE_SPEED), tunnel, ambient.intensity)
       const savedFogNear = fog.near, savedFogFar = fog.far
@@ -211,6 +232,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     window.addEventListener('resize', resize)
     return () => {
       disposed = true; abort.abort(); cancelAnimationFrame(rafRef.current); window.removeEventListener('resize', resize)
+      preparationListener.current?.({ phase: 'loading', presentable: false, elapsedMs: 0 })
       environment.current = null
       canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', endDrag); canvas.removeEventListener('pointercancel', endDrag); canvas.removeEventListener('dblclick', doubleClick)
       if (controlRef) controlRef.current = null

@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { TimeOfDay } from '@/engine/time';
 import { TrainAudio } from '@/engine/audio';
 import {
-  DepartureScheduler, buildFreeJourney, buildPomodoroJourney, journeyBannerText, suggestStops,
+  DepartureScheduler, buildFreeJourney, buildPomodoroJourney, journeyBannerText, journeyClockDelta, suggestStops,
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
 } from '@/engine/journey';
 import { TrainFront, Volume2, VolumeX, Maximize, Minimize, Flag, Play, Pause, Coffee, RotateCcw, Settings2 } from 'lucide-react';
 import { CabinOverlay } from '@/components/CabinOverlay';
 import { TrainCamera } from '@/engine/three/core/Camera';
-import ThreeCanvas, { type TrainControl, type WeatherPreset } from '@/engine/three/ThreeCanvas';
+import ThreeCanvas, { type TrainControl, type WeatherPreset, type WorldPreparation } from '@/engine/three/ThreeCanvas';
 import type { WindowHudControlAnchor, WindowHudControlHitArea } from '@/engine/three/interior/WindowFrame';
 
 type Phase = 'setup' | 'ride' | 'dwell' | 'done' | 'abort';
@@ -46,11 +46,16 @@ interface HudState {
   approaching: boolean;
   hudAnchor: WindowHudControlAnchor | null;
   hudControlHitAreas: WindowHudControlHitArea[];
+  preparation: WorldPreparation;
+  focusElapsed: number;
+  segmentElapsed: number;
 }
 
 export default function Home() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const trainControlRef = useRef<TrainControl | null>(null);
+  const preparationRef = useRef<WorldPreparation>({ phase: 'loading', presentable: false, elapsedMs: 0 });
+  const onPreparationChange = useCallback((state: WorldPreparation) => { preparationRef.current = state; }, []);
   const audioRef = useRef<TrainAudio | null>(null);
   const planRef = useRef<JourneyPlan | null>(null);
   const originRef = useRef<string>('');
@@ -92,6 +97,7 @@ export default function Home() {
 
   const [hud, setHud] = useState<HudState>({
     phase: 'setup', focusLeft: 0, dwellLeft: 0, segIdx: 0, segCount: 0, nextStation: '', speedKmh: 0, distance: 0, grade: 0, routeLabel: 'Open fields', nextRouteLabel: 'Woodland', approaching: false, hudAnchor: null, hudControlHitAreas: [],
+    preparation: { phase: 'loading', presentable: false, elapsedMs: 0 }, focusElapsed: 0, segmentElapsed: 0,
   });
 
   // 主循环
@@ -109,6 +115,8 @@ export default function Home() {
       const plan = planRef.current;
       const phase = phaseRef.current;
       const trainControl = trainControlRef.current;
+      const preparation = trainControl?.getPreparation() ?? preparationRef.current;
+      const clockDt = journeyClockDelta(dt, { presentable: preparation.presentable, paused: pausedRef.current, inspecting: terrainEditingRef.current });
       const motion = typeof trainControl?.getMotion === 'function' ? trainControl.getMotion() : undefined;
       const speedKmh = motion?.speedKmh ?? 0;
       if (plan && (phase === 'ride' || phase === 'dwell')) {
@@ -117,11 +125,11 @@ export default function Home() {
           acceleration: motion?.acceleration ?? 0,
         });
 
-        if (!paused && phase === 'ride') {
+        if (clockDt > 0 && phase === 'ride') {
           distanceRef.current += speedKmh * dt / 3600;
           const seg = plan.segments[segIdxRef.current];
-          segElapsedRef.current += dt;
-          focusDoneRef.current += dt;
+          segElapsedRef.current += clockDt;
+          focusDoneRef.current += clockDt;
           const left = seg.focusSec - segElapsedRef.current;
           if (!stationPreparedRef.current && left <= TrainCamera.STATION_BRAKE_SECONDS * 2 && trainControlRef.current) {
             stationPreparedRef.current = true;
@@ -144,8 +152,8 @@ export default function Home() {
               trainControlRef.current?.setSpeed(0);
             }
           }
-        } else if (!paused && phase === 'dwell') {
-          dwellLeftRef.current -= dt;
+        } else if (clockDt > 0 && phase === 'dwell') {
+          dwellLeftRef.current -= clockDt;
           if (dwellLeftRef.current <= 0) {
             segIdxRef.current += 1;
             segElapsedRef.current = 0;
@@ -184,6 +192,7 @@ export default function Home() {
           hudControlHitAreas: typeof trainControl?.getWindowHudControlHitAreas === 'function'
             ? trainControl.getWindowHudControlHitAreas()
             : [],
+          preparation, focusElapsed: focusDoneRef.current, segmentElapsed: segElapsedRef.current,
         });
       }
     };
@@ -221,7 +230,7 @@ export default function Home() {
       au.start();
     }
     phaseRef.current = 'ride';
-    setHud((p) => ({ ...p, phase: 'ride', focusLeft: plan.totalFocusSec }));
+    setHud((p) => ({ ...p, phase: 'ride', focusLeft: plan.totalFocusSec, focusElapsed: 0, segmentElapsed: 0 }));
   }, [mode, focusMin, stops, rounds]);
 
   const doAbort = useCallback(() => {
@@ -319,7 +328,7 @@ export default function Home() {
   const focusDone = plan ? plan.totalFocusSec - hud.focusLeft : 0;
   const gradePercent = Math.abs(hud.grade * 100);
   const gradeLabel = gradePercent < 0.05 ? 'Level' : hud.grade > 0 ? 'Uphill' : 'Downhill';
-  const journeyBanner = journeyBannerText({
+  const journeyBanner = !hud.preparation.presentable ? hud.preparation.phase === 'error' ? 'View unavailable' : 'Preparing your view' : journeyBannerText({
     paused: isPaused,
     dwelling: hud.phase === 'dwell',
     approaching: hud.approaching,
@@ -345,13 +354,16 @@ export default function Home() {
   }, [focusDone, gradeLabel, gradePercent, hud, isFullscreen, isPaused, journeyBanner, plan, riding, sound]);
 
   return (
-    <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none">
+    <div ref={wrapRef} className="relative h-screen w-screen overflow-hidden bg-black select-none"
+      data-journey-phase={hud.phase} data-world-presentable={hud.preparation.presentable}
+      data-focus-elapsed-seconds={hud.focusElapsed} data-segment-elapsed-seconds={hud.segmentElapsed}>
       <ThreeCanvas
         className="absolute inset-0"
         controlRef={trainControlRef}
         timePreset={tod}
         weatherPreset={weatherPreset}
         onTerrainEditingChange={onTerrainEditingChange}
+        onPreparationChange={onPreparationChange}
       />
 
       {!terrainEditing && <CabinOverlay />}
@@ -461,6 +473,10 @@ export default function Home() {
       {/* ================= 行驶 HUD ================= */}
       {riding && !terrainEditing && (
         <>
+          {!hud.preparation.presentable && <div role="status" aria-label="Journey preparation" className="pointer-events-none absolute left-1/2 top-24 z-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border border-white/15 bg-black/65 px-5 py-3 text-center text-sm text-white backdrop-blur-md">
+            <div>{hud.preparation.phase === 'error' ? 'Unable to prepare your view' : 'Preparing your view…'}</div>
+            <div className="mt-1 text-xs text-white/60">{hud.preparation.phase === 'error' ? 'Your focus timer is held. Reload to try again.' : 'Your focus timer will begin when the view is ready.'}</div>
+          </div>}
           <div className="journey-controls pointer-events-none absolute inset-0 z-20">
             {hud.hudControlHitAreas[0] && <button onClick={togglePause} className="journey-control rounded-full" title={isPaused ? 'Resume journey' : 'Pause journey'} aria-label={isPaused ? 'Resume journey' : 'Pause journey'}
               style={{ left: `${hud.hudControlHitAreas[0].x * 100}%`, top: `${hud.hudControlHitAreas[0].y * 100}%`, width: `${hud.hudControlHitAreas[0].width * 100}%`, height: `${hud.hudControlHitAreas[0].height * 100}%` }}>{isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}</button>}

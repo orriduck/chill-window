@@ -29,11 +29,12 @@ export class GeoConvertedBuildings {
   readonly focusPoint = new THREE.Vector3()
   readonly stats = { ready: false, total: corridorBuildingTotal, buildings: 0, rejectedDefaults: 957, triangles: 0, meshes: 0,
     tiles: 0, totalTiles: 415, sourceTags: 0, sourceEstimates: 0, openRoofs: 0, textures: 0, imageSources: 0, modelBytes: 0, textureBytes: 0,
-    maxAlignmentErrorMetres: 0, maxWindowOffsetMetres: 0, prepareMs: 0 }
+    maxAlignmentErrorMetres: 0, maxWindowOffsetMetres: 0, prepareMs: 0, batchMs: 0 }
   private geometries = new Set<THREE.BufferGeometry>()
   private materials = new Set<THREE.Material>()
   private disposed = false
   private assets = new GeoCorridorBuildingAssets()
+  get transportStats() { return this.assets.stats }
   private data: GeoData
   private groundAt: (x: number, z: number) => number | null
   private aerial: GeoAerial
@@ -95,6 +96,7 @@ export class GeoConvertedBuildings {
     if (this.stats.imageSources !== catalog.textures.length) throw new Error('建筑解析未共享同一图片Source')
     if (this.stats.buildings !== catalog.totalBuildings || this.stats.modelBytes !== catalog.modelBytes
       || this.stats.sourceTags !== catalog.sourceTags || this.stats.sourceEstimates !== catalog.sourceEstimates || this.stats.openRoofs !== catalog.openRoofs) throw new Error('完整建筑准备数量或来源统计不匹配')
+    const batchStarted = performance.now()
     for (const [region, bucket] of this.convertedBuckets) {
       this.aerial.install(bucket.material, true)
       this.addBatch(bucket.geometries, bucket.material, this.converted, region)
@@ -105,6 +107,7 @@ export class GeoConvertedBuildings {
     this.materials.add(originalMaterial); this.aerial.install(originalMaterial, true)
     for (const [region, geometries] of this.originalBuckets) this.addBatch(geometries, originalMaterial, this.originals, region)
     this.originalBuckets.clear()
+    this.stats.batchMs = performance.now() - batchStarted
     this.stats.ready = true; this.stats.prepareMs = performance.now() - started
   }
 
