@@ -40,6 +40,7 @@ jobs:
           CW_CAPTURE_SHA: ${{ github.sha }}
           CW_TREE_REVIEW_ONLY: ${{ (github.ref_name == 'codex/near-tree-visual-review' || github.ref_name == 'codex/broadleaf-tree-visual-review') && '1' || '0' }}
           CW_BUILDING_REVIEW_ONLY: ${{ github.ref_name == 'codex/converted-building-review' && '1' || '0' }}
+          CW_AERIAL_REVIEW_ONLY: ${{ github.ref_name == 'codex/aerial-visual-review' && '1' || '0' }}
         run: |
           mkdir -p "$RUNNER_TEMP/chill-visual"
           npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-visual/server.log" 2>&1 &
@@ -76,6 +77,7 @@ jobs:
               buildingSource: await page.getByLabel('建筑来源记录详情', { exact: true }).textContent(),
               treeModels: await page.getByLabel('三维树模型准备诊断', { exact: true }).textContent(),
               convertedBuildings: await page.getByLabel('转换建筑准备诊断', { exact: true }).textContent(),
+              aerial: await page.getByLabel('真实航片准备诊断', { exact: true }).textContent(),
               capturedAt: new Date().toISOString(),
               viewport: page.viewportSize() });
             await fs.writeFile(path.join(output, 'health.json'), JSON.stringify(health, null, 2));
@@ -158,6 +160,48 @@ jobs:
             await page.getByLabel('真实地理林木', { exact: true }).check();
             health.convertedBuildingControlsVerified = true;
           }
+          async function reviewRealImagery() {
+            const initialPosition = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
+            await page.getByRole('button', { name: '定位真实航片片区', exact: true }).click();
+            await ready();
+            const diagnostic = page.getByLabel('真实航片准备诊断', { exact: true });
+            health.aerial = await diagnostic.textContent();
+            if (!['真实航片 已准备', '696 × 944', '978,340 B', '2022-10-22'].every(value => health.aerial.includes(value))) throw new Error(`Real imagery not prepared: ${health.aerial}`);
+            if (await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres') !== initialPosition) throw new Error('Locating aerial imagery moved train');
+            await page.getByLabel('真实地理林木', { exact: true }).uncheck();
+            await page.getByLabel('真实地理道路', { exact: true }).uncheck();
+            await page.getByLabel('真实地理建筑', { exact: true }).uncheck();
+            await page.getByLabel('真实地表影像', { exact: true }).check();
+            await ready();
+            await snapshot('03o-real-aerial-ground');
+            const loadedBeforeToggle = [...health.aerialRequests];
+            await page.getByLabel('真实地表影像', { exact: true }).uncheck();
+            await ready();
+            if (await diagnostic.getAttribute('data-enabled') !== 'false') throw new Error('Aerial switch did not disable imagery');
+            await snapshot('03p-aerial-off-same-camera');
+            await page.getByLabel('真实地表影像', { exact: true }).check();
+            await page.getByLabel('真实地理建筑', { exact: true }).check();
+            await ready();
+            if (await diagnostic.getAttribute('data-enabled') !== 'true') throw new Error('Aerial switch did not restore imagery');
+            await snapshot('03q-real-aerial-buildings');
+            await page.getByRole('button', { name: '定位转换建筑', exact: true }).click();
+            await ready();
+            await snapshot('03r-real-aerial-roof-close');
+            await page.getByLabel('真实地表影像', { exact: true }).uncheck();
+            await ready();
+            await snapshot('03s-generic-roof-same-camera');
+            await page.getByLabel('真实地表影像', { exact: true }).check();
+            await page.getByLabel('真实地理NLCD 分类对照', { exact: true }).check();
+            await ready();
+            if (await diagnostic.getAttribute('data-enabled') !== 'false') throw new Error('Aerial suppressed source classification');
+            await snapshot('03t-source-classification-with-aerial-loaded');
+            await page.getByLabel('真实地理NLCD 分类对照', { exact: true }).uncheck();
+            await page.getByLabel('真实地理林木', { exact: true }).check();
+            await page.getByLabel('真实地理道路', { exact: true }).check();
+            await ready();
+            if (JSON.stringify(loadedBeforeToggle) !== JSON.stringify(health.aerialRequests)) throw new Error('Aerial toggle downloaded new assets');
+            health.aerialControlsVerified = true;
+          }
           (async () => {
             try {
               browser = await chromium.launch({ headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'] });
@@ -173,14 +217,25 @@ jobs:
               });
               let releaseRaster;
               const rasterHold = new Promise(resolve => { releaseRaster = resolve; });
-              await page.route('**/geodata/hudson/landcover.u8', async route => { await rasterHold; await route.continue(); });
+              const heldRaster = process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
+              health.aerialRequests = [];
+              page.on('request', request => { if (request.url().includes('/geodata/hudson/imagery/')) health.aerialRequests.push(request.url()); });
+              await page.route(heldRaster, async route => { await rasterHold; await route.continue(); });
               await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=3123.283', { waitUntil: 'domcontentloaded' });
               await boardInDaylight(async () => {
                 health.earlyBoardStatus = await page.getByLabel('真实地理加载状态', { exact: true }).textContent();
-                if (health.earlyBoardStatus.includes('场景就绪')) throw new Error('Early boarding did not precede required land-cover loading');
+                if (health.earlyBoardStatus.includes('场景就绪')) throw new Error('Early boarding did not precede required source loading');
+                if (process.env.CW_AERIAL_REVIEW_ONLY === '1') {
+                  await page.waitForFunction(() => Number.isFinite(Number(document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres)) && !!document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres, null, { timeout: 180000 });
+                  const before = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
+                  await page.waitForTimeout(3000);
+                  const after = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
+                  if (before !== after) throw new Error('Train moved before real aerial image loaded');
+                  health.departureWaitedForRealImagery = { before, after, heldRaster };
+                }
                 releaseRaster();
               });
-              await page.unroute('**/geodata/hudson/landcover.u8');
+              await page.unroute(heldRaster);
               const departure = await page.getByLabel('地理运动门控', { exact: true }).textContent();
               if (!departure.includes('请求/目标速度 44.4/44.4m/s')) throw new Error(`Queued departure was lost: ${departure}`);
               health.earlyBoardDepartureVerified = true;
@@ -195,6 +250,27 @@ jobs:
               await page.waitForFunction(initial => document.querySelector('[aria-label="真实列车位置"]')?.textContent !== initial, initialPosition, { timeout: 90000 });
               health.movementVerified = true;
               await snapshot('02-cold-spring-ride-moving');
+              if (process.env.CW_AERIAL_REVIEW_ONLY === '1') {
+                health.scope = 'Real NAIP ground/roof alignment, source-toggle and initial preparation. Whole-route continuity and hardware performance are not assessed';
+                await page.keyboard.press('F5');
+                await page.getByLabel('真实路线检查', { exact: true }).waitFor({ state: 'visible' });
+                await page.getByText('数据来源与加载诊断', { exact: true }).click();
+                await reviewRealImagery();
+                await page.keyboard.press('Escape');
+                await ready();
+                await snapshot('03u-real-imagery-return-to-train');
+                const checkpoint = await context.newPage();
+                page = checkpoint;
+                page.on('console', message => health.console.push({ level: message.type(), text: message.text() }));
+                page.on('pageerror', error => health.console.push({ level: 'pageerror', text: String(error) }));
+                page.on('requestfailed', request => health.requestFailures.push({ url: request.url(), error: request.failure()?.errorText }));
+                await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=21083.575', { waitUntil: 'domcontentloaded' });
+                await boardInDaylight();
+                await snapshot('03v-peekskill-real-imagery-ride');
+                health.runtimePassed = !health.console.some(item => ['error', 'pageerror'].includes(item.level)) && !health.requestFailures.length;
+                if (!health.runtimePassed) process.exitCode = 1;
+                return;
+              }
               if (process.env.CW_BUILDING_REVIEW_ONLY === '1') {
                 health.scope = 'Initial GPU preparation, source-aligned converted buildings, visibility comparison and return to train; continuous whole-route coverage is not included';
                 await page.keyboard.press('F5');
@@ -246,6 +322,7 @@ jobs:
               await page.getByText('数据来源与加载诊断', { exact: true }).click();
               await reviewTreeModels();
               await reviewConvertedBuildings();
+              await reviewRealImagery();
               await page.getByRole('button', { name: '定位 Peekskill 源建筑案例', exact: true }).click();
               await ready();
               health.buildingCaseSource = await page.getByLabel('建筑来源记录详情', { exact: true }).textContent();

@@ -24,7 +24,7 @@ export class GeoInspector {
   private jump: HTMLButtonElement
   private time = document.createElement('select')
   private weather = document.createElement('select')
-  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, convertedBuildings: true, closeTrees: true, treeSamples: false, water: true, farmland: true, stations: true, sourceLandCover: false }
+  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, convertedBuildings: true, closeTrees: true, treeSamples: false, water: true, farmland: true, stations: true, sourceLandCover: false, realImagery: true }
   private pending: GeoCommand = {}
   private data: GeoData | null = null
   private real = true
@@ -45,6 +45,8 @@ export class GeoInspector {
   private treeModel = document.createElement('select')
   private convertedStats = document.createElement('output')
   private convertedCase: HTMLButtonElement
+  private aerialStats = document.createElement('output')
+  private aerialCase: HTMLButtonElement
   private world: RealWorld | null = null
   private lastPointer: [number, number] = [0, 0]
   private canvas: HTMLCanvasElement
@@ -116,6 +118,24 @@ export class GeoInspector {
     }
     const diagnostics = document.createElement('details'), summary = document.createElement('summary')
     summary.textContent = '数据来源与加载诊断'; summary.style.cssText = 'cursor:pointer;font-size:12px;margin-top:14px;'
+    const aerialLabel = document.createElement('label'), aerialInput = document.createElement('input')
+    aerialInput.type = 'checkbox'; aerialInput.checked = true; aerialInput.setAttribute('aria-label', '真实地表影像')
+    aerialInput.onchange = () => { this.layers.realImagery = aerialInput.checked }
+    aerialLabel.append(aerialInput, document.createTextNode('真实地表影像 · Peekskill'))
+    this.aerialCase = this.button('定位真实航片片区', () => {
+      if (!this.world?.aerial.stats.ready) return
+      const point = this.world.aerial.focusPoint
+      if (this.data) { this.progress.value = String(this.data.nearestRoute(point.x, point.z).s); this.refreshPreview() }
+      const damping = this.controls.enableDamping; this.controls.enableDamping = false; this.controls.update()
+      this.controls.target.copy(point); this.camera.position.set(point.x + 4, point.y + 650, point.z - 80)
+      this.controls.update(); this.controls.enableDamping = damping
+    })
+    this.aerialCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
+    this.aerialStats.setAttribute('aria-label', '真实航片准备诊断'); this.aerialStats.style.cssText = this.streamingStats.style.cssText
+    const aerialNotice = document.createElement('p')
+    aerialNotice.textContent = 'USDA-FSA APFO / NOAA Digital Coast，2022 NAIP原始RGB。Peekskill局部航片贴合真实DEM，并按地理坐标覆盖朝上的屋顶；不提供建筑立面或逐株树模型。影像含拍摄时的树冠、阴影和屋顶，不能当作裸土地表。原图0.6m，2022-10-22日期来自瓦片文件名。出发前完成下载、校验与GPU准备；切换只改变显示。'
+    aerialNotice.style.cssText = notes.style.cssText
+    const aerialCredit = document.createElement('a'); aerialCredit.textContent = 'USDA-FSA APFO 航片 · NOAA 来源'; aerialCredit.href = 'https://www.fisheries.noaa.gov/inport/item/71609'; aerialCredit.target = '_blank'; aerialCredit.rel = 'noopener noreferrer'; aerialCredit.style.cssText = 'font-size:11px;color:#506b51;'
     this.treeStats.setAttribute('aria-label', '三维树模型准备诊断'); this.treeStats.style.cssText = this.streamingStats.style.cssText
     const treeLayers = document.createElement('div'); treeLayers.style.cssText = layers.style.cssText
     for (const [key, name] of [['closeTrees', '常绿林近景三维树'], ['treeSamples', '树模型来源尺度对照']] as const) {
@@ -170,7 +190,7 @@ export class GeoInspector {
     const convertedNotice = document.createElement('p')
     convertedNotice.textContent = 'Peekskill 15栋有源高度建筑，OSM2World离线转换并对齐当前DEM。勾选对比PBR通用材质；取消显示原来的源足迹体块。未导入3个默认补高对象。墙面/屋顶贴图及无标签屋顶形态为转换器的表现假设，不是当地照片。'
     convertedNotice.style.cssText = notes.style.cssText
-    diagnostics.append(summary, treeLayers, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
+    diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
@@ -223,6 +243,12 @@ export class GeoInspector {
   update(s: number, world: RealWorld | null) {
     if (!this.real || !this.data || !world) return
     this.world = world
+    const aerial = world.aerial.stats
+    this.aerialCase.disabled = !aerial.ready
+    this.aerialStats.dataset.enabled = String(aerial.enabled)
+    this.aerialStats.dataset.bytes = String(aerial.bytes)
+    this.aerialStats.dataset.worldBounds = world.aerial.uniforms.geoAerialBounds.value.toArray().join(',')
+    this.aerialStats.textContent = `真实航片 ${aerial.ready ? '已准备' : '加载中'} · ${aerial.enabled ? '显示' : '关闭 / NLCD对照'}\n${aerial.width} × ${aerial.height} 像素 · ${aerial.bytes.toLocaleString()} B · ${(aerial.areaMetresSquared / 1000000).toFixed(3)}km²\n2022 NAIP RGB · 原像素0.6m · 日期${aerial.date}（瓦片文件名）\n地表 / 朝上屋顶共享同一地理配准；图片和来源记录均已校验，参与初始GPU准备。`
     const converted = world.convertedBuildings.stats
     this.convertedCase.disabled = !converted.ready
     this.convertedStats.textContent = `转换建筑 ${converted.ready ? '已准备' : '加载中'} · ${converted.buildings}/15 栋 · ${converted.meshes} 合批 · ${converted.triangles} 三角形\n源高度匹配 · 足迹最大误差 ${converted.maxAlignmentErrorMetres.toFixed(4)}m · 排除 ${converted.rejectedDefaults} 个默认补高对象\n原体块与PBR模型都在初始GPU预热中提交；切换只改变可见性。`
