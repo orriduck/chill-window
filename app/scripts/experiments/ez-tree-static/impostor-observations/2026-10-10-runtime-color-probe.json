@@ -1,0 +1,139 @@
+{
+  "date": "2026-10-10",
+  "runtimeCommit": "dd89df281a77e46eb374f399815820d7cb1f2d9c",
+  "run": "https://github.com/orriduck/chill-window/actions/runs/38046187379",
+  "visualResult": "Actual 150m and 650m screenshots inspected; distant crowns remain excessively dark. Full review failed waiting for Manitou 48/49 chunks; no application/request errors.",
+  "scope": "Read-only first-frame PNG opaque/edge colour analysis; not a bake correction or visual acceptance.",
+  "hypotheses": [
+    "Studio-lit source frames may be relit by runtime Lambert lighting.",
+    "sRGB premultiplied alpha handling may still lose edge colour. Neither hypothesis is proved by this colour summary alone."
+  ],
+  "species": [
+    {
+      "species": "ash",
+      "atlasSha256": "8f9451bfe6739bc78653643c9b34e9943bb227372ed5a01f242424781c42f9af",
+      "cellBoxPixels": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "ranges": [
+        {
+          "alphaInclusive": [
+            255,
+            255
+          ],
+          "pixels": 53710,
+          "medianRGB8": [
+            25.0,
+            33.0,
+            20.0
+          ],
+          "meanRGB8": [
+            27.416347048966674,
+            36.72593557996649,
+            22.145466393595235
+          ]
+        },
+        {
+          "alphaInclusive": [
+            128,
+            254
+          ],
+          "pixels": 12011,
+          "medianRGB8": [
+            28,
+            38,
+            23
+          ],
+          "meanRGB8": [
+            29.97135958704521,
+            41.43093830655233,
+            24.74473399383898
+          ]
+        },
+        {
+          "alphaInclusive": [
+            1,
+            127
+          ],
+          "pixels": 5735,
+          "medianRGB8": [
+            29,
+            41,
+            25
+          ],
+          "meanRGB8": [
+            31.613426329555363,
+            43.53234524847428,
+            26.405754141238013
+          ]
+        }
+      ]
+    },
+    {
+      "species": "oak",
+      "atlasSha256": "7d2790429dcaad36403ddf5477de095453f95d05102bf849db0adc58b9c81a82",
+      "cellBoxPixels": [
+        0,
+        0,
+        512,
+        512
+      ],
+      "ranges": [
+        {
+          "alphaInclusive": [
+            255,
+            255
+          ],
+          "pixels": 60722,
+          "medianRGB8": [
+            27.0,
+            32.0,
+            18.0
+          ],
+          "meanRGB8": [
+            28.960113303250882,
+            35.988883765356874,
+            19.770379763512402
+          ]
+        },
+        {
+          "alphaInclusive": [
+            128,
+            254
+          ],
+          "pixels": 7019,
+          "medianRGB8": [
+            33,
+            41,
+            23
+          ],
+          "meanRGB8": [
+            34.79441515885454,
+            43.90269269126656,
+            24.03020373272546
+          ]
+        },
+        {
+          "alphaInclusive": [
+            1,
+            127
+          ],
+          "pixels": 4281,
+          "medianRGB8": [
+            36,
+            45,
+            25
+          ],
+          "meanRGB8": [
+            37.204858677879,
+            47.11516000934361,
+            26.514599392665264
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -434,3 +434,8 @@ RGB降采样到EPSG3857的2.4投影米（本纬度约1.8地面米），形成141
 `GeoCorridorBuildingAssets.ts` 校验固定清单与全部文件，16张图片各解码一次，通过本地Three.js GLTFLoader实际使用的 `LoadingManager.getHandler` / `loadImageSource` 接口共享ImageBitmap/THREE.Source；每个glTF纹理保留自己的采样器、颜色空间和UV变换。`GeoConvertedBuildings.ts` 同步声明精确替换ID，4路加载各区块静态模型，按各自输入经纬原点进行Mercator比例与南北反射/绕序校正，按1024m区域及材质合批。原体块对照同时构建，开放屋顶对照也是屋顶面；既有实际GPU预热与出发门控未绕过。通用墙面/窗面材质和屋顶厚度仍为converter外观，不宣称当地照片或LiDAR重建。
 
 Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量、共享文件与字节数读数，再安排云端同机位PBR/原体块/隐藏比较、四站区景观和故意延迟单GLB的出发测试。构建与7个既有GeoData测试通过；当前尚无新完整建筑运行时的浏览器画面验收。Cloud旧工作区连接报告environment_offline，旧批次语义指纹对比未完成，不把本次实际成功模型与旧批次宣称为raw字节一致。树冠修正和全线连续行驶验收仍独立待完成。
+
+
+实际 [`dd89df2` 云端检查38046187379](https://github.com/orriduck/chill-window/actions/runs/38046187379) 已结束失败：20个状态和树冠开关均执行，延迟Oak时保持3123.283m，应用/请求错误为空；随后Manitou180秒等待超时，终态48/49、59块待GPU，批次19处于fence等待17.073秒、已完成18批。实际CRC校验取得150m/650m源树冠PNG并查看，远坡仍显著过黑，预乘alpha修正不能称视觉通过。只读颜色调查记录在`impostor-observations/2026-10-10-runtime-color-probe.json`：第一帧不透明像素Ash/Oak绿色通道中位值分别33/32（8-bit）。源帧本身很暗；烘焙光照与运行时Lambert再次打光、sRGB透明采样仍需分别核验，尚未基于该统计自动增亮或声称根因已全部确定。
+
+完整建筑运行时`373dd04`已提交独立`codex/building-visual-review`；[38047928868](https://github.com/orriduck/chill-window/actions/runs/38047928868)真实浏览器检查仍在运行。独立规格及代码审查均通过；源码/资产包装、7个既有GeoData测试、tsc/Vite构建通过。Vercel部署`dpl_EEqdpYT2d5UcsozoZanFWSQoCnQt` READY、commit373dd04；[独立预览](https://chill-window-br40qi270-orriduck.vercel.app/?world=hudson)HTML、`index-B6bS_xCI.js`和catalog实际HTTP200，线上清单SHA与已校验包装一致。文件交付不等于画面/交互验收；PR188仍保持先前9df已检查基线，未将待验收改动推入该head。
