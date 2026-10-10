@@ -86,12 +86,12 @@ export class GeoAerial {
         .replace('#include <begin_vertex>', '#include <begin_vertex>\ngeoAerialPosition = position; geoAerialUp = normal.y;')
       shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\nuniform sampler2D geoAerial;\nuniform vec4 geoAerialBounds;\nuniform float geoAerialEnabled;\nvarying vec3 geoAerialPosition;\nvarying float geoAerialUp;\n${corridorShader}`)
         .replace('#include <roughnessmap_fragment>', `
-if (geoAerialEnabled > 0.5${roofOnly ? ' && geoAerialUp > 0.55' : ''}) {
+if (geoAerialEnabled > 0.5${roofOnly ? ' && geoAerialUp > 0.55 && gl_FrontFacing' : ''}) {
   vec4 source = geographicCorridorSample(geoAerialPosition.xz);
   diffuseColor.rgb = mix(diffuseColor.rgb, source.rgb, source.a);
 }
 vec2 aerialUv = (geoAerialPosition.xz - geoAerialBounds.xy) / (geoAerialBounds.zw - geoAerialBounds.xy);
-if (geoAerialEnabled > 0.5 && all(greaterThanEqual(aerialUv, vec2(0.0))) && all(lessThanEqual(aerialUv, vec2(1.0)))${roofOnly ? ' && geoAerialUp > 0.55' : ''}) {
+if (geoAerialEnabled > 0.5 && all(greaterThanEqual(aerialUv, vec2(0.0))) && all(lessThanEqual(aerialUv, vec2(1.0)))${roofOnly ? ' && geoAerialUp > 0.55 && gl_FrontFacing' : ''}) {
   vec3 aerialRgb = texture2D(geoAerial, aerialUv).rgb;
   vec2 edgeMetres = min(aerialUv, vec2(1.0) - aerialUv) * (geoAerialBounds.zw - geoAerialBounds.xy);
   // The RGB warp's out-of-crop pixels are zero. Keep their original terrain
@@ -101,7 +101,7 @@ if (geoAerialEnabled > 0.5 && all(greaterThanEqual(aerialUv, vec2(0.0))) && all(
 }
 #include <roughnessmap_fragment>`)
     }
-    material.customProgramCacheKey = () => `${key}-real-naip-${roofOnly ? 'roof' : 'ground'}-v2-corridor`
+    material.customProgramCacheKey = () => `${key}-real-naip-${roofOnly ? 'roof' : 'ground'}-v3-corridor`
     material.needsUpdate = true
   }
   dispose() { this.disposed = true; this.uniforms.geoAerial.value.dispose(); this.corridor.dispose() }

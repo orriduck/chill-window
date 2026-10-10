@@ -43,7 +43,8 @@ jobs:
           CW_BUILDING_REVIEW_ONLY: ${{ github.ref_name == 'codex/converted-building-review' && '1' || '0' }}
           CW_AERIAL_REVIEW_ONLY: ${{ (github.ref_name == 'codex/aerial-visual-review' || github.ref_name == 'codex/corridor-visual-review') && '1' || '0' }}
           CW_CORRIDOR_REVIEW_ONLY: ${{ github.ref_name == 'codex/corridor-visual-review' && '1' || '0' }}
-          CW_FOREST_REVIEW_ONLY: ${{ github.ref_name == 'codex/forest-visual-review' && '1' || '0' }}
+          CW_FOREST_REVIEW_ONLY: ${{ (github.ref_name == 'codex/forest-visual-review' || github.ref_name == 'codex/forest-impostor-review') && '1' || '0' }}
+          CW_IMPOSTOR_REVIEW_ONLY: ${{ github.ref_name == 'codex/forest-impostor-review' && '1' || '0' }}
         run: |
           mkdir -p "$RUNNER_TEMP/chill-visual"
           npm --prefix app run preview -- --host 127.0.0.1 --port 4173 > "$RUNNER_TEMP/chill-visual/server.log" 2>&1 &
@@ -200,6 +201,40 @@ jobs:
             if (duplicates.length) throw new Error(`Source tree bytes fetched more than once: ${duplicates.join(', ')}`);
             health.mainForestControlsVerified = true;
           }
+          async function reviewForestImpostors() {
+            const diagnostic = page.getByLabel('沿线三维森林准备诊断', { exact: true });
+            const read = () => diagnostic.evaluate(element => ({ text: element.textContent, ...element.dataset }));
+            const initial = await read();
+            if (initial.impostorsReady !== 'true' || initial.impostorsBytes !== '3071815') throw new Error(`Source canopy images not ready: ${JSON.stringify(initial)}`);
+            const requests = [...health.treeImageRequests];
+            const train = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
+            health.impostorViews = [];
+            for (const distance of ['150', '650']) {
+              await page.getByLabel('沿线森林观察距离', { exact: true }).selectOption(distance);
+              await page.getByLabel('同源远景树冠', { exact: true }).check();
+              await ready();
+              const enabled = await read();
+              if (enabled.impostorsEnabled !== 'true') throw new Error('Source canopy toggle not enabled');
+              await snapshot(`forest-source-${distance}m`);
+              await page.getByLabel('同源远景树冠', { exact: true }).uncheck();
+              await ready();
+              const disabled = await read();
+              if (disabled.impostorsEnabled !== 'false') throw new Error('Source canopy toggle not disabled');
+              await snapshot(`forest-old-cards-${distance}m`);
+              health.impostorViews.push({ distance, enabled, disabled });
+              await page.getByLabel('同源远景树冠', { exact: true }).check();
+            }
+            await page.getByLabel('沿线森林观察距离', { exact: true }).selectOption('150');
+            for (const direction of ['135', '225', '315', '45']) {
+              await page.getByLabel('沿线森林观察方向', { exact: true }).selectOption(direction);
+              await ready();
+              await snapshot(`forest-source-direction-${direction}`);
+            }
+            if (train !== await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres')) throw new Error('Forest inspection moved train');
+            if (JSON.stringify(requests) !== JSON.stringify(health.treeImageRequests)) throw new Error('Forest camera/toggles downloaded images');
+            if (health.treeImageRequests.length !== 3 || new Set(health.treeImageRequests).size !== 3) throw new Error(`Unexpected canopy image requests: ${JSON.stringify(health.treeImageRequests)}`);
+            health.impostorControlsVerified = true;
+          }
           async function reviewRealImagery() {
             const initialPosition = await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres');
             await page.getByRole('button', { name: '定位真实航片片区', exact: true }).click();
@@ -255,8 +290,12 @@ jobs:
               await preset.selectOption(value); await ready();
               await page.getByLabel('真实地理林木', { exact: true }).uncheck();
               await page.getByLabel('真实地表影像', { exact: true }).check();
+              await ready();
+              if (await diagnostic.getAttribute('data-enabled') !== 'true') throw new Error('Corridor imagery was not enabled');
               await snapshot(`corridor-${name.replaceAll(' ', '-')}-source`);
               await page.getByLabel('真实地表影像', { exact: true }).uncheck();
+              await ready();
+              if (await diagnostic.getAttribute('data-enabled') !== 'false') throw new Error('Corridor imagery was not disabled');
               await snapshot(`corridor-${name.replaceAll(' ', '-')}-off`);
               await page.getByLabel('真实地表影像', { exact: true }).check();
               await page.getByLabel('真实地理林木', { exact: true }).check();
@@ -280,11 +319,13 @@ jobs:
               });
               let releaseRaster;
               const rasterHold = new Promise(resolve => { releaseRaster = resolve; });
-              const heldRaster = process.env.CW_CORRIDOR_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/corridor/scene-atlas-02.png' : process.env.CW_FOREST_REVIEW_ONLY === '1' ? '**/models/trees/ash-large-lod1-20m.glb' : process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
+              const heldRaster = process.env.CW_IMPOSTOR_REVIEW_ONLY === '1' ? '**/models/trees/impostors/oak-8-view-atlas.png' : process.env.CW_CORRIDOR_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/corridor/scene-atlas-02.png' : process.env.CW_FOREST_REVIEW_ONLY === '1' ? '**/models/trees/ash-large-lod1-20m.glb' : process.env.CW_AERIAL_REVIEW_ONLY === '1' ? '**/geodata/hudson/imagery/peekskill-naip-2022-scene.png' : '**/geodata/hudson/landcover.u8';
               health.aerialRequests = [];
               health.treeRequests = [];
+              health.treeImageRequests = [];
               page.on('request', request => { if (request.url().includes('/geodata/hudson/imagery/')) health.aerialRequests.push(request.url()); });
               page.on('request', request => { if (request.url().includes('/models/trees/') && request.url().endsWith('.glb')) health.treeRequests.push(request.url()); });
+              page.on('request', request => { if (request.url().includes('/models/trees/impostors/')) health.treeImageRequests.push(request.url()); });
               await page.route(heldRaster, async route => { await rasterHold; await route.continue(); });
               await page.goto('http://127.0.0.1:4173/?world=hudson&routeMetres=3123.283', { waitUntil: 'domcontentloaded' });
               await boardInDaylight(async () => {
@@ -321,6 +362,11 @@ jobs:
                 await page.keyboard.press('F5');
                 await page.getByText('数据来源与加载诊断', { exact: true }).click();
                 await reviewPreparedForest();
+                if (process.env.CW_IMPOSTOR_REVIEW_ONLY === '1') {
+                  health.scope = 'Main woodland and source multi-view distant canopy, initial asset/GPU preparation, 40/90/150/650m controls, four camera directions, real imagery on/off and continuous tile-boundary ride. Whole-route and hardware performance are not assessed';
+                  await reviewForestImpostors();
+                  await reviewCorridorImagery();
+                }
                 await page.keyboard.press('Escape');
                 await ready();
                 const start = Number(await page.getByLabel('真实列车位置', { exact: true }).getAttribute('data-route-metres'));

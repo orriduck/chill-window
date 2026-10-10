@@ -140,6 +140,8 @@
 
 ### 补充：OSM 真实地景开源项目与代码核查
 
+2026-10-10 再核查项目官方仓库和文档，回应开源复用问题：[OSM2World](https://github.com/tordanik/OSM2World) / [官方 Web API](https://osm2world.org/docs/library-web/) 明确提供 OSM JSON→带材质的三角网格，可由 Three.js 渲染，客户端转换建议小数据集；[Streets GL](https://github.com/StrandedKitty/streets-gl) 明确采用 TypeScript、自有 WebGL2 渲染器、OSM 矢量瓦片与独立 Esri 高程，支持复杂建筑、道路和地形 LOD；[Map3D](https://github.com/cartesiancs/map3d) 提供 React Three Fiber 的 OSM 建筑地图及 GLB 导出；[Blosm](https://github.com/vvoovv/blosm) 的基础版支持建筑构件、多类屋顶、地形贴合和道路/铁路，纹理等部分能力属于 Pro。此处仅核查文档与代码入口，未运行这些项目的在线演示，不据 README 声称视觉验收完成。对 `geography` 管线的判断仍是优先复用 OSM2World 离线转换，参考 Streets GL 建筑/屋顶逻辑；OSM 布局和外部高程可约束真实位置，默认材质不等于当地实拍立面。
+
 核查日期 2026-10-09；本次读取作者仓库、官方文档和以下源码，没有运行这些项目或将其代码接入当前场景。
 
 | 一手来源 | 具体机制与适用边界 | 关联代码（待评估） |
@@ -398,3 +400,13 @@ GPU准备参考当前Three.js185源代码 [`WebGLObjects`](https://github.com/mr
 RGB降采样到EPSG3857的2.4投影米（本纬度约1.8地面米），形成141个427px JPEG+源覆盖mask；三张4096px RGBA PNG无额外调色地保存已解码JPEG像素，alpha来自实际route cutline/tile mask。不能声称恢复了GeoTIFF原始无损RGB。完整141块的RGB/alpha/边缘padding/PNG往返比较均在云端执行通过。根任务独立校验三张PNG和manifest的bytes/SHA，并查看实际Atlas01；三个PNG SHA与原云端观察相同：`ef06cfec...e2be33` / `569a2828...af89c` / `34aba2fd...ac45e`，完整值留在观察记录。scene-atlases.json为319,673B、SHA `6c7f48d7e977b64886f3d491153b2fab9d4e943be89d134433ca66a04ac15d57`。
 
 关联后续`GeoAerial.ts`的整段真实影像接入。当前只有Peekskill高分辨率裁片进入应用，以上全线atlas尚未导入运行时。采样器需要保护分块边缘和mipmap导数，世界位置信息不能从UTM矩形直接推断；还需沿线实际截图验收，不把数据准备成功当成应用效果已完成。
+
+### 2026-10-10 全线航片实际检查与同源远景树冠
+
+[航片实际检查38025730688](https://github.com/orriduck/chill-window/actions/runs/38025730688)，代码9df675d：141块/三个图集35,723,083B就绪；故意延迟Atlas02时列车保持3123.283m，随后出发。Cold Spring、Garrison、Manitou同机位航片显隐，以及Peekskill高清裁片/屋顶和返回列车，共17状态均49/49、无应用错误或失败请求。实际查看Cold Spring显隐、Garrison、Manitou与Peekskill车窗截图，观察到沿线道路、镇区、林地和岸线的真实颜色；1200m来源覆盖外仍为旧地表，旧树轮廓、水面单色、简化站棚仍明显。部分off截图读取诊断早于下一场景帧，画面开关正确但诊断文字未同步；本轮脚本补充等待场景帧及data-enabled断言。此证据不覆盖整段22.84km连续行驶或硬件性能。
+
+[八方向静态图集打包38026717485](https://github.com/orriduck/chill-window/actions/runs/38026717485)，代码467ab7d：固定源Ash/Oak各8个512²观察帧，无缩放/重画地打包为两个2048×1024 RGBA PNG，总3,071,815B。逐帧解码RGBA与原图精确比对；实际manifest SHA为`bffe9834d3ddde764c80b79350992039dce2d9a5648849b658920d0edadb2f3c`，两PNG为`8f9451bf...2f9af` / `7d279042...1a82`，完整值在运行清单。22m镜头范围和20m作者展示尺度来自同源Blender镜头，不是Hudson逐株测绘。
+
+`GeoTreeImpostors.ts` / `GeoForest.ts`把图集用于既有林地样本的远景，按相机角度采样相邻源帧，保持根部尺度，限制各帧mip/bilinear采样范围；`RealWorld.ts`让近远景共用16m位置/朝向/高度规则，减少500–650m衔接时的密度变化。出发前校验和加载，两图集参与既有离屏GPU准备，视角变化不下载/生成资产。NLCD常绿样本仍使用原表达，不把阔叶模型误称当地实测树种。`GeoInspector.ts`增加同机位旧/新开关、650m距离和八方向观察；云端故意延迟Oak图集检查出发门控，并保留实际画面供人工检查。本段为实现与数据记录，新的远景外观、角度变化、接缝和行驶尚待实际浏览器验证。
+
+当前另把同一地理配准航片用于水面和远处建筑朝上屋顶（`RealWorld.ts` / `GeoAerial.ts`），DoubleSide屋顶背面不覆盖航片；原水位/几何没有变成实测。实际水面、近远屋顶效果需随本轮云端截图检查，不据构建通过宣称完成。

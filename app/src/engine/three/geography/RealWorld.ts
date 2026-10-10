@@ -5,6 +5,7 @@ import { applyBuildingAppearance, buildingAppearance } from './GeoBuilding'
 import { GeoForest, type ForestPlacement } from './GeoForest'
 import { GeoCloseTrees, type CloseTreePlacement } from './GeoCloseTrees'
 import { GeoCanopy } from './GeoCanopy'
+import { GeoTreeImpostors } from './GeoTreeImpostors'
 import { GeoConvertedBuildings } from './GeoConvertedBuildings'
 import { GeoAerial } from './GeoAerial'
 import { pyramidalRoof } from './GeoRoof'
@@ -72,8 +73,9 @@ export class RealWorld {
   private landSourceMode = { value: 0 }
   private landPixels!: Uint8ClampedArray
   private detailCoverage = new GeoDetailCoverage()
-  private forest = new GeoForest('near', this.detailCoverage)
-  private distantForest = new GeoForest('far', this.detailCoverage)
+  readonly treeImpostors = new GeoTreeImpostors()
+  private forest = new GeoForest('near', this.detailCoverage, this.treeImpostors)
+  private distantForest = new GeoForest('far', this.detailCoverage, this.treeImpostors)
   private distantForestGroup = new THREE.Group()
   readonly closeTrees: GeoCloseTrees
   readonly canopy = new GeoCanopy()
@@ -207,11 +209,17 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.group.add(this.convertedBuildings.group)
     for (const material of [this.roofMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial]) installBuildingDistanceFade(material, this.nearBuildingFade)
     this.distantBuildings = prepareDistantBuildings(data, { fade: createBuildingFadeController('far', this.detailCoverage), groundAt: (x, z) => this.terrainHeight(x, z), isWater: (x, z) => this.data.landAt(x, z, 'water'), replacedIds: this.convertedBuildings.replacedIds })
+    this.distantBuildings.group.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        if (material instanceof THREE.MeshStandardMaterial) this.aerial.install(material, true)
+      }
+    })
     this.group.add(this.distantBuildings.group)
     this.initialKeys = this.initialPreloadKeys(initialS)
     // Shared assets are loaded before any chunks are meshed. Asset completion
     // never clears an already visible tile or triggers a second rebuild.
-    void Promise.all([geographicTexturesReady, this.closeTrees.ready, this.treeComparison.ready, this.canopy.ready, this.convertedBuildings.ready, this.aerial.ready]).then(([results]) => {
+    void Promise.all([geographicTexturesReady, this.closeTrees.ready, this.treeComparison.ready, this.canopy.ready, this.treeImpostors.ready, this.convertedBuildings.ready, this.aerial.ready]).then(([results]) => {
       if (this.disposed) return
       this.textureFailures = results.filter(loaded => !loaded).length
       this.assetsReady = this.textureFailures === 0
@@ -286,7 +294,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     }
     return raw
   }
-  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; convertedBuildings?: boolean; closeTrees?: boolean; treeSamples?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean; realImagery?: boolean }, treeFocus?: { x: number; z: number }) {
+  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; convertedBuildings?: boolean; closeTrees?: boolean; treeSamples?: boolean; treeImpostors?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean; realImagery?: boolean }, treeFocus?: { x: number; z: number }) {
     const pose = this.data.pose(s)
     const compareTrees = inspection && (layers.treeSamples ?? false)
     this.group.visible = this.presentable || inspection
@@ -312,6 +320,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.convertedBuildings.setVisible((layers.buildings ?? true) && this.presentable, layers.convertedBuildings ?? true)
     this.closeTrees.setFocus(treePoint.x, treePoint.z); this.treeComparison.setFocus(point.x, point.z)
     this.forest.setCloseTreesEnabled(useClose); this.distantForest.setCloseTreesEnabled(useClose)
+    this.forest.setImpostorsEnabled(layers.treeImpostors ?? true); this.distantForest.setImpostorsEnabled(layers.treeImpostors ?? true)
     this.distantForestGroup.visible = showVegetation
     this.nearBuildingFade.updateFocus(point.x, point.z); this.distantBuildings.fade.updateFocus(point.x, point.z)
     this.distantBuildings.group.visible = (layers.buildings ?? true) && (layers.farBuildings ?? true)
@@ -683,7 +692,8 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       if (height === null) continue
       const delta = Math.abs((this.terrainHeight(x + 4, z) ?? height) - (this.terrainHeight(x - 4, z) ?? height))
       if (delta > 10 || hash01(x, z, 4) < 0.12) continue
-      placements.push({ x, z, y: height - 0.12, height: 18 + hash01(x, z, 8) * 6, yaw: hash01(x, z, 10) * Math.PI * 2, variant: this.forestVariant(x, z, 11), close3D: this.data.landCover?.sample(x, z) === 42 ? 60 : 115 })
+      const broadleaf = this.data.landCover?.sample(x, z) !== 42
+      placements.push({ x, z, y: height - 0.12, height: broadleaf ? 20 : 18 + hash01(x, z, 8) * 6, yaw: hash01(x, z, 10) * Math.PI * 2, variant: this.forestVariant(x, z, 11), close3D: broadleaf ? 115 : 60, broadleaf })
     }
     this.forest.addInstances(parent, placements)
     this.canopy.addInstances(group, parent, placements.filter(tree => tree.close3D === 115))
@@ -702,14 +712,20 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       const u = (x - gx) / 64, v = (z - gz) / 64
       return u + v <= 1 ? a * (1 - u - v) + b * u + c * v : d * (u + v - 1) + b * (1 - v) + c * (1 - u)
     }
-    for (let x = Math.ceil(minX / 24) * 24; x < maxX; x += 24) for (let z = Math.ceil(minZ / 24) * 24; z < maxZ; z += 24) {
-      const px = x + (hash01(x, z, 21) - 0.5) * 18, pz = z + (hash01(x, z, 22) - 0.5) * 18
-      if (!this.sampleLand(px, pz).forest || this.data.landAt(px, pz, 'building')) continue
+    for (let x = Math.ceil(minX / 16) * 16; x < maxX; x += 16) for (let z = Math.ceil(minZ / 16) * 16; z < maxZ; z += 16) {
+      const tx = Math.floor(x / TILE) * TILE, tz = Math.floor(z / TILE) * TILE
+      const col = (x - tx) / 16, row = (z - tz) / 16
+      const px = x + 8 + (hash01(col + tx, row + tz) - 0.5) * 9
+      const pz = z + 8 + (hash01(row + tz, col + tx, 9) - 0.5) * 9
+      if (!this.sampleLand(px, pz).forest || this.data.landAt(px, pz, 'building') || this.data.railProximity(px, pz).distance < 12 || hash01(px, pz, 4) < 0.12) continue
+      const detailedHeight = this.terrainHeight(px, pz)
+      if (detailedHeight === null || Math.abs((this.terrainHeight(px + 4, pz) ?? detailedHeight) - (this.terrainHeight(px - 4, pz) ?? detailedHeight)) > 10) continue
       const y = displayedHeight(px, pz); if (y === null) continue
+      const broadleaf = this.data.landCover?.sample(px, pz) !== 42
       const key = `${Math.floor(px / 1024)},${Math.floor(pz / 1024)}`
       const batch = regions.get(key) ?? []
-      batch.push({ x: px, z: pz, y, height: 18 + hash01(x, z, 23) * 6, yaw: hash01(x, z, 24) * Math.PI * 2,
-        variant: this.forestVariant(px, pz, 25), close3D: this.data.landCover?.sample(px, pz) === 42 })
+      batch.push({ x: px, z: pz, y: y - 0.12, height: broadleaf ? 20 : 18 + hash01(px, pz, 8) * 6, yaw: hash01(px, pz, 10) * Math.PI * 2,
+        variant: this.forestVariant(px, pz, 11), broadleaf })
       regions.set(key, batch)
     }
     this.distantForestGroup.name = 'whole-corridor-textured-forest'
@@ -814,6 +830,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       const y = largeRiver ? 0.3 : samples[Math.floor(samples.length * 0.2)] + 0.08
       const geometry = new THREE.ShapeGeometry(shapeOf(feature)); geometry.rotateX(-Math.PI / 2); geometry.translate(0, y, 0)
       const material = new THREE.MeshStandardMaterial({ color: largeRiver ? 0x588895 : 0x638a87, roughness: 0.35, metalness: 0.1, side: THREE.DoubleSide })
+      this.aerial.install(material)
       this.waterGroup.add(new THREE.Mesh(geometry, material))
     }
   }
@@ -864,7 +881,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
   }
   private clearChunks() { for (const chunk of this.chunks.values()) this.disposeChunk(chunk); this.chunks.clear() }
   dispose() {
-    this.disposed = true; this.clearChunks(); this.canopy.dispose(); this.distantBuildings.dispose(); this.convertedBuildings.dispose(); this.detailCoverage.dispose(); this.forest.dispose(); this.distantForest.dispose(); this.closeTrees.dispose(); this.treeComparison.dispose()
+    this.disposed = true; this.clearChunks(); this.canopy.dispose(); this.distantBuildings.dispose(); this.convertedBuildings.dispose(); this.detailCoverage.dispose(); this.forest.dispose(); this.distantForest.dispose(); this.treeImpostors.dispose(); this.closeTrees.dispose(); this.treeComparison.dispose()
     this.distantForestGroup.traverse(object => { if (object instanceof THREE.InstancedMesh) { object.dispose(); object.geometry.dispose() } })
     this.background?.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose() }); this.routeLine.geometry.dispose(); (this.routeLine.material as THREE.Material).dispose()
     this.marker.geometry.dispose(); (this.marker.material as THREE.Material).dispose()

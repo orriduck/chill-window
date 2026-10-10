@@ -25,7 +25,7 @@ export class GeoInspector {
   private jump: HTMLButtonElement
   private time = document.createElement('select')
   private weather = document.createElement('select')
-  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, convertedBuildings: true, closeTrees: true, treeSamples: false, water: true, farmland: true, stations: true, sourceLandCover: false, realImagery: true }
+  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, convertedBuildings: true, closeTrees: true, treeSamples: false, treeImpostors: true, water: true, farmland: true, stations: true, sourceLandCover: false, realImagery: true }
   private pending: GeoCommand = {}
   private data: GeoData | null = null
   private real = true
@@ -47,6 +47,7 @@ export class GeoInspector {
   private forestStats = document.createElement('output')
   private forestCase: HTMLButtonElement
   private forestDistance = document.createElement('select')
+  private forestDirection = document.createElement('select')
   private convertedStats = document.createElement('output')
   private convertedCase: HTMLButtonElement
   private aerialStats = document.createElement('output')
@@ -137,12 +138,12 @@ export class GeoInspector {
     this.aerialCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
     this.aerialStats.setAttribute('aria-label', '真实航片准备诊断'); this.aerialStats.style.cssText = this.streamingStats.style.cssText
     const aerialNotice = document.createElement('p')
-    aerialNotice.textContent = 'USDA-FSA APFO / NOAA Digital Coast，2022 NAIP。6个原始瓦片覆盖全线两侧1200m，重投影后2.4m采样、JPEG压缩RGB与原覆盖mask打包为3个图集；Peekskill局部0.6m高分辨率覆盖其上。地表和朝上屋顶按同一地理坐标采样，不提供立面或逐株树模型。影像含拍摄时的树冠、阴影和屋顶。2022-10-22日期来自源文件名。出发前完成下载、校验与GPU准备；切换只改变显示。'
+    aerialNotice.textContent = 'USDA-FSA APFO / NOAA Digital Coast，2022 NAIP。6个原始瓦片覆盖全线两侧1200m，2.4m Mercator采样、JPEG压缩RGB与原覆盖mask打包为3个图集；Peekskill局部0.6m高清覆盖其上。地表、水面及近远建筑朝上的面共享地理配准，不提供立面或逐株树模型。影像含拍摄时的树冠、阴影、屋顶及水面颜色；水位和几何仍沿用已有来源/估值。2022-10-22日期来自文件名。出发前完成校验与GPU准备；切换只改变显示。'
     aerialNotice.style.cssText = notes.style.cssText
     const aerialCredit = document.createElement('a'); aerialCredit.textContent = 'USDA-FSA APFO 航片 · NOAA 来源'; aerialCredit.href = 'https://www.fisheries.noaa.gov/inport/item/71609'; aerialCredit.target = '_blank'; aerialCredit.rel = 'noopener noreferrer'; aerialCredit.style.cssText = 'font-size:11px;color:#506b51;'
     this.treeStats.setAttribute('aria-label', '三维树模型准备诊断'); this.treeStats.style.cssText = this.streamingStats.style.cssText
     const treeLayers = document.createElement('div'); treeLayers.style.cssText = layers.style.cssText
-    for (const [key, name] of [['closeTrees', '沿线近景三维森林'], ['treeSamples', '树模型来源尺度对照']] as const) {
+    for (const [key, name] of [['closeTrees', '沿线近景三维森林'], ['treeImpostors', '同源远景树冠'], ['treeSamples', '树模型来源尺度对照']] as const) {
       const label = document.createElement('label'), input = document.createElement('input')
       input.type = 'checkbox'; input.checked = this.layers[key]; input.setAttribute('aria-label', name)
       input.onchange = () => { this.layers[key] = input.checked }
@@ -171,17 +172,25 @@ export class GeoInspector {
       const damping = this.controls.enableDamping; this.controls.enableDamping = false; this.controls.update()
       this.controls.target.copy(point); this.controls.target.y += 10
       const distance = Number(this.forestDistance.value)
-      const x = point.x + distance * 0.8, z = point.z + distance * 0.6, ground = this.world.terrainHeight(x, z) ?? point.y
+      const angle = Number(this.forestDirection.value) * Math.PI / 180
+      const x = point.x + distance * Math.cos(angle), z = point.z + distance * Math.sin(angle), ground = this.world.terrainHeight(x, z) ?? point.y
       this.camera.position.set(x, Math.max(point.y + 12, ground + 3), z)
       this.controls.update(); this.controls.enableDamping = damping
     })
     this.forestCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
     this.forestDistance.setAttribute('aria-label', '沿线森林观察距离')
     this.forestDistance.style.cssText = this.source.style.cssText + 'width:100%;'
-    for (const [value, text] of [['40', '40m · 近景树冠'], ['90', '90m · 模型与轮廓过渡'], ['150', '150m · 远景轮廓']] as const) {
+    for (const [value, text] of [['40', '40m · 近景树冠'], ['90', '90m · 模型与轮廓过渡'], ['150', '150m · 远景树冠'], ['650', '650m · 远坡森林']] as const) {
       const option = document.createElement('option'); option.value = value; option.textContent = text; this.forestDistance.append(option)
     }
     this.forestDistance.onchange = () => this.forestCase.click()
+    this.forestDirection.setAttribute('aria-label', '沿线森林观察方向')
+    this.forestDirection.style.cssText = this.forestDistance.style.cssText
+    for (const [value, text] of [['0', '东侧'], ['45', '东南侧'], ['90', '南侧'], ['135', '西南侧'], ['180', '西侧'], ['225', '西北侧'], ['270', '北侧'], ['315', '东北侧']] as const) {
+      const option = document.createElement('option'); option.value = value; option.textContent = text; this.forestDirection.append(option)
+    }
+    this.forestDirection.value = '45'
+    this.forestDirection.onchange = () => this.forestCase.click()
     this.treeCase = this.button('定位树模型对照', () => {
       if (!this.world || this.world.treeComparison.stats.preparedTrees < 2) return
       const mode = this.treeModel.value
@@ -210,7 +219,7 @@ export class GeoInspector {
     }
     this.treeModel.onchange = () => this.treeCase.click()
     const treeNotice = document.createElement('p')
-    treeNotice.textContent = '沿线阔叶林采用固定Ash/Oak模型，近35m用LOD1，35–60m过渡至LOD2，80–115m过渡至远景轮廓。源常绿分类使用Poly Haven照片纹理松树，25–60m过渡；远景轮廓仍待改进。每个前方区块的实例缓冲必须完成实际GPU上传与同步才可进入视野。地理分类不识别逐株位置或树种。模型对照保留现有松树18m、橡树约8.6m、桦树14m与两个照片纹理松树版本。'
+    treeNotice.textContent = '沿线阔叶林采用固定Ash/Oak模型，近35m用LOD1，35–60m过渡至LOD2，80–115m过渡至同源八角度树冠。整个远景范围一次准备，位置沿用近景16m样本，作者20m为统一展示尺度；旋转/缩放只采样已加载帧，不重建森林。源常绿分类使用Poly Haven照片纹理松树，25–60m过渡，远处仍为旧针叶轮廓。区块缓冲必须实际GPU上传与同步后才可进入视野。地理分类不识别逐株位置或树种。'
     treeNotice.textContent += ' Ash/Oak为EZ-Tree固定预设离线建模，树叶1024px透明贴图，树皮为CC0 PBR；同一骨架的LOD1/2分别约9千/5千三角形。20m为展示比例，实际林冠约19.93–20.40m，不是当地树高或树种测量。运行时只读取静态模型，不重新生成地形或树模型。'
     treeNotice.style.cssText = notes.style.cssText
     this.convertedStats.setAttribute('aria-label', '转换建筑准备诊断'); this.convertedStats.style.cssText = this.streamingStats.style.cssText
@@ -230,7 +239,7 @@ export class GeoInspector {
     const convertedNotice = document.createElement('p')
     convertedNotice.textContent = 'Peekskill 15栋有源高度建筑，OSM2World离线转换并对齐当前DEM。勾选对比PBR通用材质；取消显示原来的源足迹体块。未导入3个默认补高对象。墙面/屋顶贴图及无标签屋顶形态为转换器的表现假设，不是当地照片。'
     convertedNotice.style.cssText = notes.style.cssText
-    diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.forestDistance, this.forestCase, this.forestStats, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
+    diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.forestDistance, this.forestDirection, this.forestCase, this.forestStats, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
@@ -305,7 +314,12 @@ export class GeoInspector {
     this.forestStats.dataset.visibleTrees = String(canopy.visibleTrees)
     this.forestStats.dataset.unpreparedVisibleTrees = String(canopy.unpreparedVisibleTrees)
     this.forestStats.dataset.enabled = String(this.layers.closeTrees && this.layers.vegetation && !this.layers.treeSamples)
+    const impostors = world.treeImpostors.stats
+    this.forestStats.dataset.impostorsReady = String(impostors.ready)
+    this.forestStats.dataset.impostorsBytes = String(impostors.bytes)
+    this.forestStats.dataset.impostorsEnabled = String(this.layers.treeImpostors)
     this.forestStats.textContent = `阔叶模型 ${canopy.ready ? '已准备' : '加载中'} · ${canopy.assetBytes.toLocaleString()} B\n缓存 ${canopy.preparedTrees.toLocaleString()} 样本 / ${canopy.preparedChunks} 区块 · GPU已准备 ${canopy.gpuPreparedTrees.toLocaleString()}\n距离筛选 ${canopy.visibleTrees} LOD实例 / ${canopy.visibleDrawCalls} 合批 · ${canopy.visibleTriangles.toLocaleString()} 三角形\n视野未上传样本 ${canopy.unpreparedVisibleTrees} · 位置沿用16m林地样本；LOD统计可能含两级过渡，不是逐株调查。`
+    this.forestStats.textContent += `\n同源树冠 ${impostors.ready ? '已准备' : '加载中'} · ${impostors.frames} 帧 / ${impostors.bytes.toLocaleString()} B · ${this.layers.treeImpostors ? '显示' : '旧轮廓对照'}\n两个2048×1024图集；源RGBA逐帧保留，根部和22m镜头范围固定。`
     this.treeCase.disabled = !samples.ready || samples.preparedTrees < 2
     this.treeStats.textContent = `常绿林3D ${trees.ready ? '已准备' : '加载中'} · ${trees.preparedTrees} 位置样本\n局部显示 ${trees.visibleTrees} 株 / ${trees.visibleDrawCalls} 合批 · ${trees.visibleTriangles.toLocaleString()} 三角形\n来源尺度对照 ${samples.ready ? '已准备' : '加载中'} · ${samples.preparedTrees} 实例 · ${samples.processedAssetBytes.toLocaleString()} B\n对照当前显示 ${samples.visibleTrees} 实例 / ${samples.visibleTriangles.toLocaleString()} 三角形 · ${this.treeModel.selectedOptions[0]?.textContent}\n模型在初始GPU离屏预热中提交；当前显示统计是距离筛选上界，不是实际frustum绘制次数。`
     if (this.editing) this.controls.update()
