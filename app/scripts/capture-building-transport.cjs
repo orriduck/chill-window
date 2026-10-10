@@ -105,6 +105,26 @@ async function serviceWorkerLifecycleSnapshot(page, name, includeCaches = false)
   } catch (error) { lifecycle.snapshots.push({ name, diagnosticError: error.message }); }
   await save();
 }
+// Playwright 1.64 waitForFunction treats a Promise as truthy before it resolves.
+// Await actual API JSON in Node, then check a synchronous boolean within one deadline.
+async function waitForServiceWorkerState(page, accepts, deadline, pollingMs) {
+  for (;;) {
+    const timeout = deadline - Date.now();
+    fail(timeout > 0, 'Service worker activation/control exceeded its 240-second budget');
+    let timer;
+    const observed = await Promise.race([
+      page.evaluate(async () => {
+        const registration = await navigator.serviceWorker.getRegistration();
+        const state = worker => worker ? { scriptURL: worker.scriptURL, state: worker.state } : null;
+        return { scope: registration?.scope, active: state(registration?.active), controller: state(navigator.serviceWorker.controller) };
+      }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Service worker API read exceeded activation/control deadline')), timeout); }),
+    ]).finally(() => clearTimeout(timer));
+    fail(Date.now() < deadline, 'Service worker activation/control exceeded its 240-second budget');
+    if (accepts(observed) === true) return observed;
+    await new Promise(resolve => setTimeout(resolve, Math.min(pollingMs, deadline - Date.now())));
+  }
+}
 function sampleUntilFullPreparationGate(heldRouteMetres) {
   const stream = document.querySelector('[aria-label="地理区块流式加载诊断"]');
   const clocks = document.querySelector('[data-journey-phase]');
@@ -364,23 +384,24 @@ async function ready(page) {
     };
     try {
       health.stage = 'service-worker-activation'; await save();
-      await installed.waitForFunction(async () => (await navigator.serviceWorker.getRegistration())?.active?.state === 'activated',
-        null, { timeout: remaining(), polling: lifecycle.pollingMs });
+      lifecycle.activationGuard = await waitForServiceWorkerState(installed,
+        observed => observed.active?.state === 'activated', activationDeadline, lifecycle.pollingMs);
       await serviceWorkerLifecycleSnapshot(installed, 'activated-first-page');
       health.stage = 'service-worker-control'; await save();
       // clientsClaim normally controls this first page. A normal navigation is
       // allowed only after actual activation, if that page is still uncontrolled.
-      if (!await installed.evaluate(() => !!navigator.serviceWorker.controller)) {
+      lifecycle.beforeReloadGuard = await waitForServiceWorkerState(installed,
+        observed => observed.active?.state === 'activated', activationDeadline, lifecycle.pollingMs);
+      if (!lifecycle.beforeReloadGuard.controller) {
         health.stage = 'service-worker-control-reload';
         await serviceWorkerLifecycleSnapshot(installed, 'before-control-reload', true);
         await installed.reload({ waitUntil: 'load', timeout: remaining() });
         await serviceWorkerLifecycleSnapshot(installed, 'after-control-reload', true);
       }
-      await installed.waitForFunction(async () => {
-        const active = (await navigator.serviceWorker.getRegistration())?.active;
-        const controller = navigator.serviceWorker.controller;
+      lifecycle.controlGuard = await waitForServiceWorkerState(installed, observed => {
+        const { active, controller } = observed;
         return active?.state === 'activated' && controller?.state === 'activated' && controller.scriptURL === active.scriptURL;
-      }, null, { timeout: remaining(), polling: lifecycle.pollingMs });
+      }, activationDeadline, lifecycle.pollingMs);
       await serviceWorkerLifecycleSnapshot(installed, 'activated-and-controlled');
     } catch (error) {
       await serviceWorkerLifecycleSnapshot(installed, 'activation-control-failed', true);

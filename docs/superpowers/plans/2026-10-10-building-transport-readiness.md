@@ -124,3 +124,99 @@ independent pack/index/catalog SHA plus membership 16 textures / 9 trees / zero
 standalone GLBs remain unchanged. Local validation is syntax, focused JavaScript
 semantics and diff scope only; no local browser/GPU run, new cloud runtime pass,
 SW/offline pass or appearance acceptance is claimed.
+
+
+Follow-up after actual b76f49c / [Actions 38067735562](https://github.com/orriduck/chill-window/actions/runs/38067735562)
+failed, checked 2026-10-10: the first context again passed source counts, initial
+current49/GPU gate, native Pause/hold and strict frozen PNG (165,390 bytes;
+callbacks 424 to 424, then resumed unfrozen). SW-context diagnostics observed
+75 existing cache entries, including the correct pack/index/catalog, 16 shared
+textures, 9 tree GLBs and zero standalone building GLBs, with no failed SW
+requests or page errors. The unchanged membership assertion correctly failed
+because actual `controlled` was false. Independent offline hashes were not run.
+
+The actual `activated-first-page` snapshot at 16:29:32.993Z instead showed
+`active: null` with an installing worker; `activated-and-controlled` at
+16:29:36.851Z still showed `controller: null`. Those names did not prove their
+conditions. [Playwright 1.64 primary implementation](https://github.com/microsoft/playwright/blob/v1.64.0/packages/playwright-core/src/server/frames.ts#L1645-L1657)
+was checked against the pinned raw file 2026-10-10: lines 1649–1651 invoke the
+predicate and fulfill its truthy returned value (polling wrapper lines 1645–1657).
+Its waitForFunction polling
+tests the returned value's truthiness before awaiting it. An async predicate's
+Promise resolving to false is already truthy, so both previous gates advanced
+without actual success. This confirms the QA false-gate cause in b76f49c; the
+original 8fece7e registration wait had the same async-predicate defect. The older
+60-second controller timeout's full cause remains unconfirmed. The earlier
+local VM check awaited the predicate directly and incorrectly modeled
+Playwright's wrapper; it did not test this failure mode.
+
+Replace both async waitForFunction predicates with a small Node polling loop:
+each iteration explicitly awaits page.evaluate's actual registration/controller
+JSON, then requires a synchronous boolean to be exactly true. Bound pending API
+reads and check the same 240-second deadline before and after every read; use
+200ms timers independent of RAF. Save the actual successful guard JSON, permit
+a normal reload only after observed activation if the page remains uncontrolled,
+and require activated control matching the actual active script URL. Preserve
+lifecycle/cache observations and all existing source/Pause/PNG, membership and
+independent offline assertions. A lightweight Node regression reproduces the
+exact Promise-false truthiness defect and verifies the real polling helper keeps
+waiting on false, accepts a later matching true, and fails at its deadline.
+No local browser/GPU/product build or new cloud/offline/visual pass is claimed.
+
+
+Re-run the bounded regression from the repository root (Node only; the capture
+entrypoint and Playwright/browser imports are never executed):
+
+```sh
+node <<'JS'
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const source = fs.readFileSync('app/scripts/capture-building-transport.cjs', 'utf8');
+const begin = source.indexOf('async function waitForServiceWorkerState(');
+const end = source.indexOf('function sampleUntilFullPreparationGate(', begin);
+const wait = vm.runInNewContext(source.slice(begin, end) + '\nwaitForServiceWorkerState', {
+  Date, Promise, setTimeout, clearTimeout,
+  fail: (condition, message) => { if (!condition) throw new Error(message); },
+});
+const worker = (state, scriptURL = '/sw.js') => ({ state, scriptURL });
+const pageFor = states => {
+  let reads = 0;
+  return { get reads() { return reads; }, evaluate(callback) {
+    const observed = states[Math.min(reads++, states.length - 1)];
+    return vm.runInNewContext('(' + callback.toString() + ')()', { navigator: {
+      serviceWorker: { controller: observed.controller,
+        getRegistration: async () => ({ scope: '/', active: observed.active }) },
+    } });
+  } };
+};
+const accepts = ({ active, controller }) => active?.state === 'activated'
+  && controller?.state === 'activated' && controller.scriptURL === active.scriptURL;
+(async () => {
+  // Exact 1.64 ordering: predicate Promise is truthy, fulfill adopts false.
+  let calls = 0;
+  const predicate = async () => { calls++; return false; };
+  const premature = await new Promise(fulfill => {
+    const success = predicate();
+    if (success) fulfill(success);
+    else throw new Error('Promise was unexpectedly falsy');
+  });
+  assert.equal(premature, false); assert.equal(calls, 1);
+  const activation = pageFor([{ active: worker('activating'), controller: null },
+    { active: worker('activated'), controller: null }]);
+  await wait(activation, observed => observed.active?.state === 'activated', Date.now() + 250, 2);
+  assert.equal(activation.reads, 2);
+  const control = pageFor([{ active: worker('activated'), controller: null },
+    { active: worker('activated'), controller: worker('activated', '/other.js') },
+    { active: worker('activated'), controller: worker('activated') }]);
+  const accepted = await wait(control, accepts, Date.now() + 250, 2);
+  assert.equal(control.reads, 3); assert.equal(accepted.controller.scriptURL, '/sw.js');
+  await assert.rejects(wait(pageFor([{ active: null, controller: null }]), accepts,
+    Date.now() + 15, 2), /deadline|budget/);
+  await assert.rejects(wait({ evaluate: () => new Promise(() => {}) }, accepts,
+    Date.now() + 15, 2), /deadline|budget/);
+  assert.equal(/waitForFunction\(async/.test(source), false);
+  console.log('Promise-false regression, actual JSON guard transitions and deadline checks passed; no browser.');
+})().catch(error => { console.error(error); process.exitCode = 1; });
+JS
+```
