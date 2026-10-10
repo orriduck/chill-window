@@ -459,3 +459,13 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 修复后同一Site实际发布成功：`appgdep_6aca3cbbb58c81918a74371280d0f819`，version `appgprj_6aca3a96ba5c8191b105b38792d2b43c~appgver_fe4dd48e89c4819183da790f6427a9ad`，Sites source commit `a0522c03e911f86f8ae4d98cb952962da2a30719`，canonical应用commit `825d5c02cc201e7e010ab07e3cdc6a92e85f387e`。原生Sites工具2026-10-10返回succeeded、无failure：[固定站点](https://chill-window-hudson.ruyyi0323.chatgpt.site/?world=hudson)。558个实际发布文件均与最新构建SHA一致，最大24,328,860B；32MB源覆盖数据改为3.53MB无损gzip，数量/字节解压校验一致。新站点默认owner-private，用户可用本人登录访问。旧Vercel项目设置已原生更新并CLI回读确认 `commandForIgnoringBuildStep=exit 0`、`previewDeploymentsDisabled=true`。发布结果验证托管，不替代Sites内实际游戏画面与整线预加载验收；未操作本机浏览器。
 
 树木独立云端surface run38054922441（0b6f8fb）实际失败：20个法线校准均通过，全部源几何/图片校验通过；后续Blender UV loop哈希与独立源重建不一致，未打包或接入运行时。修复待审查：设置自定义法线后重新获取UVMap，避免CustomData层变动留下旧RNA引用；实际复验尚未运行。失败不得记为新树冠已完成。
+
+## 2026-10-10：背景 DEM 覆盖详细地形诊断与候选修复
+
+先检查已有来源与用户实际画面，再实施：沿用上文已取得的 [USGS 3DEP ImageServer](https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer) 本地20m高程包、OSM水域mask和2022 NAIP真实航片，未下载替代地形、未凭山体印象改高程。[当前实际 Sites](https://chill-window-hudson.ruyyi0323.chatgpt.site/?world=hudson) 用户截图（2.79km、49/49场景就绪）中，平滑土坡遮住车窗近中景；原始截图文件为`/var/folders/hf/pd37q9rj7_7c0mjvnsk23plh0000gn/T/codex-clipboard-24041c37-67b4-4bde-8216-e5857a34f16d.png`，本轮直接查看整张图。它是应用故障证据，不作为真实沿线地貌照片。根任务2026-10-10读取原生Sites授权资源，world.json、building overlay及DEM均实际HTTP 200并核对数据；不能由此称GPU启动已流畅。
+
+当前GeoData及RealWorld实际三角划分探针：2790m轨面5.73375m、眼睛7.73375m、64m背景面7.86606m、8m详细面5.66324m；3000m背景7.24876m高于眼睛6.90659m，详细面4.80501m；10000m背景9.55924m高于眼睛6.71274m，详细面4.64398m。该读数是本地渲染插值/轨床表达，不是当地现场测量。根任务按20m里程步长排除桥隧的全段探针中，231个粗面样点高于眼睛，详细面对应0个；15920m粗面20.0533m、眼睛7.1798m。源码确认背景64m和近景8m原来同材质同时绘制，无细节覆盖discard。
+
+已读本机Three.js185 `Material.js`的clone/copy与shader hooks，对照[同版Material源文件](https://github.com/mrdoob/three.js/blob/r185/src/materials/Material.js)：clone不保留自定义onBeforeCompile/cache回调。`GeoBackgroundTerrain.ts`因此显式保留原地表/水域mask、NLCD与`GeoAerial.install`组合链，增加独立program key和背景片元覆盖判断；仅当前7×7实际显示范围内gpuReady区块覆盖背景。视野外缓存或CPU已创建但未上传的区块不能裁背景。`RealWorld.ts`完整背景几何、DEM、窄轨床修正、近景材质、源影像和相机保持原逻辑，新增背景材质独立销毁。
+
+先扩展`GeoInspector.ts`“远处地形”开关及地形覆盖诊断；随后准备`terrain-overlap-review.yml`/`capture-terrain-overlap.cjs`：七处准确里程（六个指定位置及15920m额外粗面遮挡案例）、白天晴天、暂停默认乘客视角、严格场景/GPU覆盖49/49；同机位背景开启/关闭与地表/水域/影像隔离PNG，保留health、运行错误及来源读数。详细计划与接受标准见`docs/superpowers/plans/2026-10-10-terrain-overlap.md`。当前只有候选与静态检查；云端新PNG及人工画面核验仍未执行，构建/单元检查不能宣称遮挡已经视觉验收。

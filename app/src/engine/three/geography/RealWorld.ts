@@ -11,6 +11,7 @@ import { GeoAerial } from './GeoAerial'
 import { pyramidalRoof } from './GeoRoof'
 import { LAND_COVER } from './GeoLandCover'
 import { GeoDetailCoverage } from './GeoDetailCoverage'
+import { createBackgroundTerrainMaterial } from './GeoBackgroundTerrain'
 import { createBuildingFadeController, installBuildingDistanceFade, prepareDistantBuildings, setBuildingCenterAttribute, type DistantBuildingSet } from './GeoDistantBuildings'
 import { hash01 } from '../core/procedural'
 import { groundGrassTex, groundRockTex, geographicTexturesReady } from '../textures'
@@ -94,6 +95,7 @@ export class RealWorld {
   private waterGroup = new THREE.Group()
   private stationGroup = new THREE.Group()
   private groundMaterial: THREE.MeshStandardMaterial
+  private backgroundMaterial: THREE.MeshStandardMaterial
   private outlineMaterial = new THREE.LineBasicMaterial({ color: 0xf1e8c2, transparent: true, opacity: 0.7, depthTest: false })
   private roadMaterial = new THREE.MeshStandardMaterial({ color: 0x747570, roughness: 1 })
   private ballastMaterial = new THREE.MeshStandardMaterial({ color: 0x948d7c, roughness: 1 })
@@ -134,6 +136,12 @@ export class RealWorld {
   }
   get visibleTiles() { return [...this.chunks.values()].map(c => ({ x: c.x, z: c.z, mesh: c.ground })) }
 
+  get terrainCoverageStats() {
+    let readyTiles = 0
+    for (let i = 0; i < this.detailCoverage.pixels.length; i += 4) if (this.detailCoverage.pixels[i] === 255) readyTiles++
+    return { readyTiles, minTile: this.detailCoverage.minTile.toArray(), backgroundVisible: this.background?.visible ?? false }
+  }
+
   readonly data: GeoData
   constructor(data: GeoData, initialS = data.checkpoints[0]?.s ?? 0) {
     this.data = data
@@ -168,6 +176,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.groundMaterial.customProgramCacheKey = () => 'geographic-terrain-nlcd-v3'
     this.aerial = new GeoAerial(data, (x, z) => this.terrainHeight(x, z))
     this.aerial.install(this.groundMaterial)
+    this.backgroundMaterial = createBackgroundTerrainMaterial(this.groundMaterial, this.detailCoverage)
     this.aerial.install(this.roofMaterial, true)
     for (let s = 0; s < data.length; s += 4) this.rails.push({ a: data.pose(s), b: data.pose(Math.min(data.length, s + 4)), s, end: Math.min(data.length, s + 4) })
     const points = data.points.map((p, i) => new THREE.Vector3(p.x, data.railHeight(data.distances[i]) + 1.5, p.z))
@@ -181,7 +190,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     // Fixed 64m source grid, prepared once. Separate patches allow normal
     // frustum culling instead of submitting the entire 448km² footprint.
     for (let x = minX; x < maxX; x += 1024) for (let z = minZ; z < maxZ; z += 1024) {
-      const mesh = new THREE.Mesh(this.terrainGeometry(x, z, Math.min(1024, maxX - x), Math.min(1024, maxZ - z), 64), this.groundMaterial)
+      const mesh = new THREE.Mesh(this.terrainGeometry(x, z, Math.min(1024, maxX - x), Math.min(1024, maxZ - z), 64), this.backgroundMaterial)
       mesh.receiveShadow = true; this.background.add(mesh)
     }
     this.group.add(this.background)
@@ -294,7 +303,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     }
     return raw
   }
-  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; convertedBuildings?: boolean; closeTrees?: boolean; treeSamples?: boolean; treeImpostors?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean; realImagery?: boolean }, treeFocus?: { x: number; z: number }) {
+  update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; farGround?: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; convertedBuildings?: boolean; closeTrees?: boolean; treeSamples?: boolean; treeImpostors?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean; realImagery?: boolean }, treeFocus?: { x: number; z: number }) {
     const pose = this.data.pose(s)
     const compareTrees = inspection && (layers.treeSamples ?? false)
     this.group.visible = this.presentable || inspection
@@ -410,7 +419,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
       this.disposeChunk(chunk); this.chunks.delete(key)
     }
     this.canopy.setFocus(treePoint.x, treePoint.z, useClose)
-    if (this.background) this.background.visible = layers.ground
+    if (this.background) this.background.visible = layers.ground && (layers.farGround ?? true)
     this.frame++
   }
   private terrainGeometry(minX: number, minZ: number, width: number, depth: number, step: number, excluded?: { minX: number; minZ: number; maxX: number; maxZ: number }) {
@@ -887,7 +896,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.marker.geometry.dispose(); (this.marker.material as THREE.Material).dispose()
     this.waterGroup.traverse(o => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() } })
     this.stationGroup.traverse(o => { if (o instanceof THREE.Mesh || o instanceof THREE.Line) o.geometry.dispose() })
-    for (const material of [this.outlineMaterial, this.groundMaterial, this.roadMaterial, this.ballastMaterial, this.railMaterial, this.roofMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial, this.platformMaterial, this.platformOutlineMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.tieMaterial]) material.dispose()
+    for (const material of [this.outlineMaterial, this.groundMaterial, this.backgroundMaterial, this.roadMaterial, this.ballastMaterial, this.railMaterial, this.roofMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial, this.platformMaterial, this.platformOutlineMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.tieMaterial]) material.dispose()
     this.landMask.dispose(); this.landSourceMap.dispose(); this.aerial.dispose(); this.engineeringGeometry.dispose(); this.shelterSupportGeometry.dispose(); this.engineeringMaterial.dispose()
     this.tieGeometry.dispose(); this.group.removeFromParent()
   }

@@ -25,7 +25,7 @@ export class GeoInspector {
   private jump: HTMLButtonElement
   private time = document.createElement('select')
   private weather = document.createElement('select')
-  readonly layers = { ground: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, convertedBuildings: true, closeTrees: true, treeSamples: false, treeImpostors: true, water: true, farmland: true, stations: true, sourceLandCover: false, realImagery: true }
+  readonly layers = { ground: true, farGround: true, vegetation: true, settlements: true, buildings: true, farBuildings: true, convertedBuildings: true, closeTrees: true, treeSamples: false, treeImpostors: true, water: true, farmland: true, stations: true, sourceLandCover: false, realImagery: true }
   private pending: GeoCommand = {}
   private data: GeoData | null = null
   private real = true
@@ -33,6 +33,7 @@ export class GeoInspector {
   private error = ''
   private readout = document.createElement('output')
   private buildingStats = document.createElement('output')
+  private terrainReadout = document.createElement('output')
   private streamingStats = document.createElement('output')
   private stationReadout = document.createElement('output')
   private performanceReadout = document.createElement('output')
@@ -95,6 +96,7 @@ export class GeoInspector {
     this.streamingStats.setAttribute('aria-label', '地理区块流式加载诊断'); this.streamingStats.style.cssText = 'display:block;padding:8px;background:#dce6d8;border-radius:6px;font-size:11px;line-height:1.65;margin:8px 0;'
     this.stationReadout.setAttribute('aria-label', 'Metro-North 实际车站'); this.stationReadout.style.cssText = 'display:block;padding:8px;background:#e8e1d2;border-radius:6px;font-size:11px;line-height:1.65;margin:8px 0;'
     this.performanceReadout.setAttribute('aria-label', '地理渲染性能'); this.performanceReadout.style.cssText = this.streamingStats.style.cssText
+    this.terrainReadout.setAttribute('aria-label', '地形覆盖诊断'); this.terrainReadout.style.cssText = this.streamingStats.style.cssText
     this.motionReadout.setAttribute('aria-label', '地理运动门控'); this.motionReadout.style.cssText = this.streamingStats.style.cssText
     this.landCoverReadout.setAttribute('aria-label', '真实土地覆盖来源'); this.landCoverReadout.style.cssText = this.streamingStats.style.cssText
     this.buildingQuery.type = 'search'; this.buildingQuery.placeholder = '查询 OSM ID / GERS ID'; this.buildingQuery.setAttribute('aria-label', '查询建筑源记录 ID 或 GERS ID'); this.buildingQuery.style.cssText = this.checkpoint.style.cssText + 'margin:4px 0;'
@@ -116,7 +118,7 @@ export class GeoInspector {
       const link = document.createElement('a'); link.textContent = name; link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.style.color = '#506b51'; credits.append(link)
     }
     const layers = document.createElement('div'); layers.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;font-size:11px;margin:10px 0;'
-    for (const [key, name] of [['ground', '地表'], ['vegetation', '林木'], ['buildings', '建筑'], ['farBuildings', '远景建筑'], ['settlements', '道路'], ['stations', 'Metro-North 站台'], ['water', '水域'], ['sourceLandCover', 'NLCD 分类对照']] as const) {
+    for (const [key, name] of [['ground', '地表'], ['farGround', '远处地形'], ['vegetation', '林木'], ['buildings', '建筑'], ['farBuildings', '远景建筑'], ['settlements', '道路'], ['stations', 'Metro-North 站台'], ['water', '水域'], ['sourceLandCover', 'NLCD 分类对照']] as const) {
       const label = document.createElement('label'), input = document.createElement('input'); input.type = 'checkbox'; input.checked = this.layers[key]
       input.setAttribute('aria-label', `真实地理${name}`); input.onchange = () => { this.layers[key] = input.checked }
       label.append(input, document.createTextNode(name)); layers.append(label)
@@ -239,7 +241,7 @@ export class GeoInspector {
     const convertedNotice = document.createElement('p')
     convertedNotice.textContent = '铁路两侧1200m范围内5853栋有源高度建筑，OSM2World离线转换并按各区块原点对齐当前DEM。3563栋来自高度标签，2290栋仍为上游估高；4个开放屋顶不补落地墙。勾选对比PBR通用材质，取消显示同批源足迹体块。模型和共享图片在出发前加载一次。墙面、窗面、屋顶厚度与无标签外观为转换器的表现假设，不是当地照片。'
     convertedNotice.style.cssText = notes.style.cssText
-    diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.forestDistance, this.forestDirection, this.forestCase, this.forestStats, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
+    diagnostics.append(summary, aerialLabel, this.aerialCase, this.aerialStats, aerialNotice, aerialCredit, treeLayers, this.forestDistance, this.forestDirection, this.forestCase, this.forestStats, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.terrainReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
@@ -335,6 +337,9 @@ export class GeoInspector {
     this.landCoverReadout.textContent = cover
       ? `USGS Annual NLCD ${cover.snapshot.year} · 原数据30m / WMS分类采样约30m\n当前${this.editing ? '俯视中心' : '列车位置'}：${code === null ? '无覆盖' : `${code} ${LAND_COVER.get(code)?.label ?? ''}`}\n41/42/43林地补充OSM；绿色林地、粉红/红色开发区、蓝色水域。分类与逐株位置不同；原OSM水域/土地几何优先。`
       : '未接入 NLCD 土地覆盖数据。'
+    const terrain = world.terrainCoverageStats
+    Object.assign(this.terrainReadout.dataset, { readyTiles: String(terrain.readyTiles), minTile: terrain.minTile.join(','), backgroundVisible: String(terrain.backgroundVisible), groundVisible: String(this.layers.ground) })
+    this.terrainReadout.textContent = `背景64m / 细节8m · 当前GPU覆盖 ${terrain.readyTiles}/49\n远处地形 ${terrain.backgroundVisible ? '显示' : '关闭'} · 已上传细节区块内不绘制背景；未上传区块保留背景。`
     const stream = world.streamingStats
     this.status.dataset.sceneFrame = String(stream.sceneFrame)
     this.status.textContent = this.error ? `真实场景加载失败 · ${this.error}` : `${stream.visible}/49 可视区块 · 缓存 ${stream.cached} · DEM 20m${!stream.ready ? ' · 正在加载周边场景' : stream.pending ? ' · 预建中' : ' · 场景就绪'}`

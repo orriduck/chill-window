@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   capture:
-    if: github.ref_name != 'codex/full-route-streaming-review' && github.ref_name != 'codex/tree-asset-preparation' && github.ref_name != 'codex/station-source-review'
+    if: github.ref_name != 'codex/terrain-overlap-review' && github.ref_name != 'codex/full-route-streaming-review' && github.ref_name != 'codex/tree-asset-preparation' && github.ref_name != 'codex/station-source-review'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
