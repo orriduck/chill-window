@@ -1,8 +1,10 @@
-import struct,json,hashlib
+import struct,json,hashlib,sys
 from pathlib import Path
 from PIL import Image
 ROOT=Path(__file__).resolve().parent
-src=ROOT/'pine_tree_01_a_LOD2-native-uncompressed.glb'; dst=ROOT/'pine_tree_01_a_LOD2-native.glb'
+variant=sys.argv[1] if len(sys.argv)>1 else 'native'
+assert variant in ('native', 'branch50')
+src=ROOT/f'pine_tree_01_a_LOD2-{variant}-uncompressed.glb'; dst=ROOT/f'pine_tree_01_a_LOD2-{variant}.glb'
 b=src.read_bytes(); magic,ver,total=struct.unpack_from('<III',b,0); off=12; doc=None; blob=None
 while off<len(b):
  n,t=struct.unpack_from('<II',b,off); chunk=b[off+8:off+8+n]

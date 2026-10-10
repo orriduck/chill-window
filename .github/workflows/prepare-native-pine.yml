@@ -1,0 +1,58 @@
+name: Prepare native phototextured pine comparison
+on:
+  push:
+    branches: ['codex/tree-asset-preparation']
+    paths:
+      - 'app/scripts/experiments/polyhaven-pine/**'
+      - '.github/workflows/prepare-native-pine.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install pinned image encoder and official Blender
+        run: |
+          python3 -m pip install Pillow==11.1.0
+          sudo apt-get update -qq
+          sudo apt-get install -y libx11-6 libxi6 libxrender1 libxfixes3 libxxf86vm1 libxkbcommon0 libsm6 libgl1
+          python3 - <<'PY'
+          import hashlib, json, os, urllib.request
+          from pathlib import Path
+          tool=json.loads(Path('app/scripts/experiments/polyhaven-pine/blender-toolchain.json').read_text())
+          archive=Path(os.environ['RUNNER_TEMP'])/'blender.tar.xz'
+          urllib.request.urlretrieve(tool['url'], archive)
+          assert archive.stat().st_size==tool['bytes']
+          assert hashlib.sha256(archive.read_bytes()).hexdigest()==tool['sha256']
+          PY
+          tar -xf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
+      - name: Rebuild native tree and conservative branch-only variant
+        env:
+          BLENDER_BIN: ${{ runner.temp }}/blender-4.4.3-linux-x64/blender
+        run: |
+          recipe=app/scripts/experiments/polyhaven-pine
+          bash "$recipe/rebuild_native_pine.sh"
+          "$BLENDER_BIN" --background "$recipe/pine_tree_01_1k.blend" --python "$recipe/export_pine_branch_lod.py"
+          python3 "$recipe/compact_pine_native_glb.py" branch50
+          python3 "$recipe/verify_native_outputs.py"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: phototextured-pine-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            app/scripts/experiments/polyhaven-pine/pine_tree_01_a_LOD2-native.glb
+            app/scripts/experiments/polyhaven-pine/pine_tree_01_a_LOD2-branch50.glb
+            app/scripts/experiments/polyhaven-pine/actions-output-report.json
+            app/scripts/experiments/polyhaven-pine/official-source-manifest.json
+            app/scripts/experiments/polyhaven-pine/official-source-expected.json
+            app/scripts/experiments/polyhaven-pine/blender-toolchain.json

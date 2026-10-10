@@ -6,6 +6,6 @@ The actual `.blend` contains LOD0/1/2 and no LOD3/4. Native tree A LOD2 has 416,
 
 An earlier 25k whole-mesh reduction is not the accepted native export: reducing leaves merely to hit a polygon budget risks repeating the sparse-canopy failure. The cloud task continues checking a reduction that preserves foliage structure. Tree Small 02 (4.6m, Burkea africana) and Jacaranda were also inspected and are not labelled as mature Hudson species.
 
-Heavy downloads/export belong in GitHub Actions or the cloud task. The source checksum manifest and pinned Blender bootstrap still need to be transferred before an Actions rebuild is dispatched. Do not execute the heavy export on the user's desktop.
+Heavy downloads/export belong in GitHub Actions or the cloud task. The exact source SHA-256/size manifest and official Blender 4.4.3 archive checksums are now preserved beside these scripts. The downloader checks the pinned actual source bytes as well as the current API checksums. Do not execute the heavy export on the user's desktop. The archived cloud native output checksum is provenance, not a claim that every Blender environment exports byte-identical GLB; inspect actual geometry and record each produced raw checksum.
 
 Sources: [Pine Tree 01](https://polyhaven.com/a/pine_tree_01), [official files API](https://api.polyhaven.com/files/pine_tree_01), [CC0 license](https://polyhaven.com/license).
