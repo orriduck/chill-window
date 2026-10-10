@@ -274,13 +274,14 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
   }
   update(s: number, inspection: boolean, focus: THREE.Vector3, layers: { ground: boolean; vegetation: boolean; settlements: boolean; buildings?: boolean; farBuildings?: boolean; convertedBuildings?: boolean; closeTrees?: boolean; treeSamples?: boolean; water: boolean; farmland: boolean; stations?: boolean; sourceLandCover?: boolean }) {
     const pose = this.data.pose(s)
+    const compareTrees = inspection && (layers.treeSamples ?? false)
     this.group.visible = this.presentable || inspection
     if (inspection) { this.group.position.set(0, 0, 0); this.group.rotation.y = 0 }
     else {
       this.group.rotation.y = -pose.heading
       this.group.position.set(-pose.dz * pose.x + pose.dx * pose.z, 0, s - pose.dx * pose.x - pose.dz * pose.z)
     }
-    this.routeLine.visible = this.marker.visible = inspection
+    this.routeLine.visible = this.marker.visible = inspection && !compareTrees
     this.marker.position.set(pose.x, this.data.railHeight(s) + 22, pose.z)
     this.waterGroup.visible = layers.water
     this.stationGroup.visible = layers.stations ?? true
@@ -288,7 +289,6 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.detailCoverage.update(point.x, point.z, key => this.chunks.get(key)?.gpuReady === true)
     this.landSourceMode.value = inspection && layers.sourceLandCover ? 1 : 0
     this.forest.setFocus(point.x, point.z); this.distantForest.setFocus(point.x, point.z)
-    const compareTrees = inspection && (layers.treeSamples ?? false)
     const showVegetation = layers.vegetation && !compareTrees
     const useClose = showVegetation && (layers.closeTrees ?? true) && this.presentable
     this.closeTrees.setVisible(useClose)
@@ -372,7 +372,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
           child.visible = layers.settlements
         }
         if (layer === 'farmland') child.visible = layers.farmland
-        if (layer === 'inspection') child.visible = inspection
+        if (layer === 'inspection') child.visible = inspection && !compareTrees
       }
     }
     if (!this.readyResolved && [...this.initialKeys].every(key => this.chunks.has(key))) {

@@ -54,8 +54,8 @@ export class GeoInspector {
     this.real = initiallyReal
     this.controls = new OrbitControls(this.camera, canvas)
     this.controls.enabled = false; this.controls.enableDamping = true; this.controls.dampingFactor = 0.12
-    this.controls.screenSpacePanning = false; this.controls.minDistance = 100; this.controls.maxDistance = 7000
-    this.controls.minPolarAngle = 0.06; this.controls.maxPolarAngle = Math.PI * 0.43
+    this.controls.screenSpacePanning = false; this.controls.minDistance = 12; this.controls.maxDistance = 7000
+    this.controls.minPolarAngle = 0.06; this.controls.maxPolarAngle = Math.PI * 0.49
     this.controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }
     this.controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
     const font = 'font:13px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;'
@@ -136,7 +136,11 @@ export class GeoInspector {
       const damping = this.controls.enableDamping; this.controls.enableDamping = false; this.controls.update()
       this.controls.target.copy(point)
       if (mode === 'originals') this.camera.position.set(point.x + 70, point.y + 40, point.z + 70)
-      else { this.controls.target.y += 10; this.camera.position.set(point.x + 24, point.y + 11, point.z + 28) }
+      else {
+        this.controls.target.y += 10
+        const ground = this.world.terrainHeight(point.x + 24, point.z + 28)
+        this.camera.position.set(point.x + 24, Math.max(point.y + 11, (ground ?? point.y) + 3), point.z + 28)
+      }
       this.controls.update(); this.controls.enableDamping = damping
     })
     this.treeCase.style.cssText += 'width:100%;margin:4px 0;background:#e5e5d6;'
@@ -166,7 +170,7 @@ export class GeoInspector {
     const convertedNotice = document.createElement('p')
     convertedNotice.textContent = 'Peekskill 15栋有源高度建筑，OSM2World离线转换并对齐当前DEM。勾选对比PBR通用材质；取消显示原来的源足迹体块。未导入3个默认补高对象。墙面/屋顶贴图及无标签屋顶形态为转换器的表现假设，不是当地照片。'
     convertedNotice.style.cssText = notes.style.cssText
-    diagnostics.append(summary, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, treeLayers, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
+    diagnostics.append(summary, treeLayers, this.treeModel, this.treeCase, this.treeStats, treeNotice, this.buildingStats, convertedLabel, this.convertedCase, this.convertedStats, convertedNotice, this.landCoverReadout, this.streamingStats, this.performanceReadout, this.motionReadout, this.stationReadout, this.buildingQuery, this.buildingCase, this.buildingSource, notes, credits)
     this.panel.append(title, description, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
