@@ -92,22 +92,20 @@
 
 .journey-control {
   position: absolute;
+  /* Hit bounds come from the painted WebGL controls' camera projection. */
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
   cursor: pointer;
   opacity: 0;
   pointer-events: auto;
   transform: translate(-50%, -50%);
 }
 
-@media (max-width: 767px), (max-width: 960px) and (max-height: 520px) {
-  .journey-control {
-    min-height: 1.45rem;
-    min-width: 1.45rem;
-  }
-}
-
-@media (max-width: 767px) and (orientation: portrait) {
-  .journey-control {
-    min-height: 1.25rem;
-    min-width: 1.25rem;
-  }
+.journey-control * {
+  /* Invisible DOM icons must never intercept a neighboring control's click. */
+  pointer-events: none;
 }

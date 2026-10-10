@@ -15,7 +15,7 @@ const fixedTransport = Object.freeze({
 });
 const health = { commit: process.env.CW_CAPTURE_SHA, rendering: 'Chromium / SwiftShader',
   viewport: { width: 640, height: 360 },
-  scope: 'Held building pack, actual clocks/train readiness, source counts and separate SW-enabled building cache',
+  scope: 'Held building pack, actual clocks/train readiness, native pause click, source counts and separate SW-enabled building cache',
   passed: false, stage: 'starting', visualReviewRequired: true, states: [], errors: [], requests: [] };
 let browser, context, releasePack;
 const save = () => fs.writeFile(path.join(output, 'building-transport-health.json'), JSON.stringify(health, null, 2));
@@ -190,7 +190,40 @@ async function ready(page) {
     const start = Number(prepared.position.routeMetres);
     await page.waitForFunction(start => Number(document.querySelector('[aria-label="真实列车位置"]')?.dataset.routeMetres) > start + 1, start, { timeout: 120000 });
     health.states.push({ name: 'moving', ...await state(page) });
-    await page.getByRole('button', { name: 'Pause journey', exact: true }).click();
+    const pauseButton = page.getByRole('button', { name: 'Pause journey', exact: true });
+    health.pause = { beforeClick: await pauseButton.evaluate(button => {
+      const bounds = button.getBoundingClientRect();
+      const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+      const hit = document.elementFromPoint(center.x, center.y);
+      const style = getComputedStyle(button);
+      return { bounds: bounds.toJSON(), projectedStyle: { width: button.style.width, height: button.style.height },
+        computedStyle: { minWidth: style.minWidth, minHeight: style.minHeight, padding: style.padding,
+          boxSizing: style.boxSizing, overflow: style.overflow }, center,
+        hitTarget: { tag: hit?.tagName, label: hit?.closest('button')?.getAttribute('aria-label'), belongsToPause: hit === button || button.contains(hit) } };
+    }) };
+    health.stage = 'pause-control'; await save();
+    // Keep Playwright's normal hit testing/stability checks: no force or dispatched click.
+    await pauseButton.click();
+    await page.getByRole('button', { name: 'Resume journey', exact: true }).waitFor({ state: 'visible' });
+    health.pause.resumeLabelObserved = true;
+    // Let the existing throttled HUD/position readouts acknowledge the click.
+    await page.waitForTimeout(1000);
+    health.pause.beforeHold = await state(page);
+    health.pause.framesBefore = await page.evaluate(() => window.__cwCaptureFrameControl.status());
+    await page.waitForTimeout(1000);
+    health.pause.afterHold = await state(page);
+    health.pause.framesAfter = await page.evaluate(() => window.__cwCaptureFrameControl.status());
+    await save();
+    fail(!health.pause.framesBefore.frozen && !health.pause.framesAfter.frozen
+      && health.pause.framesAfter.executedCallbacks > health.pause.framesBefore.executedCallbacks, 'No active scene callbacks observed during pause hold');
+    const pausedBefore = health.pause.beforeHold, pausedAfter = health.pause.afterHold;
+    fail(Number.isFinite(Number(pausedBefore.position.routeMetres))
+      && pausedBefore.position.routeMetres === pausedAfter.position.routeMetres, 'Train moved after native pause click');
+    for (const key of ['focusElapsedSeconds', 'segmentElapsedSeconds']) {
+      fail(Number.isFinite(Number(pausedBefore.clocks[key])) && pausedBefore.clocks[key] === pausedAfter.clocks[key], `${key} advanced after native pause click`);
+    }
+    fail(await page.getByRole('button', { name: 'Resume journey', exact: true }).isVisible(), 'Journey no longer paused before PNG');
+    health.pause.held = true; health.stage = 'paused'; await save();
     await snapshot(page);
     await save(); await context.close();
 

@@ -43,3 +43,18 @@ Independently cap the first eligible focus/segment/dwell delta by elapsed time
 since the exact initial-ready timestamp, excluding the final preparation tail
 when readiness changes mid-RAF. Verify that retained worlds, zero speed, pause
 and inspection retain their previous permissions.
+
+Follow-up after actual c2fd325 / [Actions 38063997640](https://github.com/orriduck/chill-window/actions/runs/38063997640)
+failed: the downloaded health report passed the synchronous initial preparation
+proof, source/transport counts and actual movement, with no page errors. Native
+`Pause journey` click timed out because the neighboring `Mute sound` SVG
+intercepted pointer events. No PNG or SW/offline evidence was produced; this is
+not appearance acceptance. Keep each transparent DOM button at its existing
+painted HUD projection: remove viewport minimum-size inflation, reset intrinsic
+padding/border sizing, clip overflow and disable descendant pointer events.
+Record actual pause bounds and center hit target before the unchanged native
+click. Require the Resume label, active unfrozen scene callbacks, and unchanged
+actual route/focus/segment readouts over a one-second hold before the existing
+strict GPU-ready PNG gate. Initial-proof, held-pack and independent offline pins
+remain unchanged. The corrected native click, PNG and SW/offline checks still
+require a new cloud run; no local browser/GPU or appearance acceptance is claimed.
