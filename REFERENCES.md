@@ -449,3 +449,8 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 
 
 [车站源检查38053050173](https://github.com/orriduck/chill-window/actions/runs/38053050173)（932b67d）两个云端job实际成功。几何输出17对象/9有效面线/52顶点均在实际scene crop，下载PNG校验SHA后查看，站台/站棚/站房/跨轨路径与航片对齐。点云实际2018SHA `f8ae1cb7541c9fcd874c1cba016fe0488a9b5babd2ac323b64c3b46bd1b484cb`已固定；2022SHA与先前观测一致。2018站房2549个class1点、两棚2787/1211，2022站房0、两棚2781/1953。均无class6建筑点，平面拟合不自动变为屋面。2018实际CRS含NAVD88/Geoid12B、2022含NAVD88/Geoid18，年份和垂直实现不混合。完整实际JSON和源叠加PNG留在站区配方observations；站房/站棚模型尚未新增，不能把数据任务通过写成真实车站画面完成。
+
+
+## 2026-10-10：Sites 发布迁移
+
+用户要求将后续成品发布到 Sites。首次实际发布 `appgdep_6aca3b596b2c8191bbc98079b9269b89` 被32,522,230B建筑JSON的单文件25MiB上限拒绝，保留同一Site身份继续修复。`GeoData.ts`改用确定性gzip传输，解压后固定SHA `0d5bd68c040b42f99138fbdb768167ef22e8c48b5442fe0bf7d889f7347bd54f`，再解析完整34,326分量/3构件；原JSON与源几何不改。gzip3,530,151B，SHA `1876443e558a69661464f10101f96a646b2f89406810ad4fc217a0e919a3dadc`。Node实际Web DecompressionStream对完整资产回读字节一致，tsc/Vite构建通过。Sites部署包只省略超限原始JSON，保留无损压缩传输文件、模型与航片；完整原JSON仍在源仓库。浏览器与最终Sites发布状态尚待验证。

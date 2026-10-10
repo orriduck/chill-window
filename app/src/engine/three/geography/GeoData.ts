@@ -330,12 +330,32 @@ export function platformRise(tags: Record<string, string>, peers: Record<string,
   return { metres: 0.35, status: 'visual-estimate', raw, sourceMetres: source }
 }
 
+/** Lossless transfer of the complete source overlay under static-host file limits. */
+async function fetchBuildingOverlay(base: string, signal?: AbortSignal) {
+  const response = await fetch(`${base}buildings.json.gz`, { signal })
+  if (!response.ok) return response
+  const transferred = await response.arrayBuffer()
+  signal?.throwIfAborted()
+  const prefix = new Uint8Array(transferred, 0, Math.min(2, transferred.byteLength))
+  // Some hosts decode Content-Encoding automatically; both representations
+  // must recover the exact pinned source bytes, never a reduced dataset.
+  const decoded = prefix[0] === 0x1f && prefix[1] === 0x8b
+    ? await new Response(new Blob([transferred]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()
+    : transferred
+  signal?.throwIfAborted()
+  const digest = await crypto.subtle.digest('SHA-256', decoded)
+  const hash = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('')
+  if (hash !== '0d5bd68c040b42f99138fbdb768167ef22e8c48b5442fe0bf7d889f7347bd54f') throw new Error('建筑覆盖数据内容校验失败')
+  signal?.throwIfAborted()
+  return new Response(decoded, { headers: { 'Content-Type': 'application/json' } })
+}
+
 export async function loadHudsonData(signal?: AbortSignal) {
   const base = `${import.meta.env.BASE_URL}geodata/hudson/`
   const response = await fetch(`${base}world.json`, { signal })
   if (!response.ok) throw new Error(`路线数据 HTTP ${response.status}`)
   const [worldBuffer, stationsResponse, buildingsResponse] = await Promise.all([
-    response.arrayBuffer(), fetch(`${base}stations.json`, { signal }), fetch(`${base}buildings.json`, { signal }),
+    response.arrayBuffer(), fetch(`${base}stations.json`, { signal }), fetchBuildingOverlay(base, signal),
   ])
   if (!stationsResponse.ok) throw new Error(`车站数据 HTTP ${stationsResponse.status}`)
   if (!buildingsResponse.ok) throw new Error(`建筑覆盖数据 HTTP ${buildingsResponse.status}`)
