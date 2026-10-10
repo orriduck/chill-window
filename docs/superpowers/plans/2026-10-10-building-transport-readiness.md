@@ -71,3 +71,15 @@ coordinates. Fail if the trusted pointer misses Pause or Resume is not observed.
 The existing unfrozen one-second settle and one-second route/clock hold, strict
 GPU-ready frozen PNG, held-pack/source-count checks and independent SW/offline
 pins remain intact. Actual native pointer verification is pending a new cloud run.
+
+Follow-up after actual 40bad72 / [Actions 38065590059](https://github.com/orriduck/chill-window/actions/runs/38065590059)
+failed: the native mouse pointer reached Pause with a trusted event and Resume
+was observed. Actual route/focus/segment readouts held exactly, but the one-second
+sample recorded 369 to 369 callbacks, both unfrozen with two callbacks queued,
+while the current forward GPU batch remained at its fence. This run produced no
+PNG or SW/offline evidence. QA now waits up to 60 seconds, polling every 100ms,
+for an actual callback count increase after the before-hold sample, then retains
+the existing one-second wall-clock hold and exact route/clock equality checks.
+Unfrozen callback progress, trusted native Pause/Resume, strict current49/GPU-ready
+frozen PNG, held-pack/source-count and independent SW/offline gates remain intact.
+Only script syntax and diff scope are checked locally; a new cloud run is required.

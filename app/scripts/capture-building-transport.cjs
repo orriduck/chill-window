@@ -226,6 +226,10 @@ async function ready(page) {
     await page.waitForTimeout(1000);
     health.pause.beforeHold = await state(page);
     health.pause.framesBefore = await page.evaluate(() => window.__cwCaptureFrameControl.status());
+    // SwiftShader may take longer than one second to finish current GPU work.
+    // Observe a real callback before the unchanged wall-clock pause hold.
+    await page.waitForFunction(count => window.__cwCaptureFrameControl.status().executedCallbacks > count,
+      health.pause.framesBefore.executedCallbacks, { timeout: 60000, polling: 100 });
     await page.waitForTimeout(1000);
     health.pause.afterHold = await state(page);
     health.pause.framesAfter = await page.evaluate(() => window.__cwCaptureFrameControl.status());
