@@ -1,0 +1,76 @@
+name: Prepare fixed tree albedo and local-normal surfaces
+
+on:
+  push:
+    branches: ['codex/tree-asset-preparation']
+    paths:
+      - 'app/scripts/experiments/ez-tree-static/render_tree_surface_impostors.py'
+      - 'app/scripts/experiments/ez-tree-static/verify-surface-impostors.py'
+      - 'app/scripts/experiments/ez-tree-static/pack-surface-impostors.py'
+      - 'app/scripts/experiments/ez-tree-static/SURFACE-README.md'
+      - 'app/scripts/experiments/ez-tree-static/.gitignore'
+      - '.github/workflows/prepare-tree-surfaces.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Rebuild unchanged fixed source geometry and embedded textures
+        run: bash app/scripts/experiments/ez-tree-static/rebuild-assets.sh
+      - name: Verify all original raw geometry and GLB image content
+        run: python3 app/scripts/experiments/ez-tree-static/verify-report.py
+      - name: Install the same pinned Blender 4.0.2 engine
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends blender=4.0.2+dfsg-1ubuntu8 blender-data=4.0.2+dfsg-1ubuntu8 python3-pil libegl1 libegl-mesa0 libgl1-mesa-dri libglx-mesa0
+          blender --version | head -1
+      - name: Preserve verified public source notices
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, shutil
+          from pathlib import Path
+          root = Path('app/scripts/experiments/ez-tree-static')
+          expected = json.loads((root / 'cloud-manifest.json').read_text())['textures']
+          out = root / 'surface-impostors/licenses'
+          out.mkdir(parents=True, exist_ok=True)
+          for src, name, digest in [
+              (root / '.work/upstream/LICENSE', 'EZ-TREE-LICENSE.txt', expected['ezTreeLicenseSha256']),
+              (root / '.work/upstream/src/app/public/textures/LICENSE.md', 'SOURCE-TEXTURE-LICENSE.md', expected['textureNoticeSha256']),
+          ]:
+              assert hashlib.sha256(src.read_bytes()).hexdigest() == digest, str(src)
+              shutil.copyfile(src, out / name)
+          shutil.copyfile(root / 'THIRD_PARTY_NOTICES.md', out / 'THIRD_PARTY_NOTICES.md')
+          PY
+      - name: Calibrate node coordinates and bake both surface channels
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          EGL_PLATFORM: surfaceless
+        run: |
+          blender -b --python app/scripts/experiments/ez-tree-static/render_tree_surface_impostors.py -- --source-root app/scripts/experiments/ez-tree-static --out app/scripts/experiments/ez-tree-static/surface-impostors
+      - name: Verify source hashes and paired RGBA pixels
+        run: /usr/bin/python3 app/scripts/experiments/ez-tree-static/verify-surface-impostors.py
+      - name: Pack and read back four lossless runtime atlases
+        run: /usr/bin/python3 app/scripts/experiments/ez-tree-static/pack-surface-impostors.py
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: tree-surface-candidates-${{ github.sha }}
+          path: |
+            app/scripts/experiments/ez-tree-static/surface-impostors/**
+            app/scripts/experiments/ez-tree-static/report.json
+            app/scripts/experiments/ez-tree-static/cloud-manifest.json
+            app/scripts/experiments/ez-tree-static/cloud-impostors.json
+            app/scripts/experiments/ez-tree-static/SURFACE-README.md
+          if-no-files-found: warn
+          retention-days: 7

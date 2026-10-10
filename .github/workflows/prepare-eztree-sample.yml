@@ -2,7 +2,21 @@ name: Prepare static mature canopy candidates
 on:
   push:
     branches: ['codex/tree-asset-preparation']
-    paths: ['app/scripts/experiments/ez-tree-static/**', '.github/workflows/prepare-eztree-sample.yml']
+    paths:
+      - 'app/scripts/experiments/ez-tree-static/rebuild-assets.sh'
+      - 'app/scripts/experiments/ez-tree-static/export-geometry.mjs'
+      - 'app/scripts/experiments/ez-tree-static/make-glb.py'
+      - 'app/scripts/experiments/ez-tree-static/verify-report.py'
+      - 'app/scripts/experiments/ez-tree-static/cloud-manifest.json'
+      - 'app/scripts/experiments/ez-tree-static/rebuild-impostors.sh'
+      - 'app/scripts/experiments/ez-tree-static/render_tree_impostors.py'
+      - 'app/scripts/experiments/ez-tree-static/make_impostor_contact_sheets.py'
+      - 'app/scripts/experiments/ez-tree-static/verify-impostors.py'
+      - 'app/scripts/experiments/ez-tree-static/pack-impostors.py'
+      - 'app/scripts/experiments/ez-tree-static/cloud-impostors.json'
+      - 'app/scripts/experiments/ez-tree-static/README.md'
+      - 'app/scripts/experiments/ez-tree-static/IMPOSTOR-README.md'
+      - 'app/scripts/experiments/ez-tree-static/THIRD_PARTY_NOTICES.md'
   workflow_dispatch:
 permissions:
   contents: read
