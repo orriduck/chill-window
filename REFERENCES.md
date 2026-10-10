@@ -371,3 +371,20 @@ Debug折叠面板增加真实影像开关、定位裁片和来源/加载状态�
 [实际静态资产重建38020479988](https://github.com/orriduck/chill-window/actions/runs/38020479988) 已成功：全部6个输出的原始云端GLB在还原标准roughness字段修正后SHA完全相同，验证完整几何、索引、嵌入图片与材质布局。源叶片1024×1024透明PNG SHA保持不变。Ash LOD1/2分别8,968/4,346三角形，Oak LOD1/2为9,240/5,364。实际GLB与report在根任务独立核对bytes/SHA后，四个LOD1/2作为同机位候选加入`GeoCloseTrees.ts`、`RealWorld.ts`和`GeoInspector.ts`。
 
 第一次准备工作流38020394215验证器误要求每个LOD外包高度精确20m；实际Ash LOD1为20.3969m。修正为验证统一缩放基准与原始云端完整内容，记录实际外包尺寸，没有改小叶片去通过检查。当前仍待应用内实际画面验收，主森林仍使用原有表示；不能据静态资产导出成功宣称树木视觉目标完成。
+
+
+### 2026-10-10：真实影像和阔叶候选的实际画面检查
+
+[Aerial 38020654610](https://github.com/orriduck/chill-window/actions/runs/38020654610) 的6a03cc3实际health和截图已读取：故意阻塞真实PNG下载时列车保持3123.283m；地表影像开关、建筑屋顶同机位、NLCD优先级、返回列车以及Peekskill车窗均执行。所有状态49/49、缺块/延迟均0，应用错误和请求失败为空，切换没有新增影像请求。查看03o/03p/03q/03r实际图片可见停车场、道路和屋顶颜色随影像开关改变；壁面仍是简化表示。第一次38019888721虽然这些步骤通过，却在保留旧3D页时启动第二页超时；关闭旧页后新运行通过，没有把原失败伪称完整通过。
+
+[全套交互38019887599](https://github.com/orriduck/chill-window/actions/runs/38019887599) 的0df40da实际health已读取：580m连续运动、四站经行、影像/建筑/五个旧树版本对照、远地检查返回及移动视口全执行，缺块/延迟/应用错误/失败请求均0。[整段38020041524](https://github.com/orriduck/chill-window/actions/runs/38020041524) 的c4b8743运行时代码与0df40da一致：0→22837.381661575448m真实连续运动，79次采样缺块/延迟均0，终点49/49、待GPU上传0。640×360 SwiftShader，硬件帧率和离线行为未验证。
+
+[阔叶对照38020892177](https://github.com/orriduck/chill-window/actions/runs/38020892177) 的cc9896a actual health已读取：9个实例66,203,204B在初始准备中加载，四个Ash/Oak LOD1/2同机位切换、隐藏和返回列车均完成，所有状态49/49、缺块/延迟0、无应用错误或失败请求。根任务查看四张实际模型图：LOD1树冠更连贯、细枝/叶片可辨，比旧桦树孤立的三层叶丛更适合沿线阔叶林；LOD2保留较少枝叶，更适合距离更远的配对表达。这是下一轮主森林替换的外观候选验证，当前主森林尚未替换。
+
+### 全线真实 NAIP 图幅与静态atlas准备
+
+[实际全线重建38023192477](https://github.com/orriduck/chill-window/actions/runs/38023192477) 以当前world.json为准，在EPSG26918对443点路线两侧各缓冲1200m；官方图幅索引有7个相交候选，其中6个各有不可替代独占面积，六幅联合完全覆盖缓冲带。原图总2,531,739,152B，仅云端下载，逐幅SHA记录于`hudson-naip-corridor/observations/corridor-manifest.json`。不是完整纽约州下载。
+
+RGB降采样到EPSG3857的2.4投影米（本纬度约1.8地面米），形成141个427px JPEG+源覆盖mask；三张4096px RGBA PNG无额外调色地保存已解码JPEG像素，alpha来自实际route cutline/tile mask。不能声称恢复了GeoTIFF原始无损RGB。完整141块的RGB/alpha/边缘padding/PNG往返比较均在云端执行通过。根任务独立校验三张PNG和manifest的bytes/SHA，并查看实际Atlas01；三个PNG SHA与原云端观察相同：`ef06cfec...e2be33` / `569a2828...af89c` / `34aba2fd...ac45e`，完整值留在观察记录。scene-atlases.json为319,673B、SHA `6c7f48d7e977b64886f3d491153b2fab9d4e943be89d134433ca66a04ac15d57`。
+
+关联后续`GeoAerial.ts`的整段真实影像接入。当前只有Peekskill高分辨率裁片进入应用，以上全线atlas尚未导入运行时。采样器需要保护分块边缘和mipmap导数，世界位置信息不能从UTM矩形直接推断；还需沿线实际截图验收，不把数据准备成功当成应用效果已完成。
