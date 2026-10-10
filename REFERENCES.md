@@ -153,6 +153,18 @@
 
 2026-10-09 补充核查：读取 [iTowns 作者仓库](https://github.com/iTowns/itowns) README，其基于 Three.js，支持高程、影像、MVT、GeoJSON 与 3D Tiles；适合作为地理数据加载框架候选，不能替代建筑转换器或提供缺失的当地立面。读取 [NASA-AMMOS/3DTilesRendererJS](https://github.com/NASA-AMMOS/3DTilesRendererJS) README，确认支持 Three.js，并提供区域预加载与 LOD 渐变示例；后续关联 `RealWorld.ts` 的沿线模型流式加载评估。两者本次均未安装、运行或接入。当前优先级仍为 OSM2World 小区域转换对比、Streets GL 建筑几何参考，再评估独立瓦片加载器。
 
+### 补充：可直接复用的 OSM 地景工具
+
+核查日期 2026-10-09。本轮重新读取作者仓库与官方 Web 文档；没有运行新候选或替换场景引擎。
+
+| 一手来源 | 具体用途与边界 | 关联位置 |
+| --- | --- | --- |
+| [BlenderGIS 作者仓库](https://github.com/domlysz/BlenderGIS) | 导入 OSM XML、GeoTIFF DEM、栅格影像和矢量数据，支持地理配准及把对象落到地形；适合离线整合真实高程和影像，仓库概述没有证明能自动重建当地建筑立面。本轮未安装或运行。 | 离线地理数据处理候选 |
+| [Blosm 作者仓库](https://github.com/vvoovv/blosm) | 免费基础版支持 OSM 建筑高度、part、多种屋顶、道路/铁路及约30m高程；基础版建筑没有贴图。默认建筑纹理、3D树林和影像投影属于 Pro 功能，不把免费基础版描述为完整带纹理地景方案。 | 离线模型管线候选 |
+| [OSM Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings) | 数据规范表达建筑轮廓、part、高度、屋顶等属性；转换出来的模型细节应区分原始标签和转换器默认值。 | `GeoConvertedBuildings.ts`、OSM2World Peekskill 样本来源规则 |
+
+本项目接入判断：保留 Three.js 车窗与相机，优先扩大已验证的 OSM2World 离线建筑样本覆盖；Streets GL 用于研究完整场景表现与建筑几何。DEM 和真实航片需要独立输入；转换器的通用纹理不能称为当地实拍立面。
+
 ## 2026-10-09：真实 Hudson 车站数据
 
 | 来源 | 具体借鉴或核查 | 受影响的文件 |
@@ -332,3 +344,21 @@ OSM2World云端实验已完成转换：官方0.4.0、18个building way与209个�
 建筑补充研究：[USGS LiDAR Explorer](https://www.usgs.gov/tools/lidarexplorer)、[点云来源说明](https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it)、[实际2022片区记录](https://www.sciencebase.gov/catalog/item/66f3a453d34e791ae5dfa5a0)、[laspy分类/分块读示例](https://laspy.readthedocs.io/en/latest/examples.html)。实际查询和OSM源足迹保存在`scripts/experiments/peekskill-lidar/source-selection.json`。云端[ef7c17b首次扫描](https://github.com/orriduck/chill-window/actions/runs/38015443417)与[0d5e05e未分类点扫描](https://github.com/orriduck/chill-window/actions/runs/38016007012)均成功，读取实际报告：10,808,037B LAZ、1,740,009点，SHA `47b0fedc079e8c41fe65256058deb1d9cbc45b4bb417cb02d35f5c844f4e78cc`；2022项目、2024-09-23发布，WKT为NAD83(2011)/UTM18N加NAVD88/GEOID18、三轴米。源数据没有分类6，三栋足迹中分类1样本分别26,925/1,996/943；不能称其为已分类屋顶，可能包含树木。暂只保留真实观察用于后续屋顶归属/形状判断，没有改运行高度或造出新屋顶。
 
 另查[Westchester官方DSM服务](https://giswww.westchestergov.com/arcgis/rest/services/DigitalSurfaceModel/MapServer)、[2023航片服务](https://giswww.westchestergov.com/arcgis/rest/services/MappingWestchesterCounty_AerialPhoto2023/MapServer)。DSM服务目录没有提供本次可直接用的屋顶三维网格；航片元数据为2023-03-20、6英寸自然色正射，不能提供建筑立面。服务注明禁止exportTiles；本轮仅读取服务元数据，没有抓取瓦片、接入图片或宣称开放再分发许可。
+
+
+## 2026-10-09：Peekskill 真实 NAIP RGB 航片接入
+
+| 一手来源与实际产物 | 核查、用途及限制 | 关联代码 |
+| --- | --- | --- |
+| [NOAA NY NAIP 2022 官方索引](https://coastalimagery.blob.core.windows.net/digitalcoast/NY_NAIP_2022_9986/index.html)、[NOAA InPort 71609](https://www.fisheries.noaa.gov/inport/item/71609) | 原始 USDA-FSA APFO 四波段0.6m影像；采用1/2/3波段RGB，记录源文件、日期、字节数、SHA与CRS。NOAA要求派生产品署名APFO；瓦片日期2022-10-22来自文件名，不能混称本日拍摄。 | `scripts/experiments/naip-peekskill/`、`public/geodata/hudson/imagery/scene-raster.json` |
+| [实际云端重建](https://github.com/orriduck/chill-window/actions/runs/38019017382) | 源图446,297,038B，SHA `8c35fc499c0eec831baec91c1c03edf21f7f8dad4ca50b07076c997cb67a3bb1`。实际UTM RGB裁片686×934；再投影到EPSG3857成为696×944、978,340B的PNG，SHA `b52faa3730355e2c11ffa9599ad6a311e84fc3dac647d63151eac60b8e2355e0`。根任务已独立校验文件并查看实际PNG：可见铁路站台、停车场、道路、建筑屋顶及秋季树冠。没有增强颜色或生成图像。 | `GeoAerial.ts`、`RealWorld.ts`、`GeoConvertedBuildings.ts` |
+
+运行时由已校验Mercator范围转换到当前GeoData米制坐标，北向Z与PNG翻转保持一致；原图SRGB只解码一次，地表和朝上屋顶共享同一配准。保留裁片外现有数据表达，边界8m渐变；航片包含拍摄时的阴影、屋顶、树冠，贴在DEM上不能当成裸土地表或新立面。该裁片只有Peekskill局部覆盖，尚不代表整段航片完成。
+
+Debug折叠面板增加真实影像开关、定位裁片和来源/加载状态。图片和来源JSON均做SHA校验，参加出发前的共享资产准备和GPU离屏提交；开关只改统一shader值。新增云端同机位截图用于检查地理方向、地表/屋顶对齐和返回列车行为；本段添加时尚未取得本次运行结果，不能据构建通过宣称视觉验收。
+
+### 当前基线的完整连续行驶证据
+
+[完整交互38016848039](https://github.com/orriduck/chill-window/actions/runs/38016848039) 的2ca6f07实际health已读取：790m连续行驶6次采样缺块/延迟均0，四个车站经行画面、五个树版本、15栋建筑对照、远地图片区返回、390×844移动视口均执行，应用错误和请求失败为空。根任务查看Peekskill和移动截图仍见粗糙平面/树木表现，因此这只是运行与加载验证，不能当成视觉目标已达成。
+
+[整段连续行驶38017383186](https://github.com/orriduck/chill-window/actions/runs/38017383186) 的48507e0运行时代码与2ca6f07相同：实际从0连续到22837.381661575448m终点，78次采样缺块和延迟均0，终点49/49、待上传0、应用错误和请求失败为空。640×360 SwiftShader，不验证硬件FPS或离线体验；以上结果早于本次航片接入。

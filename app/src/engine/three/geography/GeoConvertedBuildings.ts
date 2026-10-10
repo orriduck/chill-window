@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { buildingHeight, buildingStructureKind, type GeoData } from './GeoData'
 import { applyBuildingAppearance, buildingAppearance } from './GeoBuilding'
 import { convertedBuildingRecords, convertedBuildingSha256, convertedOrigin } from './GeoConvertedBuildingRecords'
+import type { GeoAerial } from './GeoAerial'
 
 /** Match OSM2World's local metric Mercator coordinates to the ride's Mercator
  * coordinates. The exported GLB has south-positive Z; the ride is north-positive.
@@ -28,9 +29,11 @@ export class GeoConvertedBuildings {
   private disposed = false
   private data: GeoData
   private groundAt: (x: number, z: number) => number | null
+  private aerial: GeoAerial
 
-  constructor(data: GeoData, groundAt: (x: number, z: number) => number | null) {
+  constructor(data: GeoData, groundAt: (x: number, z: number) => number | null, aerial: GeoAerial) {
     this.data = data; this.groundAt = groundAt
+    this.aerial = aerial
     this.group.name = 'peekskill-source-backed-converted-buildings'
     this.group.add(this.originals, this.converted)
     this.group.visible = false
@@ -137,6 +140,7 @@ diffuseColor.a *= geoSurfaceSample.a;
       this.stats.buildings++
     }
     for (const [material, geometries] of convertedBuckets) {
+      if (material instanceof THREE.MeshStandardMaterial) this.aerial.install(material, true)
       const merged = mergeGeometries(geometries, false)
       if (!merged) throw new Error('转换建筑材质合批失败')
       merged.computeBoundingSphere(); this.geometries.add(merged)
@@ -150,6 +154,7 @@ diffuseColor.a *= geoSurfaceSample.a;
     if (!original) throw new Error('原建筑对照合批失败')
     this.geometries.add(original)
     const originalMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 1 })
+    this.aerial.install(originalMaterial, true)
     this.materials.add(originalMaterial)
     const mesh = new THREE.Mesh(original, originalMaterial); mesh.receiveShadow = true
     this.originals.add(mesh)
