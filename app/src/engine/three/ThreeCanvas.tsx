@@ -11,6 +11,7 @@ import { WindowFrame, type WindowHudReadout, type WindowHudControlAnchor, type W
 import { PerfMonitor } from './core/PerfMonitor'
 import { GeoData, loadHudsonData } from './geography/GeoData'
 import { GeoNativeTerrain, terrainSourceMode } from './geography/GeoNativeTerrain'
+import { groundSurfaceMode } from './geography/GeoForestFloor'
 import { RealWorld } from './geography/RealWorld'
 import { GeoInspector } from './geography/GeoInspector'
 import { DebugMode } from './core/DebugMode'
@@ -146,7 +147,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       const nativeTerrain = mode === 'putnam2019' ? await GeoNativeTerrain.load(abort.signal) : null
       if (disposed) return
       reportPreparation('preparing')
-      data = route; world = new RealWorld(route, startS, mode, nativeTerrain); exteriorGroup.add(world.group)
+      data = route; world = new RealWorld(route, startS, mode, nativeTerrain, groundSurfaceMode(query.get('groundSurface'))); exteriorGroup.add(world.group)
       camera.setZ(startS)
       camera.setRailProfile({ height: s => route.railHeight(s), grade: s => route.railGrade(s) }); inspector.setData(route)
       void world.ready

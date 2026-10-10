@@ -5,6 +5,7 @@ import { buildingAppearance } from './GeoBuilding'
 import type { RealWorld } from './RealWorld'
 import { LAND_COVER } from './GeoLandCover'
 import { terrainSourceMode } from './GeoNativeTerrain'
+import { groundSurfaceMode } from './GeoForestFloor'
 import type { CloseTreeAssetId } from './GeoCloseTrees'
 
 export interface GeoCommand { editing?: boolean; jump?: number; recenter?: boolean; time?: 'day' | 'night'; weather?: 'clear' | 'rain'; terrainRays?: boolean }
@@ -36,6 +37,7 @@ export class GeoInspector {
   private buildingStats = document.createElement('output')
   private terrainReadout = document.createElement('output')
   private terrainSourceReadout = document.createElement('output')
+  private groundSurfaceReadout = document.createElement('output')
   private terrainRaysReadout = document.createElement('output')
   private streamingStats = document.createElement('output')
   private stationReadout = document.createElement('output')
@@ -255,12 +257,25 @@ export class GeoInspector {
       const url = new URL(location.href); url.searchParams.set('terrainSource', terrainSourceMode(terrainSource.value))
       url.searchParams.set('routeMetres', this.position.dataset.routeMetres ?? '2790'); url.searchParams.delete('debugTerrain'); location.assign(url)
     }
+    const groundSurface = document.createElement('select')
+    groundSurface.setAttribute('aria-label', '近景森林地表对比（重新加载准备）'); groundSurface.style.cssText = this.checkpoint.style.cssText
+    for (const [value, text] of [['current', '当前地表 · NAIP宏观影像'], ['leafLitter', '近景实拍落叶 · 通用材质试验']]) {
+      const option = document.createElement('option'); option.value = value; option.textContent = text; groundSurface.append(option)
+    }
+    groundSurface.value = groundSurfaceMode(new URLSearchParams(location.search).get('groundSurface'))
+    groundSurface.onchange = () => {
+      const url = new URL(location.href); url.searchParams.set('groundSurface', groundSurfaceMode(groundSurface.value))
+      url.searchParams.set('routeMetres', this.position.dataset.routeMetres ?? '2790'); url.searchParams.delete('debugTerrain'); location.assign(url)
+    }
+    this.groundSurfaceReadout.setAttribute('aria-label', '森林地表材质来源诊断'); this.groundSurfaceReadout.style.cssText = this.streamingStats.style.cssText + 'white-space:pre-wrap;overflow-wrap:anywhere;'
+    const forestSurfaceJump = this.button('跳到森林地表 2790m 对比', () => { this.pending.jump = 2790; this.pending.terrainRays = true })
+    const forestCredit = document.createElement('a'); forestCredit.href = 'https://polyhaven.com/a/leaves_forest_ground'; forestCredit.target = '_blank'; forestCredit.rel = 'noopener noreferrer'; forestCredit.textContent = 'Poly Haven · Leaves Forest Ground · CC0'; forestCredit.style.cssText = 'display:block;color:#c7dfbd;'
     this.terrainSourceReadout.setAttribute('aria-label', '局部地形来源诊断'); this.terrainSourceReadout.style.cssText = this.streamingStats.style.cssText
     this.terrainRaysReadout.setAttribute('aria-label', '实际乘客地形视线'); this.terrainRaysReadout.style.cssText = this.streamingStats.style.cssText + 'white-space:pre-wrap;overflow-wrap:anywhere;'
     this.terrainRaysReadout.textContent = '等待暂停、场景就绪及返回乘客视角；实际相机三条视线只采集一次。'
     const putnamJump = this.button('跳到 Putnam 2790m 对比', () => { this.pending.jump = 2790; this.pending.terrainRays = true })
     const refreshRays = this.button('返回乘客后刷新三条地形视线', () => { this.pending.terrainRays = true })
-    this.panel.append(title, description, terrainSource, putnamJump, this.terrainSourceReadout, refreshRays, this.terrainRaysReadout, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
+    this.panel.append(title, description, terrainSource, putnamJump, groundSurface, forestSurfaceJump, this.groundSurfaceReadout, forestCredit, this.terrainSourceReadout, refreshRays, this.terrainRaysReadout, layers, this.checkpoint, this.progress, this.readout, this.jump, this.time, this.weather, diagnostics)
     document.body.append(this.bar, this.panel)
     canvas.addEventListener('pointerdown', this.onDown); canvas.addEventListener('pointerup', this.onUp)
     this.applyVisibility()
@@ -363,6 +378,11 @@ export class GeoInspector {
     Object.assign(this.terrainSourceReadout.dataset, { sourceMode: world.terrainSource, manifestSha: world.nativeTerrain?.manifestSha ?? '', refinedTiles: String(world.refinedTileCount),
       sourceDates: world.nativeTerrain ? '2019-04-23/2019-04-25' : '', gridStep: world.nativeTerrain ? '2' : '20', transitionMetres: '32', visualAccepted: 'false' })
     this.terrainSourceReadout.textContent = `来源 ${world.terrainSource} · 当前可见2m区块 ${world.refinedTileCount}\n${world.nativeTerrain ? 'NY Putnam · 2019-04-23–25 · NAVD88 / Geoid12B · 原1m派生2m（非原1m）' : world.terrainSource === 'raw20m' ? '当前 USGS 20m 来源；仅局部移除 ±18m 轨床' : '当前 USGS 20m 来源及现有轨床'}\n相机 / 轨面保持当前基线 · 外围32m混合为场景过渡，非实测地面。${world.nativeTerrain ? `\n已加载 SHA ${world.nativeTerrain.manifestSha}` : ''}\n默认 current；云端视觉验收待确认。`
+    const floor = world.forestFloor.stats
+    Object.assign(this.groundSurfaceReadout.dataset, { surfaceMode: floor.mode, enabled: String(world.forestFloor.uniforms.geoFloorEnabled.value), ready: String(floor.ready), loadedMaps: String(floor.maps.length), manifestSha: floor.manifestSha,
+      maps: JSON.stringify(floor.maps), sourceDates: 'released 2022-06-23; photography unknown; verified 2026-10-10', license: 'CC0', genericMaterial: 'true', visualAccepted: 'false',
+      layers: JSON.stringify(this.layers) })
+    this.groundSurfaceReadout.textContent = `近景地表 ${floor.mode} · ${floor.ready ? '三张原始JPEG已校验' : '加载中'}\n通用实拍森林地面；不是Hudson航片 / 当地地材调查 / 实测植物位置。沿用原有地形、树位、相机和轨道；树位仍为林地范围内的显示采样，非逐株测量。\nPoly Haven · Dimitrios Savva 摄影 / Dario Barresi 处理 · CC0\n发布2022-06-23；摄影日期未知；核查2026-10-10\n约1.3m重复尺度；12–45m过渡及0.006凹凸幅度是美术参数，只改着色。远处保留NAIP。\n已加载来源SHA ${floor.manifestSha}\n${floor.maps.map(map => `${map.filename} · ${map.width}×${map.height} · ${map.bytes}B\nSHA ${map.sha256}`).join('\n')}\n默认current；云端视觉验收待确认。`
     const terrain = world.terrainCoverageStats
     Object.assign(this.terrainReadout.dataset, { readyTiles: String(terrain.readyTiles), minTile: terrain.minTile.join(','), backgroundVisible: String(terrain.backgroundVisible), groundVisible: String(this.layers.ground) })
     this.terrainReadout.textContent = `背景64m / 细节8m${world.terrainSource === 'putnam2019' ? ' + 局部2m' : ''} · 当前GPU覆盖 ${terrain.readyTiles}/49\n远处地形 ${terrain.backgroundVisible ? '显示' : '关闭'} · 已上传细节区块内不绘制背景；未上传区块保留背景。`

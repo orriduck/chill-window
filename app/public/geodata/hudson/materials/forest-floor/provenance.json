@@ -1,0 +1,66 @@
+{
+  "asset": "leaves_forest_ground",
+  "classification": "Generic photographed forest floor material; not Hudson imagery, surveyed local material or measured plant locations.",
+  "assetUrl": "https://polyhaven.com/a/leaves_forest_ground",
+  "infoUrl": "https://api.polyhaven.com/info/leaves_forest_ground",
+  "filesUrl": "https://api.polyhaven.com/files/leaves_forest_ground",
+  "license": "CC0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "authors": {
+    "Dario Barresi": "Processing",
+    "Dimitrios Savva": "Photography"
+  },
+  "sourceReleaseDate": "2022-06-23",
+  "photographyDate": null,
+  "verifiedDate": "2026-10-10",
+  "physicalTileMetresApprox": 1.3,
+  "apiDimensionsMillimetres": [
+    1259.9999904632568,
+    1260.0001096725464
+  ],
+  "processing": "Original 1k JPEG bytes; no resize, retint or map repair. Displacement used for shading only, no vertex displacement.",
+  "artistParameters": {
+    "nearDistanceMetres": 12,
+    "farDistanceMetres": 45,
+    "bumpAmplitude": 0.006,
+    "measured": false
+  },
+  "maps": [
+    {
+      "kind": "Diffuse",
+      "filename": "leaves_forest_ground_diff_1k.jpg",
+      "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leaves_forest_ground/leaves_forest_ground_diff_1k.jpg",
+      "bytes": 1135712,
+      "md5": "6e9cd579b50046182663e3ab33681fc8",
+      "sha256": "e4aa2be8f80192378bc8aca363fc01b1f01639ebea5a87a3973c549861a01b7a",
+      "sizePixels": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "kind": "Rough",
+      "filename": "leaves_forest_ground_rough_1k.jpg",
+      "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leaves_forest_ground/leaves_forest_ground_rough_1k.jpg",
+      "bytes": 514888,
+      "md5": "26fb788bdf3f082313a09e80305af458",
+      "sha256": "e035404a2e16ac23782145b4aa29fb1b923569b2bbb8f6c6c01e194ade37f505",
+      "sizePixels": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "kind": "Displacement",
+      "filename": "leaves_forest_ground_disp_1k.jpg",
+      "sourceUrl": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/leaves_forest_ground/leaves_forest_ground_disp_1k.jpg",
+      "bytes": 544067,
+      "md5": "994c20c10b2a1d0bcec748fe392f63dc",
+      "sha256": "305aded33a25e27b9c27e79cc8a25fe8447e9c6e604e07550698b4b29c8083f0",
+      "sizePixels": [
+        1024,
+        1024
+      ]
+    }
+  ]
+}

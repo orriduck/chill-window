@@ -8,6 +8,7 @@ import { GeoCanopy } from './GeoCanopy'
 import { GeoTreeImpostors } from './GeoTreeImpostors'
 import { GeoConvertedBuildings } from './GeoConvertedBuildings'
 import { GeoAerial } from './GeoAerial'
+import { GeoForestFloor, type GroundSurfaceMode } from './GeoForestFloor'
 import { pyramidalRoof } from './GeoRoof'
 import { LAND_COVER } from './GeoLandCover'
 import { GeoDetailCoverage } from './GeoDetailCoverage'
@@ -86,6 +87,7 @@ export class RealWorld {
   readonly treeComparisonTreePoint: THREE.Vector3
   readonly convertedBuildings: GeoConvertedBuildings
   readonly aerial: GeoAerial
+  readonly forestFloor: GeoForestFloor
   private nearBuildingFade = createBuildingFadeController('near', this.detailCoverage)
   private distantBuildings: DistantBuildingSet
   private textureFailures = 0
@@ -153,7 +155,7 @@ export class RealWorld {
   readonly data: GeoData
   readonly terrainSource: TerrainSourceMode
   readonly nativeTerrain: GeoNativeTerrain | null
-  constructor(data: GeoData, initialS = data.checkpoints[0]?.s ?? 0, terrainSource: TerrainSourceMode = 'current', nativeTerrain: GeoNativeTerrain | null = null) {
+  constructor(data: GeoData, initialS = data.checkpoints[0]?.s ?? 0, terrainSource: TerrainSourceMode = 'current', nativeTerrain: GeoNativeTerrain | null = null, groundSurface: GroundSurfaceMode = 'current') {
     if (terrainSource === 'putnam2019' && !nativeTerrain) throw new Error('Putnam terrain requested without verified grid')
     this.data = data; this.terrainSource = terrainSource; this.nativeTerrain = nativeTerrain
     this.ready = new Promise((resolve, reject) => { this.resolveReady = resolve; this.rejectReady = reject })
@@ -187,6 +189,8 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.groundMaterial.customProgramCacheKey = () => 'geographic-terrain-nlcd-v3'
     this.aerial = new GeoAerial(data, (x, z) => this.terrainHeight(x, z))
     this.aerial.install(this.groundMaterial)
+    this.forestFloor = new GeoForestFloor(groundSurface)
+    this.forestFloor.install(this.groundMaterial)
     this.backgroundMaterial = createBackgroundTerrainMaterial(this.groundMaterial, this.detailCoverage)
     this.aerial.install(this.roofMaterial, true)
     for (let s = 0; s < data.length; s += 4) this.rails.push({ a: data.pose(s), b: data.pose(Math.min(data.length, s + 4)), s, end: Math.min(data.length, s + 4) })
@@ -239,7 +243,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.initialKeys = this.initialPreloadKeys(initialS)
     // Shared assets are loaded before any chunks are meshed. Asset completion
     // never clears an already visible tile or triggers a second rebuild.
-    void Promise.all([geographicTexturesReady, this.closeTrees.ready, this.treeComparison.ready, this.canopy.ready, this.treeImpostors.ready, this.convertedBuildings.ready, this.aerial.ready]).then(([results]) => {
+    void Promise.all([geographicTexturesReady, this.closeTrees.ready, this.treeComparison.ready, this.canopy.ready, this.treeImpostors.ready, this.convertedBuildings.ready, this.aerial.ready, this.forestFloor.ready]).then(([results]) => {
       if (this.disposed) return
       this.textureFailures = results.filter(loaded => !loaded).length
       this.assetsReady = this.textureFailures === 0
@@ -941,7 +945,7 @@ if (geoLandSourceMode > 0.5) diffuseColor.rgb = texture2D(geoLandSourceMap, land
     this.waterGroup.traverse(o => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() } })
     this.stationGroup.traverse(o => { if (o instanceof THREE.Mesh || o instanceof THREE.Line) o.geometry.dispose() })
     for (const material of [this.outlineMaterial, this.groundMaterial, this.backgroundMaterial, this.roadMaterial, this.ballastMaterial, this.railMaterial, this.roofMaterial, this.shelterSupportMaterial, this.shelterOutlineMaterial, this.platformMaterial, this.platformOutlineMaterial, this.wallMaterial, this.taggedWallMaterial, this.estimatedWallMaterial, this.floorsOnlyWallMaterial, this.footprintMaterial, this.tieMaterial]) material.dispose()
-    this.landMask.dispose(); this.landSourceMap.dispose(); this.aerial.dispose(); this.engineeringGeometry.dispose(); this.shelterSupportGeometry.dispose(); this.engineeringMaterial.dispose()
+    this.landMask.dispose(); this.landSourceMap.dispose(); this.aerial.dispose(); this.forestFloor.dispose(); this.engineeringGeometry.dispose(); this.shelterSupportGeometry.dispose(); this.engineeringMaterial.dispose()
     this.tieGeometry.dispose(); this.group.removeFromParent()
   }
 }
