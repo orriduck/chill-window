@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { GeographicWater } from './GeoWater'
 import { platformRise, GeoData, type GeoPoint, type MappedFeature } from './GeoData'
 import { GeoGameAssets, type GamePlacement } from './GeoGameAssets'
 import { GeoDetailCoverage } from './GeoDetailCoverage'
@@ -45,6 +46,8 @@ export class RealWorld {
   private disposed = false
   private frame = 0
   private waterGroup = new THREE.Group()
+  private waterLook = new GeographicWater()
+  setWaterTime(time: number) { this.waterLook.update(time) }
   private stationGroup = new THREE.Group()
   private groundMaterial: THREE.MeshStandardMaterial
   private backgroundMaterial: THREE.MeshStandardMaterial
@@ -553,7 +556,7 @@ export class RealWorld {
       const largeRiver = feature.tags.name === 'Hudson River' || (feature.bounds[2] - feature.bounds[0]) * (feature.bounds[3] - feature.bounds[1]) > 2e6
       const y = largeRiver ? 0.3 : samples[Math.floor(samples.length * 0.2)] + 0.08
       const geometry = new THREE.ShapeGeometry(shapeOf(feature)); geometry.rotateX(-Math.PI / 2); geometry.translate(0, y, 0)
-      const material = new THREE.MeshStandardMaterial({ color: largeRiver ? 0x377d89 : 0x4b8c82, roughness: 0.28, metalness: 0.18, side: THREE.DoubleSide })
+      const material = largeRiver ? this.waterLook.river : this.waterLook.pond
       this.waterGroup.add(new THREE.Mesh(geometry, material))
     }
   }
@@ -608,7 +611,7 @@ export class RealWorld {
     for (const group of [this.distantForestGroup, this.distantHouseGroup]) group.traverse(object => { if (object instanceof THREE.InstancedMesh) object.dispose() })
     this.background?.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose() }); this.routeLine.geometry.dispose(); (this.routeLine.material as THREE.Material).dispose()
     this.marker.geometry.dispose(); (this.marker.material as THREE.Material).dispose()
-    this.waterGroup.traverse(o => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() } })
+    this.waterGroup.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose() }); this.waterLook.dispose()
     this.stationGroup.traverse(o => { if (o instanceof THREE.Mesh || o instanceof THREE.Line) o.geometry.dispose() })
     for (const material of [this.outlineMaterial, this.groundMaterial, this.backgroundMaterial, this.roadMaterial, this.ballastMaterial, this.railMaterial, this.platformMaterial, this.platformOutlineMaterial, this.tieMaterial]) material.dispose()
     this.landMask.dispose(); this.engineeringGeometry.dispose(); this.engineeringMaterial.dispose()

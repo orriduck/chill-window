@@ -1,1 +1,7 @@
-.vercel
+.vercel/
+**/node_modules/
+**/dist/
+**/.wrangler/
+**/.env*
+!app/.env.preview
+artifacts/

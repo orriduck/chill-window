@@ -550,3 +550,10 @@ Debug先扩展实际5853对象、415区块、源标签/估高/开放屋顶数量
 [实际run38075521846](https://github.com/orriduck/chill-window/actions/runs/38075521846)，commitf724f40：真实trusted平移/滚轮/点击、准确暂停里程/计时0、post-pan GPU idle/待上传0已通过（settle141秒，延后107次主画面提交）。地图截图在真正strict49/49、idle0、字体加载、冻结frame256/revision82后仅page.screenshot90秒超时；实际地图提交8,598,010三角形/1170draw。实际仍只有两张乘客PNG，无map/failurePNG，尚未执行后续Escape验证。不能把输入/准备通过扩大成已取得地图图片，或把大量三角形断定为唯一截图根因。
 
 本次仍沿用已查看/校验的Kenney官方CC0模块，不增加资产或新参考。`GeoGameAssets.ts`只简化220m外/远景村屋：每面一件原wall/wood/timber-detail spanning全部楼层，包括正面，不再重复微小门窗。三款远几何232/328/232三角形（石基各12）；完整原坡顶/烟囱、材质palette、bounds、地理源anchors/matrices及高度约束与详细款一致，近乘客1536/5730/2504款不改。既有18模板/18实际摆放/6配对LOD审计通过。源候选计数为近景425652、远景距离1971752、近似frustum1238164三角形，约比上轮低几何减少78%，仅是静态候选负载而非GPU速度测量；JSON证据见 `docs/visual-checks/2026-10-10-hudson-game-style/map-workload-static.json`。Renderer/prewarm/fence和捕获90/180/900秒真实门槛不变。新地图PNG、最终Escape与人工视觉验收仍待云端。
+# 全国扩展参考 · 2026-11-09
+
+- 官方 FRA/BTS NTAD Amtrak Routes： https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_Amtrak_Routes/FeatureServer/0 。全国路线几何与来源说明；不包含实时车次、速度、高程或全美全部货运/通勤网络。获取及分页校验见 app/public/rail/validation.json。
+- Natural Earth 1:110m 国界： https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_admin_0_countries.geojson ，Public domain。仅用于图册低精度底图，不用于车窗路线几何。
+- Slop New York，固定源码 https://github.com/mrdoob/slop-newyork/tree/536a907c605964421563f12f15c5e00d735fc94f ：借鉴真实地理/程序外观/有限近景细节/空间批次的分层方法；不复制纽约城市数据、TSL或交通逻辑。
+- 67.js 固定0.16.0原型研究结论：生产继续沿用Three.js，避免将现有车厢双pass改造风险引入全国目录首版；67.js保留独立创作实验。
+

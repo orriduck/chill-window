@@ -30,7 +30,7 @@ jobs:
         working-directory: app
         run: |
           npm ci
-          npm run build
+          if [ "$GITHUB_REF_NAME" = "codex/national-rail-preview" ]; then npm run build:preview; else npm run build; fi
       - name: Prepare cloud Chromium
         run: |
           npm install --prefix "$RUNNER_TEMP/chill-playwright" --no-package-lock --no-audit --no-fund playwright@1.64.0
@@ -55,6 +55,15 @@ jobs:
           done
           export PW_MODULE_PATH="$RUNNER_TEMP/chill-playwright/node_modules/playwright"
           export CW_CAPTURE_DIR="$RUNNER_TEMP/chill-visual"
+          if [ "$GITHUB_REF_NAME" = "codex/national-rail-preview" ]; then
+            export CHILL_URL="http://127.0.0.1:4173"
+            export CHILL_EVIDENCE_DIR="$CW_CAPTURE_DIR"
+            export CHILL_CHROME="$(node -e 'console.log(require(process.env.PW_MODULE_PATH).chromium.executablePath())')"
+            export CHILL_SOFTWARE_WEBGL=1
+            export CHILL_READY_TIMEOUT=240000
+            timeout 1800s node app/scripts/verify-national.mjs
+            exit 0
+          fi
           cat > "$RUNNER_TEMP/chill-review.cjs" <<'NODE'
           const { chromium } = require(process.env.PW_MODULE_PATH);
           const fs = require('node:fs/promises');

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { TimeOfDay } from '@/engine/time';
 import { TrainAudio } from '@/engine/audio';
+import { SILENT_PREVIEW } from '@/engine/silent';
 import {
   DepartureScheduler, buildFreeJourney, buildPomodoroJourney, journeyBannerText, journeyClockDelta, suggestStops,
   TIME_OPTIONS, formatTime, pickStations, type JourneyPlan, type Mode,
@@ -74,7 +75,7 @@ export default function Home() {
   const arrivingRef = useRef(false);
   const stationPreparedRef = useRef(false);
   const distanceRef = useRef(0);
-  const soundRef = useRef(true);
+  const soundRef = useRef(false);
   const hudTimerRef = useRef(0);
   const pausedRef = useRef(false);
   const terrainEditingRef = useRef(new URLSearchParams(window.location.search).has('debugTerrain'));
@@ -88,7 +89,7 @@ export default function Home() {
   const [rounds, setRounds] = useState(4);
   const [tod, setTod] = useState<TimeOfDay>(detectTimeOfDay);
   const [weatherPreset, setWeatherPreset] = useState<WeatherPreset>('auto');
-  const [sound, setSound] = useState(true);
+  const [sound, setSound] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [confirmAbort, setConfirmAbort] = useState(false);
   const [plan, setPlan] = useState<JourneyPlan | null>(null);
@@ -273,6 +274,7 @@ export default function Home() {
   }, []);
 
   const toggleSound = useCallback(() => {
+    if (SILENT_PREVIEW) return;
     setSound((s) => {
       const next = !s;
       soundRef.current = next;
