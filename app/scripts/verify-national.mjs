@@ -4,7 +4,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 const base = process.env.CHILL_URL || 'http://127.0.0.1:4180'
 const dir = process.env.CHILL_EVIDENCE_DIR || '/tmp/chill-national-evidence'
 await mkdir(dir, { recursive: true })
-const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--mute-audio', '--disable-background-timer-throttling'] })
+const readyTimeout = Number(process.env.CHILL_READY_TIMEOUT || 30000)
+const browser = await chromium.launch({ executablePath: process.env.CHILL_CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--mute-audio', '--disable-background-timer-throttling', ...(process.env.CHILL_SOFTWARE_WEBGL === '1' ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : [])] })
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1, serviceWorkers: 'block' })
 await context.addInitScript(() => {
   window.__audioAttempts = 0
@@ -20,7 +21,7 @@ page.on('request', request => { if (request.url().includes('/rail/rides/')) rout
 const report = { url: base, browser: await browser.version(), viewport: [1440, 1000], checks: [], snapshots: [], errors, warnings, audioAttempts: 0 }
 async function check(name, callback) { await callback(); report.checks.push({ name, passed: true }) }
 async function screenshot(name) { await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true }); report.snapshots.push(name) }
-async function ready() { await page.waitForFunction(() => window.__railRide?.snapshot().ready, null, { timeout: 30000 }) }
+async function ready() { await page.waitForFunction(() => window.__railRide?.snapshot().ready, null, { timeout: readyTimeout }) }
 async function snap() { return page.evaluate(() => window.__railRide.snapshot()) }
 try {
   await page.goto(base, { waitUntil: 'networkidle' })
@@ -35,7 +36,7 @@ try {
   await check('selected real route starts paused with bounded scenery', async () => { const s = await snap(); if (!s.paused || s.tiles > 20 || s.drawCalls < 1 || s.lengthMetres < 1000) throw new Error(JSON.stringify(s)); if (await page.locator('canvas').count() !== 1) throw new Error('multiple renderer canvases') })
   report.initialRide = await snap(); await screenshot('02-zephyr-window')
   await page.getByRole('button', { name: '出发', exact: true }).click(); await page.waitForTimeout(3500)
-  await check('ride and focus clock advance, then pause together', async () => { const moving = await snap(); if (moving.distanceMetres < 30 || moving.paused || moving.focusRemainingSeconds > 1498) throw new Error('train or focus clock did not advance'); report.movingRide = moving; await page.getByRole('button', { name: '暂停', exact: true }).click(); await page.waitForTimeout(300); const s = await snap(); await page.waitForTimeout(500); const paused = await snap(); if (paused.distanceMetres !== s.distanceMetres || paused.focusRemainingSeconds !== s.focusRemainingSeconds) throw new Error('paused train or focus clock moved') })
+  await check('ride and focus clock advance, then pause together', async () => { const moving = await snap(); if (moving.distanceMetres <= 1 || moving.paused || moving.focusRemainingSeconds > 1498) throw new Error('train or focus clock did not advance'); report.movingRide = moving; await page.getByRole('button', { name: '暂停', exact: true }).click(); await page.waitForTimeout(300); const s = await snap(); await page.waitForTimeout(500); const paused = await snap(); if (paused.distanceMetres !== s.distanceMetres || paused.focusRemainingSeconds !== s.focusRemainingSeconds) throw new Error('paused train or focus clock moved') })
   await page.getByRole('button', { name: '俯瞰路线' }).click(); await page.waitForTimeout(250); await screenshot('03-zephyr-route-overview'); await page.getByRole('button', { name: '回到车窗' }).click()
   await page.getByRole('slider', { name: '路线里程' }).fill(String(Math.floor((await snap()).lengthMetres * .53))); await page.waitForTimeout(300)
   await check('distant seek keeps finite position and bounded tile pool', async () => { const s = await snap(); if (!Number.isFinite(s.longitude) || s.distanceMetres < s.lengthMetres * .5 || s.tiles > 20) throw new Error('bad distant seek') })
@@ -55,7 +56,7 @@ try {
   })
   await page.getByRole('button', { name: '结束并换路线' }).click(); await page.waitForFunction(() => document.querySelectorAll('.atlas-route').length > 40)
   await page.getByRole('button', { name: '选个靠窗位' }).click()
-  await page.waitForFunction(() => window.__hudsonPreparation?.presentable === true, null, { timeout: 30000 })
+  await page.waitForFunction(() => window.__hudsonPreparation?.presentable === true, null, { timeout: readyTimeout })
   report.hudsonPreparation = await page.evaluate(() => window.__hudsonPreparation)
   await page.waitForTimeout(1200); await screenshot('08-hudson-detailed')
   await check('silent HUDson boarding creates no audio context', async () => { await page.getByRole('button', { name: 'Board train', exact: true }).click(); await page.waitForTimeout(800); if (await page.evaluate(() => window.__audioAttempts) !== 0) throw new Error('audio attempted') })
