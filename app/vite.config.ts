@@ -15,7 +15,7 @@ export default defineConfig(({ command }) => ({
     {
       name: 'hudson-runtime-assets',
       async writeBundle() {
-        for (const file of ['favicon-32.png', 'apple-touch-icon.png', 'icons', 'models/fantasy', 'textures/fantasy',
+        for (const file of ['favicon-32.png', 'apple-touch-icon.png', 'icons', 'models/fantasy', 'textures/fantasy', 'rail', 'app-version.json', '_headers',
           'geodata/hudson/world.json', 'geodata/hudson/elevation.f32', 'geodata/hudson/stations.json',
           'geodata/hudson/buildings.json.gz', 'geodata/hudson/landcover.json', 'geodata/hudson/landcover.u8']) {
           const destination = path.resolve(__dirname, 'dist', file)

@@ -1,0 +1,8 @@
+/rail/*
+  Cache-Control: public, max-age=3600
+  X-Content-Type-Options: nosniff
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/*
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff

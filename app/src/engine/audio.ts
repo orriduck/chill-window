@@ -1,3 +1,5 @@
+import { SILENT_PREVIEW } from './silent'
+
 export interface TrainAudioMotion {
   speedRatio: number
   /** Physical speed change in world units per second squared. */
@@ -64,7 +66,7 @@ export class TrainAudio {
   private running = false
 
   start() {
-    if (this.running) return
+    if (SILENT_PREVIEW || this.running) return
 
     const ctx = new AudioContext()
     const master = ctx.createGain()

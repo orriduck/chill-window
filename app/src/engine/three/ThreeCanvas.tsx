@@ -110,6 +110,7 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
     let gpuChunkInFlight = false
     let motionSampleTime = performance.now(), motionSampleZ = camera.z, measuredSpeed = 0, previousTime = motionSampleTime
     const abort = new AbortController()
+    const waterMotion = new URLSearchParams(window.location.search).get('waterMotion') !== '0'
     const motionSpeed = () => paused || debug.isTopDown || !worldReady ? 0 : (camera.currentSpeed / CRUISE_SPEED) * CRUISE_SPEED_KMH
     if (controlRef) controlRef.current = {
       setSpeed: speed => { requestedSpeed = speed; pendingDeparture = false; if (worldReady) camera.setTargetSpeed(speed) }, setPaused: value => { paused = value }, getZ: () => camera.z, getGrade: () => camera.grade,
@@ -218,7 +219,10 @@ export default function ThreeCanvas({ className, controlRef, timePreset = 'day',
       ambient.color.copy(state.ambientColor).lerp(new THREE.Color(0xb4cbd9), 0.38); ambient.intensity = state.ambientIntensity * 0.95 * (1 - tunnel * 0.8)
       sun.color.copy(state.dirColor).lerp(new THREE.Color(0xffdfac), 0.28); sun.intensity = state.dirIntensity * 1.05 * (1 - tunnel * 0.92); sun.position.copy(state.dirPosition).add(viewPosition); sun.target.position.copy(viewPosition)
       const fog = scene.scene.fog as THREE.Fog; fog.color.copy(state.fogColor); fog.near = THREE.MathUtils.lerp(state.fogNear * 2, 8, tunnel); fog.far = THREE.MathUtils.lerp(state.fogFar * 3, 130, tunnel)
-      if (world) world.update(camera.z, inspection, inspector.focus, inspector.layers, inspector.camera.position)
+      if (world) {
+        world.setWaterTime(waterMotion ? elapsed : 0)
+        world.update(camera.z, inspection, inspector.focus, inspector.layers, inspector.camera.position)
+      }
       if (worldReady && world && !gpuChunkInFlight) {
         const prepared = world.takeGpuChunks()
         if (prepared.length) {
